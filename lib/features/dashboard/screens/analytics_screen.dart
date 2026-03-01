@@ -386,7 +386,7 @@ class AnalyticsScreen extends StatelessWidget {
               interval: 6,
               getTitlesWidget: (value, meta) {
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text('${value.toInt()}h', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
@@ -399,7 +399,7 @@ class AnalyticsScreen extends StatelessWidget {
               reservedSize: 40,
               getTitlesWidget: (value, meta) {
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text('${value.toInt()}°C', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
@@ -451,7 +451,7 @@ class AnalyticsScreen extends StatelessWidget {
               interval: 5,
               getTitlesWidget: (value, meta) {
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text('${value.toInt()}m', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
@@ -465,7 +465,7 @@ class AnalyticsScreen extends StatelessWidget {
               getTitlesWidget: (value, meta) {
                  if(value == 0) return const SizedBox.shrink();
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text(value.toInt().toString(), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
@@ -516,7 +516,7 @@ class AnalyticsScreen extends StatelessWidget {
                   case 3: text = const Text('Z4', style: style); break;
                   default: text = const Text('', style: style); break;
                 }
-                return SideTitleWidget(axisSide: meta.axisSide, child: text);
+                return SideTitleWidget(meta: meta, child: text);
               },
             ),
           ),
@@ -527,7 +527,7 @@ class AnalyticsScreen extends StatelessWidget {
               interval: 5,
               getTitlesWidget: (value, meta) {
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text(value.toInt().toString(), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
@@ -620,7 +620,7 @@ class AnalyticsScreen extends StatelessWidget {
               interval: 10,
               getTitlesWidget: (value, meta) {
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text('${value.toInt()}m', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
@@ -634,7 +634,7 @@ class AnalyticsScreen extends StatelessWidget {
               getTitlesWidget: (value, meta) {
                  if(value == 0) return const SizedBox.shrink();
                 return SideTitleWidget(
-                  axisSide: meta.axisSide,
+                  meta: meta,
                   child: Text('${value.toInt()}%', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
