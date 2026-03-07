@@ -39,14 +39,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
   List<String> selectedPriorities = [];
   
   // Dummy Data (Matching the original hardcoded logs)
-  late List<DeviceLog> allLogs;
-
-  @override
-  void initState() {
-    super.initState();
+  List<DeviceLog> get allLogs {
     final now = DateTime.now();
     
-    allLogs = [
+    return [
       // TODAY
       DeviceLog(
         icon: Icons.local_fire_department,
@@ -79,7 +75,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
         priority: 'Mid',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Parking Entrance",
         message: "Device offline - Connection lost to gateway. Attempting automated reboot.",
         dateTime: now.subtract(const Duration(hours: 2, minutes: 15)),
@@ -89,11 +85,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
         priority: 'Mid',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Main Entrance 1",
         message: "Crowd density threshold exceeded. 120 pax / min entering.",
         dateTime: now.subtract(const Duration(hours: 5)),
-        iconColor: AppColors.accentBlue,
+        iconColor: Colors.cyanAccent,
         isUnread: false,
         sensorType: 'ToF',
         priority: 'High',
@@ -111,11 +107,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
         priority: 'Low',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Central Stairs",
         message: "Heavy traffic detected. 45 pax / min exiting.",
         dateTime: now.subtract(const Duration(days: 1, hours: 6)),
-        iconColor: AppColors.accentBlue,
+        iconColor: Colors.cyanAccent,
         isUnread: false,
         sensorType: 'ToF',
         priority: 'Low',
@@ -131,7 +127,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
         priority: 'Mid',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Parking Side",
         message: "Device rebooted successfully. Connection restored.",
         dateTime: now.subtract(const Duration(days: 1, hours: 14)),
@@ -163,16 +159,21 @@ class _DevicesScreenState extends State<DevicesScreen> {
         priority: 'Low',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Main Entrance 2",
         message: "Firmware update applied. System running version v3.14.",
         dateTime: now.subtract(const Duration(days: 2, hours: 18)),
-        iconColor: AppColors.accentBlue,
+        iconColor: Colors.cyanAccent,
         isUnread: false,
         sensorType: 'ToF',
         priority: 'Low',
       ),
     ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
   }
 
   @override
@@ -219,11 +220,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
               clipBehavior: Clip.none,
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               children: [
-                _AnimatedBouncingDeviceCard(title: "Time-of-Flight\nDevices", icon: Icons.center_focus_strong, iconColor: AppColors.accentBlue, onTap: () => _showDeviceDetailsModal(context, "Time-of-Flight\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Flame Sensor\nDevices", icon: Icons.local_fire_department, iconColor: AppColors.statusWarning, onTap: () => _showDeviceDetailsModal(context, "Flame Sensor\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Smoke Sensor\nDevices", icon: Icons.smoking_rooms, iconColor: AppColors.textGrey, onTap: () => _showDeviceDetailsModal(context, "Smoke Sensor\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Temperature\nSensor Devices", icon: Icons.thermostat, iconColor: AppColors.statusDanger, onTap: () => _showDeviceDetailsModal(context, "Temperature\nSensor Devices")),
-                _AnimatedBouncingDeviceCard(title: "Power\nManagement", icon: Icons.power, iconColor: AppColors.statusSafe, onTap: () => _showDeviceDetailsModal(context, "Power\nManagement")),
+                _AnimatedBouncingDeviceCard(title: "Time-of-Flight\nDevices", icon: Icons.radar, iconColor: Colors.cyanAccent, onTap: () => _showDeviceDetailsModal(context, "Time-of-Flight\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Flame Sensor\nDevices", icon: Icons.local_fire_department, iconColor: Colors.deepOrangeAccent, onTap: () => _showDeviceDetailsModal(context, "Flame Sensor\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Smoke Sensor\nDevices", icon: Icons.smoking_rooms, iconColor: Colors.blueGrey[300]!, onTap: () => _showDeviceDetailsModal(context, "Smoke Sensor\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Temperature\nSensor Devices", icon: Icons.thermostat, iconColor: Colors.redAccent, onTap: () => _showDeviceDetailsModal(context, "Temperature\nSensor Devices")),
+                _AnimatedBouncingDeviceCard(title: "Power\nManagement", icon: Icons.bolt, iconColor: Colors.greenAccent[400]!, onTap: () => _showDeviceDetailsModal(context, "Power\nManagement")),
                 const SizedBox(width: 4), // extra trailing space
               ],
             ),
@@ -1016,15 +1017,116 @@ class _DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
-  Widget _buildDeviceBatteryRow(String location, String battery) {
+  Widget _buildDeviceBatteryRow(String location, String batteryStr) {
+    int? batteryLevel;
+    if (batteryStr.endsWith('%')) {
+      batteryLevel = int.tryParse(batteryStr.substring(0, batteryStr.length - 1));
+    }
+
+    Color batteryColor;
+    if (batteryLevel == null) {
+      batteryColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    } else if (batteryLevel >= 80) {
+      batteryColor = Colors.green[700]!; // Dark green for high battery
+    } else if (batteryLevel >= 60) {
+      batteryColor = Colors.lightGreen; // Light green for good battery
+    } else if (batteryLevel >= 40) {
+      batteryColor = Colors.amber; // Yellow for medium battery
+    } else {
+      batteryColor = Colors.red; // Red for low battery
+    }
+
+    Widget batteryIndicator;
+    bool needsCharging = batteryLevel == 0 || batteryLevel == null;
+
+    if (needsCharging) {
+      batteryIndicator = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 50,
+            height: 24,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.red.withOpacity(0.5), width: 1.5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: const Center(
+              child: _BlinkingLightningIcon(),
+            ),
+          ),
+          Container(
+            width: 3,
+            height: 10,
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.5),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(3),
+                bottomRight: Radius.circular(3),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      batteryIndicator = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 50,
+            height: 24,
+            decoration: BoxDecoration(
+              border: Border.all(color: batteryColor.withOpacity(0.5), width: 1.5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 43 * (batteryLevel / 100).clamp(0.0, 1.0),
+                    decoration: BoxDecoration(
+                      color: batteryColor.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                Text(
+                  batteryStr,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    color: batteryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 3,
+            height: 10,
+            decoration: BoxDecoration(
+              color: batteryColor.withOpacity(0.5),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(3),
+                bottomRight: Radius.circular(3),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
-        Text(
-          battery,
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
+        batteryIndicator,
       ],
     );
   }
@@ -1419,6 +1521,49 @@ class _AnimatedPulsingDotState extends State<_AnimatedPulsingDot> with SingleTic
                 spreadRadius: _glowAnimation.value / 3,
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BlinkingLightningIcon extends StatefulWidget {
+  const _BlinkingLightningIcon({Key? key}) : super(key: key);
+
+  @override
+  State<_BlinkingLightningIcon> createState() => _BlinkingLightningIconState();
+}
+
+class _BlinkingLightningIconState extends State<_BlinkingLightningIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _controller.value,
+          child: const Icon(
+            Icons.bolt,
+            color: Colors.red,
+            size: 16,
           ),
         );
       },
