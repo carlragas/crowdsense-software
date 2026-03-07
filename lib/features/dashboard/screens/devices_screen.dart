@@ -223,6 +223,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 _buildDeviceTypeCard(context, "Flame Sensor\nDevices", Icons.local_fire_department, AppColors.statusWarning),
                 _buildDeviceTypeCard(context, "Smoke Sensor\nDevices", Icons.smoking_rooms, AppColors.textGrey),
                 _buildDeviceTypeCard(context, "Temperature\nSensor Devices", Icons.thermostat, AppColors.statusDanger),
+                _buildDeviceTypeCard(context, "Power\nManagement", Icons.power, AppColors.statusSafe),
                 const SizedBox(width: 4), // extra trailing space
               ],
             ),
@@ -903,35 +904,48 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 ],
               ),
               const Divider(height: 32, thickness: 1.5),
-              _buildDeviceStatusRow("Main Ent. 1", true),
-              const SizedBox(height: 16),
-              _buildDeviceStatusRow("Main Ent. 2", true),
-              const SizedBox(height: 16),
-              _buildDeviceStatusRow("Central Stairs", true),
-              const SizedBox(height: 16),
-              _buildDeviceStatusRow("Parking Ent.", true),
-              const SizedBox(height: 16),
-              _buildDeviceStatusRow("Parking Side", false),
+              if (title.toLowerCase().contains('power')) ...[
+                _buildPowerStatusRow("Main Ent. 1", true),
+                const SizedBox(height: 16),
+                _buildPowerStatusRow("Main Ent. 2", true),
+                const SizedBox(height: 16),
+                _buildPowerStatusRow("Central Stairs", false),
+                const SizedBox(height: 16),
+                _buildPowerStatusRow("Parking Ent.", true),
+                const SizedBox(height: 16),
+                _buildPowerStatusRow("Parking Side", false),
+              ] else ...[
+                _buildDeviceStatusRow("Main Ent. 1", true),
+                const SizedBox(height: 16),
+                _buildDeviceStatusRow("Main Ent. 2", true),
+                const SizedBox(height: 16),
+                _buildDeviceStatusRow("Central Stairs", true),
+                const SizedBox(height: 16),
+                _buildDeviceStatusRow("Parking Ent.", true),
+                const SizedBox(height: 16),
+                _buildDeviceStatusRow("Parking Side", false),
+              ],
 
-              const SizedBox(height: 48),
-              
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
-                  Text("Battery %", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
-                ],
-              ),
-              const Divider(height: 32, thickness: 1.5),
-              _buildDeviceBatteryRow("Main Ent. 1", "87%"),
-              const SizedBox(height: 16),
-              _buildDeviceBatteryRow("Main Ent. 2", "64%"),
-              const SizedBox(height: 16),
-              _buildDeviceBatteryRow("Central Stairs", "20%"),
-              const SizedBox(height: 16),
-              _buildDeviceBatteryRow("Parking Ent.", "41%"),
-              const SizedBox(height: 16),
-              _buildDeviceBatteryRow("Parking Side", "N/A"),
+              if (title.toLowerCase().contains('power')) ...[
+                const SizedBox(height: 48),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
+                    Text("Battery %", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
+                  ],
+                ),
+                const Divider(height: 32, thickness: 1.5),
+                _buildDeviceBatteryRow("Main Ent. 1", "87%"),
+                const SizedBox(height: 16),
+                _buildDeviceBatteryRow("Main Ent. 2", "64%"),
+                const SizedBox(height: 16),
+                _buildDeviceBatteryRow("Central Stairs", "20%"),
+                const SizedBox(height: 16),
+                _buildDeviceBatteryRow("Parking Ent.", "41%"),
+                const SizedBox(height: 16),
+                _buildDeviceBatteryRow("Parking Side", "N/A"),
+              ],
               
               const SizedBox(height: 32),
               Center(
@@ -960,6 +974,23 @@ class _DevicesScreenState extends State<DevicesScreen> {
             fontWeight: FontWeight.w600,
             fontSize: 14,
             color: isConnected ? AppColors.statusSafe : AppColors.statusDanger,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPowerStatusRow(String location, bool isMainPower) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(location, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
+        Text(
+          isMainPower ? "Main Power" : "Backup Power",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: isMainPower ? AppColors.statusSafe : AppColors.statusWarning,
           ),
         ),
       ],
