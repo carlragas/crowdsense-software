@@ -16,78 +16,78 @@ class LoginScreen extends StatelessWidget {
             color: Colors.transparent, // Let background shine through
             child: SafeArea(
               child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FadeInDown(
-                    duration: const Duration(milliseconds: 800),
-                    child: Column(
-                      children: [
-                        // Logo
-                        Container(
-                          height: 120,
-                          width: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.surfaceDark,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primaryBlue.withOpacity(0.2),
-                                blurRadius: 30,
-                                offset: const Offset(0, 10),
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FadeInDown(
+                      duration: const Duration(milliseconds: 800),
+                      child: Column(
+                        children: [
+                          // Logo
+                          Container(
+                            height: 120,
+                            width: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.surfaceDark,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryBlue.withOpacity(0.2),
+                                  blurRadius: 30,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: AppColors.primaryBlue.withOpacity(0.1),
+                                width: 1,
                               ),
-                            ],
-                            border: Border.all(
-                              color: AppColors.primaryBlue.withOpacity(0.1),
-                              width: 1,
+                            ),
+                            padding: const EdgeInsets.all(16),
+                            child: Image.asset(
+                              'assets/images/crowdsense_logo.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
-                          padding: const EdgeInsets.all(16),
-                          child: Image.asset(
-                            'assets/images/crowdsense_logo.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          "CrowdSense",
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textLight,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        RichText(
-                          text: const TextSpan(
+                          const SizedBox(height: 24),
+                          const Text(
+                            "CrowdSense",
                             style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2.0,
-                                fontFamily: 'Outfit'), // Ensure font consistency if possible
-                            children: [
-                              TextSpan(
-                                text: "DETECT. ",
-                                style: TextStyle(color: Color(0xFFEF4C33)), // Red/Orange
-                              ),
-                              TextSpan(
-                                text: "DIRECT. ",
-                                style: TextStyle(color: Color(0xFFC94468)), // Pink/Magenta
-                              ),
-                              TextSpan(
-                                text: "SECURE.",
-                                style: TextStyle(color: Color(0xFF5D3F9D)), // Purple
-                              ),
-                            ],
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textLight,
+                              letterSpacing: 1.2,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2.0,
+                                  fontFamily: 'Outfit'), // Ensure font consistency if possible
+                              children: [
+                                TextSpan(
+                                  text: "DETECT. ",
+                                  style: TextStyle(color: Color(0xFFEF4C33)), // Red/Orange
+                                ),
+                                TextSpan(
+                                  text: "DIRECT. ",
+                                  style: TextStyle(color: Color(0xFFC94468)), // Pink/Magenta
+                                ),
+                                TextSpan(
+                                  text: "SECURE.",
+                                  style: TextStyle(color: Color(0xFF5D3F9D)), // Purple
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 48),
+                    const SizedBox(height: 48),
 
                   FadeInUp(
                     duration: const Duration(milliseconds: 800),

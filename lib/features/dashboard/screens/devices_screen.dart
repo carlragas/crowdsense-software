@@ -219,11 +219,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
               clipBehavior: Clip.none,
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               children: [
-                _buildDeviceTypeCard(context, "Time-of-Flight\nDevices", Icons.center_focus_strong, AppColors.accentBlue),
-                _buildDeviceTypeCard(context, "Flame Sensor\nDevices", Icons.local_fire_department, AppColors.statusWarning),
-                _buildDeviceTypeCard(context, "Smoke Sensor\nDevices", Icons.smoking_rooms, AppColors.textGrey),
-                _buildDeviceTypeCard(context, "Temperature\nSensor Devices", Icons.thermostat, AppColors.statusDanger),
-                _buildDeviceTypeCard(context, "Power\nManagement", Icons.power, AppColors.statusSafe),
+                _AnimatedBouncingDeviceCard(title: "Time-of-Flight\nDevices", icon: Icons.center_focus_strong, iconColor: AppColors.accentBlue, onTap: () => _showDeviceDetailsModal(context, "Time-of-Flight\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Flame Sensor\nDevices", icon: Icons.local_fire_department, iconColor: AppColors.statusWarning, onTap: () => _showDeviceDetailsModal(context, "Flame Sensor\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Smoke Sensor\nDevices", icon: Icons.smoking_rooms, iconColor: AppColors.textGrey, onTap: () => _showDeviceDetailsModal(context, "Smoke Sensor\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Temperature\nSensor Devices", icon: Icons.thermostat, iconColor: AppColors.statusDanger, onTap: () => _showDeviceDetailsModal(context, "Temperature\nSensor Devices")),
+                _AnimatedBouncingDeviceCard(title: "Power\nManagement", icon: Icons.power, iconColor: AppColors.statusSafe, onTap: () => _showDeviceDetailsModal(context, "Power\nManagement")),
                 const SizedBox(width: 4), // extra trailing space
               ],
             ),
@@ -661,59 +661,6 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
 
-  Widget _buildDeviceTypeCard(BuildContext context, String title, IconData icon, Color iconColor) {
-    return GestureDetector(
-      onTap: () {
-        _showDeviceDetailsModal(context, title);
-      },
-      child: Container(
-        width: 135,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.02),
-              blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 15,
-              offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: iconColor, size: 24),
-            const Spacer(),
-            Text(
-              // Remove newlines for the card layout
-              title.replaceAll('\n', ' '), 
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                height: 1.2,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "Tap to manage",
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildLogItem({
     required IconData icon,
     required String title,
@@ -846,117 +793,127 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _showDeviceDetailsModal(BuildContext context, String title) {
-    showModalBottomSheet(
+    showGeneralDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      title.replaceAll('\n', ' '),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.black45, size: 28),
-                    onPressed: () => Navigator.pop(context),
+      barrierColor: Colors.black45, // Translucent underlying barrier
+      barrierDismissible: true,
+      barrierLabel: "Dismiss",
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8.0 * animation.value, sigmaY: 8.0 * animation.value),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(curve),
+            child: FadeTransition(
+              opacity: animation,
+              child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
+                    blurRadius: Theme.of(context).brightness == Brightness.dark ? 20 : 30,
+                    offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 10 : 15),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
-                  Text("Status", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
-                ],
-              ),
-              const Divider(height: 32, thickness: 1.5),
-              if (title.toLowerCase().contains('power')) ...[
-                _buildPowerStatusRow("Main Ent. 1", true),
-                const SizedBox(height: 16),
-                _buildPowerStatusRow("Main Ent. 2", true),
-                const SizedBox(height: 16),
-                _buildPowerStatusRow("Central Stairs", false),
-                const SizedBox(height: 16),
-                _buildPowerStatusRow("Parking Ent.", true),
-                const SizedBox(height: 16),
-                _buildPowerStatusRow("Parking Side", false),
-              ] else ...[
-                _buildDeviceStatusRow("Main Ent. 1", true),
-                const SizedBox(height: 16),
-                _buildDeviceStatusRow("Main Ent. 2", true),
-                const SizedBox(height: 16),
-                _buildDeviceStatusRow("Central Stairs", true),
-                const SizedBox(height: 16),
-                _buildDeviceStatusRow("Parking Ent.", true),
-                const SizedBox(height: 16),
-                _buildDeviceStatusRow("Parking Side", false),
-              ],
-
-              if (title.toLowerCase().contains('power')) ...[
-                const SizedBox(height: 48),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
-                    Text("Battery %", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black54)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title.replaceAll('\n', ' '),
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 28),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                        Text("Status", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                    Divider(height: 32, thickness: 1.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1)),
+                    if (title.toLowerCase().contains('power')) ...[
+                      _buildPowerStatusRow("Main Entrance", true),
+                      const SizedBox(height: 16),
+                      _buildPowerStatusRow("Central Stairs", false),
+                      const SizedBox(height: 16),
+                      _buildPowerStatusRow("Parking Entrance", true),
+                      const SizedBox(height: 16),
+                      _buildPowerStatusRow("Parking Side", false),
+                    ] else ...[
+                      _buildDeviceStatusRow("Main Entrance", true),
+                      const SizedBox(height: 16),
+                      _buildDeviceStatusRow("Central Stairs", true),
+                      const SizedBox(height: 16),
+                      _buildDeviceStatusRow("Parking Entrance", true),
+                      const SizedBox(height: 16),
+                      _buildDeviceStatusRow("Parking Side", false),
+                    ],
+
+                    if (title.toLowerCase().contains('power')) ...[
+                      const SizedBox(height: 48),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          Text("Battery %", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                        ],
+                      ),
+                      Divider(height: 32, thickness: 1.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1)),
+                      _buildDeviceBatteryRow("Main Entrance", "87%"),
+                      const SizedBox(height: 16),
+                      _buildDeviceBatteryRow("Central Stairs", "20%"),
+                      const SizedBox(height: 16),
+                      _buildDeviceBatteryRow("Parking Entrance", "41%"),
+                      const SizedBox(height: 16),
+                      _buildDeviceBatteryRow("Parking Side", "N/A"),
+                    ],
+                    
+                    const SizedBox(height: 32),
+                    Center(
+                      child: Text(
+                        "Last sync: 2026/02/24 00:20",
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
-                const Divider(height: 32, thickness: 1.5),
-                _buildDeviceBatteryRow("Main Ent. 1", "87%"),
-                const SizedBox(height: 16),
-                _buildDeviceBatteryRow("Main Ent. 2", "64%"),
-                const SizedBox(height: 16),
-                _buildDeviceBatteryRow("Central Stairs", "20%"),
-                const SizedBox(height: 16),
-                _buildDeviceBatteryRow("Parking Ent.", "41%"),
-                const SizedBox(height: 16),
-                _buildDeviceBatteryRow("Parking Side", "N/A"),
-              ],
-              
-              const SizedBox(height: 32),
-              Center(
-                child: Text(
-                  "Last sync: 2026/02/24 00:20",
-                  style: TextStyle(color: Colors.grey[400], fontSize: 13, fontWeight: FontWeight.w500),
-                ),
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+            ),
+              ),
+            ),
           ),
         );
       },
@@ -964,16 +921,45 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Widget _buildDeviceStatusRow(String location, bool isConnected) {
+    final statusColor = isConnected ? AppColors.statusSafe : AppColors.statusDanger;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(location, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
-        Text(
-          isConnected ? "Connected" : "Disconnected",
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: isConnected ? AppColors.statusSafe : AppColors.statusDanger,
+        Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
+        SizedBox(
+          width: 90, // Fixed width for alignment
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              gradient: LinearGradient(
+                colors: [
+                  statusColor.withOpacity(0.25),
+                  statusColor.withOpacity(0.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: statusColor.withOpacity(0.4), width: 1.0),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _AnimatedPulsingDot(color: statusColor, size: 6.0),
+                const SizedBox(width: 8),
+                Text(
+                  isConnected ? "ONLINE" : "OFFLINE",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    color: statusColor.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -981,16 +967,49 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Widget _buildPowerStatusRow(String location, bool isMainPower) {
+    final statusColor = isMainPower ? Colors.green[700]! : Colors.amber[700]!;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(location, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
-        Text(
-          isMainPower ? "Main Power" : "Backup Power",
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: isMainPower ? AppColors.statusSafe : AppColors.statusWarning,
+        Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
+        SizedBox(
+          width: 142, // Fixed width for alignment
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              gradient: LinearGradient(
+                colors: [
+                  statusColor.withOpacity(0.25),
+                  statusColor.withOpacity(0.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: statusColor.withOpacity(0.4), width: 1.0),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isMainPower ? Icons.check_circle : Icons.warning_rounded,
+                  color: statusColor,
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isMainPower ? "MAIN POWER" : "BACKUP POWER",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    color: statusColor.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -1001,10 +1020,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(location, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
+        Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
         Text(
           battery,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black54),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ],
     );
@@ -1233,6 +1252,176 @@ class _BouncingFilterButtonState extends State<_BouncingFilterButton> with Singl
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AnimatedBouncingDeviceCard extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  const _AnimatedBouncingDeviceCard({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_AnimatedBouncingDeviceCard> createState() => _AnimatedBouncingDeviceCardState();
+}
+
+class _AnimatedBouncingDeviceCardState extends State<_AnimatedBouncingDeviceCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+       vsync: this,
+       duration: const Duration(milliseconds: 100),
+       reverseDuration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.93).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) {
+        setState(() => _isPressed = true);
+        _controller.forward();
+      },
+      onTapUp: (_) {
+         setState(() => _isPressed = false);
+         _controller.reverse();
+         widget.onTap();
+      },
+      onTapCancel: () {
+        setState(() => _isPressed = false);
+        _controller.reverse();
+      },
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Container(
+          width: 135,
+          margin: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          decoration: BoxDecoration(
+            color: _isPressed 
+                ? (Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.03))
+                : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+            boxShadow: [
+              if (!_isPressed)
+                BoxShadow(
+                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.02),
+                  blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 15,
+                  offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
+                ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, color: widget.iconColor, size: 24),
+              const Spacer(),
+              Text(
+                widget.title.replaceAll('\n', ' '), 
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Tap to manage",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedPulsingDot extends StatefulWidget {
+  final Color color;
+  final double size;
+
+  const _AnimatedPulsingDot({required this.color, this.size = 8.0});
+
+  @override
+  State<_AnimatedPulsingDot> createState() => _AnimatedPulsingDotState();
+}
+
+class _AnimatedPulsingDotState extends State<_AnimatedPulsingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    
+    _glowAnimation = Tween<double>(begin: widget.size * 0.5, end: widget.size * 1.5).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _glowAnimation,
+      builder: (context, child) {
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.color,
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(0.8),
+                blurRadius: _glowAnimation.value,
+                spreadRadius: _glowAnimation.value / 3,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

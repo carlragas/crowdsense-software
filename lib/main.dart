@@ -13,7 +13,6 @@ import 'package:window_manager/window_manager.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/theme_provider.dart';
 
-/* Testing comment */
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
