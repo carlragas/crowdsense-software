@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart'; // Added for date formatting later
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/page_title.dart';
 
 class DeviceLog {
   final IconData icon;
@@ -181,14 +182,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Devices",
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
+        const PageTitle(title: "Devices"),
         const SizedBox(height: 16),
         
         // Online / Offline count

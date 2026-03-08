@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../widgets/people_counter_card.dart';
 
 import '../../../../core/widgets/geometric_background.dart';
+import '../../../../core/widgets/page_title.dart';
 import 'analytics_screen.dart';
 import 'devices_screen.dart';
 import 'settings_screen.dart';
@@ -192,65 +193,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
         controller: _scrollController,
         child: Padding(
           padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + kToolbarHeight + 10, 20, 100),
-          child: IndexedStack(
-            index: _currentIndex,
-            children: [
-              Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Dashboard",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
+          child: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const PageTitle(title: "Dashboard"),
+                const SizedBox(height: 16),
+                
+                // Main Counter with smoothly swiping inner metrics
+                Builder(
+                  builder: (context) {
+                    final int realIndex = _deviceData.indexWhere((data) => data['location'] == _selectedLocation);
+                    _pageController ??= PageController(
+                      initialPage: 1000 * _deviceData.length + (realIndex != -1 ? realIndex : 0),
+                    );
+                    return PeopleCounterCard(
+                      deviceData: _deviceData,
+                      currentIndex: realIndex != -1 ? realIndex : 0,
+                      pageController: _pageController!,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _selectedLocation = _deviceData[index % _deviceData.length]['location'];
+                        });
+                      },
+                      onPrevious: () {
+                        _pageController!.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      onNext: () {
+                        _pageController!.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                    );
+                  }
                 ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Main Counter with smoothly swiping inner metrics
-              Builder(
-                builder: (context) {
-                  final int realIndex = _deviceData.indexWhere((data) => data['location'] == _selectedLocation);
-                  _pageController ??= PageController(
-                    initialPage: 1000 * _deviceData.length + (realIndex != -1 ? realIndex : 0),
-                  );
-                  return PeopleCounterCard(
-                    deviceData: _deviceData,
-                    currentIndex: realIndex != -1 ? realIndex : 0,
-                    pageController: _pageController!,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _selectedLocation = _deviceData[index % _deviceData.length]['location'];
-                      });
-                    },
-                    onPrevious: () {
-                      _pageController!.previousPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    onNext: () {
-                      _pageController!.nextPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  );
-                }
-              ),
-              
-              const SizedBox(height: 16),
-              _buildCrowdCountList(),
-              const SizedBox(height: 16),
-              _buildQuickAccessButtons(context),
-            ],
-          ),
-          const AnalyticsScreen(),
-          const DevicesScreen(),
-          const SettingsScreen(),
-        ],
-      ),
+                
+                const SizedBox(height: 16),
+                _buildCrowdCountList(),
+                const SizedBox(height: 16),
+                _buildQuickAccessButtons(context),
+              ],
+            ),
+            const AnalyticsScreen(),
+            const DevicesScreen(),
+            const SettingsScreen(),
+          ][_currentIndex],
     ),
   ),
   ),
