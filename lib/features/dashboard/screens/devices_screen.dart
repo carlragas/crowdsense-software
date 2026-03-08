@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:intl/intl.dart'; // Added for date formatting later
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
+import '../widgets/device_management_modal.dart';
 
 class DeviceLog {
   final IconData icon;
@@ -229,7 +230,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
         // Device Management Button
         InkWell(
           onTap: () {
-            // Placeholder: Navigate to settings/maintenance
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => const DeviceManagementModal(),
+            );
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -272,7 +278,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "Add, remove, or configure sensors",
+                        "Add, remove, or configure devices",
                         style: TextStyle(
                           fontSize: 13,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -331,72 +337,84 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black45, // Translucent underlying barrier
       builder: (context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
-                      blurRadius: Theme.of(context).brightness == Brightness.dark ? 20 : 30,
-                      offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 10 : 15),
-                    ),
-                  ],
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Filter Logs",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed: () {
-                                  setModalState(() {
-                                    tempDate = null;
-                                    tempSensors.clear();
-                                    tempPriorities.clear();
-                                  });
-                                },
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        return TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 450), // Slower animation as requested
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          curve: Curves.easeOutBack,
+          builder: (context, double value, child) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setModalState) {
+                      return Dialog(
+                    backgroundColor: Colors.transparent,
+                    insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
+                                  blurRadius: Theme.of(context).brightness == Brightness.dark ? 20 : 30,
+                                  offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 10 : 15),
                                 ),
-                                child: const Text("Clear All", style: TextStyle(color: AppColors.statusDanger)),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.close, color: AppColors.textGrey),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
+                              ],
+                            ),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Filter Logs",
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          TextButton(
+                                            onPressed: () {
+                                              setModalState(() {
+                                                tempDate = null;
+                                                tempSensors.clear();
+                                                tempPriorities.clear();
+                                              });
+                                            },
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            child: const Text("Clear All", style: TextStyle(color: AppColors.statusDanger)),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            icon: const Icon(Icons.close, color: AppColors.textGrey),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
                       
                       // 1. DATE FILTER
                       Text("Date", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -558,11 +576,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
               ),
             );
           },
+        ),
+      ),
+    ),
+  );
+          },
         );
       },
     );
   }
-
+ 
   List<Widget> _buildFilteredLogWidgets() {
     // 1. Filter Logs
     List<DeviceLog> filteredLogs = allLogs.where((log) {
@@ -788,23 +811,22 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _showDeviceDetailsModal(BuildContext context, String title) {
-    showGeneralDialog(
+    showDialog(
       context: context,
       barrierColor: Colors.black45, // Translucent underlying barrier
-      barrierDismissible: true,
-      barrierLabel: "Dismiss",
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
-        
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8.0 * animation.value, sigmaY: 8.0 * animation.value),
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.8, end: 1.0).animate(curve),
-            child: FadeTransition(
-              opacity: animation,
-              child: Dialog(
+      builder: (context) {
+        return TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 450), // Matches exactly the slow, smooth filter curve
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          curve: Curves.easeOutBack,
+          builder: (context, double value, child) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: Dialog(
             backgroundColor: Colors.transparent,
             insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: Container(
@@ -907,9 +929,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 ),
               ),
             ),
-              ),
-            ),
           ),
+        ),
+      ),
+    );
+          },
         );
       },
     );
