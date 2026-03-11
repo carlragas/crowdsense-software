@@ -23,6 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isBottomNavVisible = true;
   int _currentIndex = 0;
   PageController? _pageController;
+  bool _hasNewNotification = true;
 
   final List<Map<String, dynamic>> _deviceData = [
     {"location": "Main Entrance", "count": 101, "entries": 101, "exits": 0, "isOnline": true},
@@ -107,8 +108,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: Icon(Icons.notifications_none, color: Theme.of(context).colorScheme.onSurface),
-            onPressed: () {},
+            icon: Badge(
+              isLabelVisible: _hasNewNotification,
+              smallSize: 8,
+              backgroundColor: AppColors.statusDanger,
+              child: Icon(Icons.notifications_none, color: Theme.of(context).colorScheme.onSurface),
+            ),
+            onPressed: () {
+              setState(() {
+                _hasNewNotification = false; // dismiss notification badge on tap
+              });
+            },
           ),
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
