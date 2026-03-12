@@ -48,7 +48,7 @@ class NotificationsPanel extends StatefulWidget {
 class _NotificationsPanelState extends State<NotificationsPanel>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
   @override
@@ -56,14 +56,16 @@ class _NotificationsPanelState extends State<NotificationsPanel>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 250),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -0.08),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     _controller.forward();
   }
 
@@ -101,27 +103,33 @@ class _NotificationsPanelState extends State<NotificationsPanel>
           alignment: Alignment.topCenter,
           child: GestureDetector(
             onTap: () {}, // Prevent tap-through
-            child: SlideTransition(
-              position: _slideAnimation,
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              alignment: const Alignment(0.75, -1.0),
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: SafeArea(
                   child: Container(
-                    margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.75,
                     ),
-                    decoration: BoxDecoration(
+                    decoration: ShapeDecoration(
                       color: isDark
                           ? const Color(0xFF1A1A2E).withOpacity(0.97)
                           : Colors.white.withOpacity(0.97),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.08)
-                            : Colors.black.withOpacity(0.08),
+                      shape: _ChatBubbleBorder(
+                        borderRadius: 24.0,
+                        arrowWidth: 18.0,
+                        arrowHeight: 12.0,
+                        arrowOffset: 76.0,
+                        side: BorderSide(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.08)
+                              : Colors.black.withOpacity(0.08),
+                        ),
                       ),
-                      boxShadow: [
+                      shadows: [
                         BoxShadow(
                           color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
                           blurRadius: 30,
@@ -423,6 +431,75 @@ class _NotificationTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChatBubbleBorder extends ShapeBorder {
+  final double borderRadius;
+  final double arrowWidth;
+  final double arrowHeight;
+  final double arrowOffset;
+  final BorderSide side;
+
+  const _ChatBubbleBorder({
+    this.borderRadius = 24.0,
+    this.arrowWidth = 18.0,
+    this.arrowHeight = 12.0,
+    this.arrowOffset = 76.0,
+    this.side = BorderSide.none,
+  });
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.only(top: arrowHeight) + EdgeInsets.all(side.width);
+
+  Path _getPath(Rect rect) {
+    final mainRect = Rect.fromLTWH(rect.left, rect.top + arrowHeight, rect.width, rect.height - arrowHeight);
+    final rrect = RRect.fromRectAndRadius(mainRect, Radius.circular(borderRadius));
+    
+    final path = Path();
+    path.moveTo(rrect.left, rrect.top + borderRadius);
+    path.arcToPoint(Offset(rrect.left + borderRadius, rrect.top), radius: Radius.circular(borderRadius));
+    
+    path.lineTo(rect.right - arrowOffset - arrowWidth, rect.top + arrowHeight);
+    path.lineTo(rect.right - arrowOffset - arrowWidth / 2, rect.top);
+    path.lineTo(rect.right - arrowOffset, rect.top + arrowHeight);
+    
+    path.lineTo(rrect.right - borderRadius, rrect.top);
+    path.arcToPoint(Offset(rrect.right, rrect.top + borderRadius), radius: Radius.circular(borderRadius));
+    
+    path.lineTo(rrect.right, rrect.bottom - borderRadius);
+    path.arcToPoint(Offset(rrect.right - borderRadius, rrect.bottom), radius: Radius.circular(borderRadius));
+    
+    path.lineTo(rrect.left + borderRadius, rrect.bottom);
+    path.arcToPoint(Offset(rrect.left, rrect.bottom - borderRadius), radius: Radius.circular(borderRadius));
+    
+    path.close();
+
+    return path;
+  }
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => _getPath(rect);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _getPath(rect);
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (side.style == BorderStyle.none) return;
+    final paint = side.toPaint();
+    canvas.drawPath(_getPath(rect), paint);
+  }
+
+  @override
+  ShapeBorder scale(double t) {
+    return _ChatBubbleBorder(
+      borderRadius: borderRadius * t,
+      arrowWidth: arrowWidth * t,
+      arrowHeight: arrowHeight * t,
+      arrowOffset: arrowOffset * t,
+      side: side.scale(t),
     );
   }
 }
