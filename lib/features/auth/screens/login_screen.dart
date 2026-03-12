@@ -4,10 +4,19 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/geometric_background.dart';
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+  final bool animate;
+  const LoginScreen({super.key, this.animate = true});
 
   @override
   Widget build(BuildContext context) {
+    Widget withFadeInDown(Widget child) => animate
+        ? FadeInDown(duration: const Duration(milliseconds: 800), child: child)
+        : child;
+
+    Widget withFadeInUp(Widget child, {Duration delay = Duration.zero}) => animate
+        ? FadeInUp(duration: const Duration(milliseconds: 800), delay: delay, child: child)
+        : child;
+
     return Scaffold(
       body: GeometricBackground(
         child: SingleChildScrollView(
@@ -20,9 +29,8 @@ class LoginScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    FadeInDown(
-                      duration: const Duration(milliseconds: 800),
-                      child: Column(
+                    withFadeInDown(
+                      Column(
                         children: [
                           // Logo
                           Container(
@@ -89,9 +97,8 @@ class LoginScreen extends StatelessWidget {
 
                     const SizedBox(height: 48),
 
-                  FadeInUp(
-                    duration: const Duration(milliseconds: 800),
-                    child: Container(
+                  withFadeInUp(
+                    Container(
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceDark,
@@ -153,7 +160,17 @@ class LoginScreen extends StatelessWidget {
                           
                           ElevatedButton(
                             onPressed: () {
-                              Navigator.pushNamed(context, '/dashboard');
+                              // Simulate an authentication network request (e.g., 3 seconds)
+                              final authTask = Future.delayed(const Duration(seconds: 3));
+                              
+                              Navigator.pushReplacementNamed(
+                                context, 
+                                '/splash', 
+                                arguments: {
+                                  'nextRoute': '/dashboard',
+                                  'authFuture': authTask,
+                                }
+                              );
                             },
                             child: const Text("Log In"),
                           ),
@@ -174,9 +191,9 @@ class LoginScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
                   
-                  FadeInUp(
+                  withFadeInUp(
                     delay: const Duration(milliseconds: 200),
-                    child: Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text(
