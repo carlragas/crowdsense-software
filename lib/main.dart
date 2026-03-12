@@ -6,6 +6,8 @@ import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/dashboard/screens/analytics_screen.dart';
 import 'features/dashboard/screens/devices_screen.dart';
 
+import 'features/splash/screens/splash_screen.dart';
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
@@ -54,8 +56,9 @@ class CrowdSenseApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.themeMode,
-          initialRoute: '/login',
+          initialRoute: '/splash',
           routes: {
+            '/splash': (context) => const SplashScreen(),
             '/login': (context) => const LoginScreen(),
             '/signup': (context) => const SignupScreen(),
             '/dashboard': (context) => const DashboardScreen(),
