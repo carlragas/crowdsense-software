@@ -110,7 +110,7 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                 opacity: _fadeAnimation,
                 child: SafeArea(
                   child: Container(
-                    margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    margin: const EdgeInsets.fromLTRB(12, 2, 12, 0),
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.75,
                     ),
@@ -122,7 +122,7 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                         borderRadius: 24.0,
                         arrowWidth: 18.0,
                         arrowHeight: 12.0,
-                        arrowOffset: 76.0,
+                        arrowOffset: 58.0,
                         side: BorderSide(
                           color: isDark
                               ? Colors.white.withOpacity(0.08)
@@ -446,7 +446,7 @@ class _ChatBubbleBorder extends ShapeBorder {
     this.borderRadius = 24.0,
     this.arrowWidth = 18.0,
     this.arrowHeight = 12.0,
-    this.arrowOffset = 76.0,
+    this.arrowOffset = 58.0,
     this.side = BorderSide.none,
   });
 
