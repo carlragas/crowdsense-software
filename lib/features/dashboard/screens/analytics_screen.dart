@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
+import '../../../../core/providers/settings_provider.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -11,6 +13,7 @@ class AnalyticsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final settings = context.watch<SettingsProvider>();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,7 +51,7 @@ class AnalyticsScreen extends StatelessWidget {
                 subtitle: "Continuous environmental monitoring",
                 icon: Icons.device_thermostat,
                 color: AppColors.statusWarning,
-                child: _buildTemperatureChart(),
+                child: _buildTemperatureChart(settings.temperatureThreshold),
               ),
               const SizedBox(width: 16),
               _buildChartCard(
@@ -57,7 +60,7 @@ class AnalyticsScreen extends StatelessWidget {
                 subtitle: "Analog particle detection (PPM)",
                 icon: Icons.cloud_outlined,
                 color: AppColors.primaryBlue,
-                child: _buildSmokeChart(),
+                child: _buildSmokeChart(settings.smokeThreshold),
               ),
               const SizedBox(width: 16),
               _buildChartCard(
@@ -358,7 +361,7 @@ class AnalyticsScreen extends StatelessWidget {
 
   // --- MOCK DATA CHARTS ---
 
-  Widget _buildTemperatureChart() {
+  Widget _buildTemperatureChart(double threshold) {
     return LineChart(
       LineChartData(
         gridData: FlGridData(
@@ -368,6 +371,27 @@ class AnalyticsScreen extends StatelessWidget {
           getDrawingHorizontalLine: (value) {
             return FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1);
           },
+        ),
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(
+              y: threshold,
+              color: AppColors.statusDanger,
+              strokeWidth: 2,
+              dashArray: [5, 5],
+              label: HorizontalLineLabel(
+                show: true,
+                alignment: Alignment.topRight,
+                padding: const EdgeInsets.only(right: 5, bottom: 5),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.statusDanger,
+                ),
+                labelResolver: (line) => 'Limit: ${threshold.toStringAsFixed(1)}°C',
+              ),
+            ),
+          ],
         ),
         titlesData: FlTitlesData(
           show: true,
@@ -404,7 +428,7 @@ class AnalyticsScreen extends StatelessWidget {
         minX: 0,
         maxX: 24,
         minY: 10,
-        maxY: 45,
+        maxY: threshold > 40 ? threshold + 5 : 45,
         lineBarsData: [
           LineChartBarData(
             spots: _getMockTempData(),
@@ -423,7 +447,7 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSmokeChart() {
+  Widget _buildSmokeChart(double threshold) {
     return LineChart(
       LineChartData(
         gridData: FlGridData(
@@ -433,6 +457,27 @@ class AnalyticsScreen extends StatelessWidget {
           getDrawingHorizontalLine: (value) {
             return FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1);
           },
+        ),
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(
+              y: threshold,
+              color: AppColors.statusDanger,
+              strokeWidth: 2,
+              dashArray: [5, 5],
+              label: HorizontalLineLabel(
+                show: true,
+                alignment: Alignment.topRight,
+                padding: const EdgeInsets.only(right: 5, bottom: 5),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.statusDanger,
+                ),
+                labelResolver: (line) => 'Limit: ${threshold.toStringAsFixed(0)} PPM',
+              ),
+            ),
+          ],
         ),
         titlesData: FlTitlesData(
           show: true,
@@ -470,7 +515,7 @@ class AnalyticsScreen extends StatelessWidget {
         minX: 0,
         maxX: 30,
         minY: 0,
-        maxY: 500,
+        maxY: threshold > 450 ? threshold + 100 : 500,
         lineBarsData: [
           LineChartBarData(
             spots: _getMockSmokeData(),

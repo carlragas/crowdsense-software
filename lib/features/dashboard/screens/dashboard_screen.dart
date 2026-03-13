@@ -23,7 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 0;
+  int _currentIndex = 2;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
@@ -206,14 +206,29 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _handleNotificationTap(String id) {
     _markAsRead(id);
     _resolveUrgent(id);
-    
+
     setState(() {
-      _currentIndex = 2; // Navigate to Devices tab
+      _currentIndex = 3; // Navigate to Devices tab
       _showNotificationsPanel = false;
-      _highlightedLogId = id; // Set the highlighted log ID
+      _highlightedLogId = id;
+      _highlightedItemKey = GlobalKey(); // Fresh key each tap
     });
 
-    // Clear highlight after a short delay
+    // Give the UI a brief moment to render the newly selected tab
+    // and measure the layouts before attempting to scroll.
+    Future.delayed(const Duration(milliseconds: 150), () {
+      final keyContext = _highlightedItemKey?.currentContext;
+      if (keyContext != null) {
+        Scrollable.ensureVisible(
+          keyContext,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+          alignment: 0.5, // 0.5 = dead center
+        );
+      }
+    });
+
+    // Clear highlight after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
@@ -226,6 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   String? _highlightedLogId;
+  GlobalKey? _highlightedItemKey;
 
   // --- Device data ---
   final List<Map<String, dynamic>> _deviceData = [
@@ -235,6 +251,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     {"location": "Parking Side", "count": 60, "entries": 64, "exits": 140, "isOnline": true},
   ];
   String _selectedLocation = "Main Entrance";
+
+  // Computed total across all sensors
+  int get _totalEntries => _deviceData.fold(0, (sum, d) => sum + (d['entries'] as int));
+  int get _totalExits => _deviceData.fold(0, (sum, d) => sum + (d['exits'] as int));
+  int get _totalPeopleInside => (_totalEntries - _totalExits).clamp(0, 99999);
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +340,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 if (value == 'account') {
                   // Static for now
                 } else if (value == 'settings') {
-                  setState(() => _currentIndex = 3);
+                  setState(() => _currentIndex = 4);
                 } else if (value == 'logout') {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
@@ -409,11 +430,27 @@ class _DashboardScreenState extends State<DashboardScreen>
                     20,
                     100),
                 child: [
+                  // Index 0: Home / Overview
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.home_outlined, size: 60, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+                        Text('Home Page Coming Soon', style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  // Index 1: Analytics
+                  const AnalyticsScreen(),
+                  // Index 2 (Center): Dashboard Content
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const PageTitle(title: "Dashboard"),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      _buildTotalTallyCard(),
+                      const SizedBox(height: 12),
                       Builder(builder: (context) {
                         final int realIndex = _deviceData.indexWhere(
                             (data) => data['location'] == _selectedLocation);
@@ -445,14 +482,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                           },
                         );
                       }),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildCrowdCountList(),
-                      const SizedBox(height: 16),
-                      _buildQuickAccessButtons(context),
                     ],
                   ),
-                  const AnalyticsScreen(),
-                  DevicesScreen(logs: _deviceLogs, highlightedLogId: _highlightedLogId),
+                  // Index 3: Devices
+                  DevicesScreen(
+                    logs: _deviceLogs,
+                    highlightedLogId: _highlightedLogId,
+                    highlightedItemKey: _highlightedItemKey,
+                    parentScrollController: _scrollController,
+                  ),
+                  // Index 4: Settings
                   const SettingsScreen(),
                 ][_currentIndex],
               ),
@@ -485,30 +526,257 @@ class _DashboardScreenState extends State<DashboardScreen>
       bottomNavigationBar: AnimatedSlide(
         duration: const Duration(milliseconds: 300),
         offset: _isBottomNavVisible ? Offset.zero : const Offset(0, 1.5),
-        child: BottomNavigationBar(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          currentIndex: _currentIndex,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-              _showNotificationsPanel = false; // close panel on nav
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard_rounded), label: "Dashboard"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.analytics_outlined), label: "Analytics"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.devices_other), label: "Devices"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.settings_outlined), label: "Settings"),
+        child: Container(
+          height: 85,
+          margin: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.white.withOpacity(0.05) 
+                  : Colors.black.withOpacity(0.04),
+              width: 1,
+            )
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavIcon(Icons.home_outlined, 0),
+              _buildNavIcon(Icons.analytics_outlined, 1),
+              _buildCenterButton(), // Center button (Index 2)
+              _buildNavIcon(Icons.devices_other, 3), // Devices
+              _buildNavIcon(Icons.settings_outlined, 4), // Settings
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavIcon(IconData icon, int index) {
+    final isSelected = _currentIndex == index;
+    final color = isSelected 
+        ? Theme.of(context).colorScheme.primary 
+        : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5);
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+          _showNotificationsPanel = false;
+        });
+      },
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          transform: isSelected ? Matrix4.identity().scaled(1.1) : Matrix4.identity(),
+          child: Icon(
+            icon,
+            color: color,
+            size: 26,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterButton() {
+    final isSelected = _currentIndex == 2;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = 2;
+          _showNotificationsPanel = false;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: isSelected 
+              ? [const Color(0xFFE91E63), const Color(0xFF1E88E5)] // Pink/Red to Blue gradient
+              : [const Color(0xFFD81B60), const Color(0xFF1976D2)], // Slightly darker gradient when not selected
+            begin: Alignment.bottomLeft,
+            end: Alignment.topRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1E88E5).withOpacity(0.4),
+              blurRadius: isSelected ? 15 : 8,
+              offset: const Offset(0, 4),
+            )
           ],
         ),
+        child: const Icon(
+          Icons.dashboard_rounded, // Reverted to the original Dashboard icon
+          color: Colors.white,
+          size: 28,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalTallyCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final total = _totalPeopleInside;
+    const liveColor = Color(0xFF00C853);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.07)
+              : Colors.black.withOpacity(0.06),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left: icon + label
+          Icon(Icons.groups_rounded, color: colorScheme.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Total Inside Building',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          // Center: entries
+          _buildCompactStat(
+            icon: Icons.login_rounded,
+            value: _totalEntries,
+            color: const Color(0xFF00C853),
+          ),
+          const SizedBox(width: 12),
+          // Center: exits
+          _buildCompactStat(
+            icon: Icons.logout_rounded,
+            value: _totalExits,
+            color: const Color(0xFFFF5252),
+          ),
+          const SizedBox(width: 16),
+          // Right: big count
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$total',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: colorScheme.primary,
+                  height: 1.0,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _PulsingDot(color: liveColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Live',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactStat({required IconData icon, required int value, required Color color}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 4),
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTallyStatChip({
+    required IconData icon,
+    required String label,
+    required int value,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: color.withOpacity(0.8),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -621,160 +889,55 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
-
-  Widget _buildQuickAccessButtons(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildQuickAccessCard(
-            context,
-            title: "Analytics",
-            icon: Icons.analytics_outlined,
-            color: AppColors.primaryBlue,
-            onTap: () => setState(() => _currentIndex = 1),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildQuickAccessCard(
-            context,
-            title: "Devices",
-            icon: Icons.devices_other,
-            color: AppColors.statusWarning,
-            onTap: () => setState(() => _currentIndex = 2),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickAccessCard(BuildContext context,
-      {required String title,
-      required IconData icon,
-      required Color color,
-      required VoidCallback onTap}) {
-    return _BouncingCard(
-      title: title,
-      icon: icon,
-      color: color,
-      onTap: onTap,
-    );
-  }
 }
 
-class _BouncingCard extends StatefulWidget {
-  final VoidCallback onTap;
-  final String title;
-  final IconData icon;
+class _PulsingDot extends StatefulWidget {
   final Color color;
-
-  const _BouncingCard({
-    required this.onTap,
-    required this.title,
-    required this.icon,
-    required this.color,
-  });
+  const _PulsingDot({required this.color});
 
   @override
-  State<_BouncingCard> createState() => _BouncingCardState();
+  State<_PulsingDot> createState() => _PulsingDotState();
 }
 
-class _BouncingCardState extends State<_BouncingCard>
+class _PulsingDotState extends State<_PulsingDot>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  bool _isPressed = false;
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _isPressed = true);
-        _controller.forward();
-      },
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        _controller.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () {
-        setState(() => _isPressed = false);
-        _controller.reverse();
-      },
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: _isPressed
-                ? colorScheme.surface.withOpacity(0.6)
-                : colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.05)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(widget.icon, color: widget.color, size: 28),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                widget.title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "View details",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.8),
-                ),
-              ),
-            ],
-          ),
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) => Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.color.withOpacity(_anim.value),
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(_anim.value * 0.6),
+              blurRadius: 6,
+              spreadRadius: 1,
+            ),
+          ],
         ),
       ),
     );

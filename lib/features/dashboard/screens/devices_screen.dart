@@ -53,8 +53,16 @@ class DeviceLog {
 class DevicesScreen extends StatefulWidget {
   final List<DeviceLog> logs;
   final String? highlightedLogId;
+  final GlobalKey? highlightedItemKey;
+  final ScrollController? parentScrollController;
 
-  const DevicesScreen({super.key, required this.logs, this.highlightedLogId});
+  const DevicesScreen({
+    super.key,
+    required this.logs,
+    this.highlightedLogId,
+    this.highlightedItemKey,
+    this.parentScrollController,
+  });
 
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
@@ -566,8 +574,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
   Widget _buildLogItem(DeviceLog log) {
     final isHighlighted = widget.highlightedLogId == log.id;
+    final itemKey = isHighlighted ? widget.highlightedItemKey : null;
 
     return AnimatedContainer(
+      key: itemKey,
       duration: const Duration(milliseconds: 500),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
