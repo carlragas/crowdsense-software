@@ -14,6 +14,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'package:provider/provider.dart';
 import 'core/theme/theme_provider.dart';
+import 'core/providers/settings_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,8 +37,11 @@ void main() async {
   }
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+      ],
       child: const CrowdSenseApp(),
     ),
   );

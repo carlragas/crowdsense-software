@@ -206,14 +206,29 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _handleNotificationTap(String id) {
     _markAsRead(id);
     _resolveUrgent(id);
-    
+
     setState(() {
       _currentIndex = 2; // Navigate to Devices tab
       _showNotificationsPanel = false;
-      _highlightedLogId = id; // Set the highlighted log ID
+      _highlightedLogId = id;
+      _highlightedItemKey = GlobalKey(); // Fresh key each tap
     });
 
-    // Clear highlight after a short delay
+    // Give the UI a brief moment to render the newly selected tab
+    // and measure the layouts before attempting to scroll.
+    Future.delayed(const Duration(milliseconds: 150), () {
+      final keyContext = _highlightedItemKey?.currentContext;
+      if (keyContext != null) {
+        Scrollable.ensureVisible(
+          keyContext,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+          alignment: 0.5, // 0.5 = dead center
+        );
+      }
+    });
+
+    // Clear highlight after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
@@ -226,6 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   String? _highlightedLogId;
+  GlobalKey? _highlightedItemKey;
 
   // --- Device data ---
   final List<Map<String, dynamic>> _deviceData = [
@@ -457,7 +473,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ],
                   ),
                   const AnalyticsScreen(),
-                  DevicesScreen(logs: _deviceLogs, highlightedLogId: _highlightedLogId),
+                  DevicesScreen(
+                    logs: _deviceLogs,
+                    highlightedLogId: _highlightedLogId,
+                    highlightedItemKey: _highlightedItemKey,
+                    parentScrollController: _scrollController,
+                  ),
                   const SettingsScreen(),
                 ][_currentIndex],
               ),

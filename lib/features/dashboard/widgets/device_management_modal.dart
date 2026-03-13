@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/settings_provider.dart';
 
 class DeviceManagementModal extends StatefulWidget {
   const DeviceManagementModal({super.key});
@@ -350,6 +352,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   Widget _buildDeviceTile(Map<String, dynamic> device, bool isDark) {
     final bool isOnline = device["status"] == "online";
     final sensors = device["sensors"] as Map<String, dynamic>;
+    final settings = context.watch<SettingsProvider>();
 
     return Container(
       decoration: BoxDecoration(
@@ -415,20 +418,46 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("Temperature Alert Threshold", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text("${sensors["temp_threshold"].toStringAsFixed(1)} °C", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.statusDanger, fontSize: 14)),
+                Text("${settings.temperatureThreshold.toStringAsFixed(1)} °C", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.statusDanger, fontSize: 14)),
               ],
             ),
             Slider(
-              value: sensors["temp_threshold"],
+              value: settings.temperatureThreshold,
               min: 30.0,
               max: 50.0,
               divisions: 40,
               activeColor: AppColors.statusDanger,
               inactiveColor: AppColors.statusDanger.withOpacity(0.2),
               thumbColor: AppColors.statusDanger,
-              label: "${sensors["temp_threshold"].toStringAsFixed(1)} °C",
+              label: "${settings.temperatureThreshold.toStringAsFixed(1)} °C",
               onChanged: (val) {
-                setState(() => sensors["temp_threshold"] = val);
+                settings.setTemperatureThreshold(val);
+              },
+              onChangeEnd: (val) {
+                _updateDeviceConfig(device["macAddress"], sensors); // We'd push the new global or local config here
+              },
+            ),
+
+            // Let's also add the Smoke Threshold Slider since we want both thresholds to be adjustable by admin
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Smoke Alert Threshold", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text("${settings.smokeThreshold.toStringAsFixed(0)} PPM", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryBlue, fontSize: 14)),
+              ],
+            ),
+            Slider(
+              value: settings.smokeThreshold,
+              min: 100.0,
+              max: 500.0,
+              divisions: 40,
+              activeColor: AppColors.primaryBlue,
+              inactiveColor: AppColors.primaryBlue.withOpacity(0.2),
+              thumbColor: AppColors.primaryBlue,
+              label: "${settings.smokeThreshold.toStringAsFixed(0)} PPM",
+              onChanged: (val) {
+                settings.setSmokeThreshold(val);
               },
               onChangeEnd: (val) {
                 _updateDeviceConfig(device["macAddress"], sensors);
