@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart'; // Added for date formatting later
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/page_title.dart';
+import '../widgets/device_management_modal.dart';
 
 class DeviceLog {
   final IconData icon;
@@ -12,6 +14,17 @@ class DeviceLog {
   final bool isUnread;
   final String sensorType; // 'ToF', 'Flame', 'Smoke', 'Temp'
   final String priority; // 'High', 'Mid', 'Low'
+  // New detailed fields
+  final String currentStatus; // 'Active', 'Acknowledged', 'Resolved', 'False Alarm'
+  final Duration? duration;
+  final String? peakSensorReading;
+  final String? thresholdLimit;
+  final bool isMainsPower;
+  final int? batteryPercentage;
+  final bool? relayTriggered;
+  final bool? sirenActivated;
+  final List<String> networkActions;
+  final String specificZone;
 
   DeviceLog({
     required this.icon,
@@ -22,6 +35,16 @@ class DeviceLog {
     required this.isUnread,
     required this.sensorType,
     required this.priority,
+    this.currentStatus = 'Active',
+    this.duration,
+    this.peakSensorReading,
+    this.thresholdLimit,
+    this.isMainsPower = true,
+    this.batteryPercentage,
+    this.relayTriggered,
+    this.sirenActivated,
+    this.networkActions = const [],
+    required this.specificZone,
   });
 }
 
@@ -39,14 +62,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
   List<String> selectedPriorities = [];
   
   // Dummy Data (Matching the original hardcoded logs)
-  late List<DeviceLog> allLogs;
-
-  @override
-  void initState() {
-    super.initState();
+  List<DeviceLog> get allLogs {
     final now = DateTime.now();
     
-    allLogs = [
+    return [
       // TODAY
       DeviceLog(
         icon: Icons.local_fire_department,
@@ -57,16 +76,36 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: true,
         sensorType: 'Flame',
         priority: 'High',
+        currentStatus: 'Active',
+        duration: const Duration(minutes: 5),
+        peakSensorReading: 'Flame Detected (Digital HIGH)',
+        thresholdLimit: 'Any detection = trigger',
+        isMainsPower: true,
+        batteryPercentage: 82,
+        relayTriggered: true,
+        sirenActivated: true,
+        networkActions: ['SMS alert dispatched to Security Office', 'Email notification sent to admin@crowdsense.ph'],
+        specificZone: 'Block A, Floor 1, Node CS-F-001',
       ),
       DeviceLog(
         icon: Icons.thermostat,
         title: "Temp Sensor - Server Room",
-        message: "High temperature detected (38°C). Cooling system engaged automatically.",
+        message: "High temperature detected (42°C). Cooling system engaged automatically.",
         dateTime: now.subtract(const Duration(minutes: 20)),
         iconColor: AppColors.statusDanger,
         isUnread: true,
         sensorType: 'Temp',
         priority: 'High',
+        currentStatus: 'Acknowledged',
+        duration: const Duration(minutes: 20),
+        peakSensorReading: '42°C',
+        thresholdLimit: '38°C (critical)',
+        isMainsPower: true,
+        batteryPercentage: 91,
+        relayTriggered: false,
+        sirenActivated: false,
+        networkActions: ['SMS alert dispatched to IT Department'],
+        specificZone: 'Block B, Floor 2, Node CS-T-007',
       ),
       DeviceLog(
         icon: Icons.smoking_rooms,
@@ -77,9 +116,19 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: false,
         sensorType: 'Smoke',
         priority: 'Mid',
+        currentStatus: 'Resolved',
+        duration: const Duration(minutes: 12),
+        peakSensorReading: '410 ppm (analog)',
+        thresholdLimit: '300 ppm threshold',
+        isMainsPower: false,
+        batteryPercentage: 54,
+        relayTriggered: false,
+        sirenActivated: false,
+        networkActions: [],
+        specificZone: 'Block A, Floor 3, Node CS-S-003',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Parking Entrance",
         message: "Device offline - Connection lost to gateway. Attempting automated reboot.",
         dateTime: now.subtract(const Duration(hours: 2, minutes: 15)),
@@ -87,16 +136,31 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: false,
         sensorType: 'ToF',
         priority: 'Mid',
+        currentStatus: 'Active',
+        peakSensorReading: 'N/A (Offline)',
+        thresholdLimit: 'N/A',
+        isMainsPower: false,
+        batteryPercentage: 18,
+        networkActions: ['Automated reboot command sent'],
+        specificZone: 'Parking Level 1, Node CS-P-002',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Main Entrance 1",
         message: "Crowd density threshold exceeded. 120 pax / min entering.",
         dateTime: now.subtract(const Duration(hours: 5)),
-        iconColor: AppColors.accentBlue,
+        iconColor: Colors.cyanAccent,
         isUnread: false,
         sensorType: 'ToF',
         priority: 'High',
+        currentStatus: 'Resolved',
+        duration: const Duration(minutes: 38),
+        peakSensorReading: '120 pax/min',
+        thresholdLimit: '80 pax/min',
+        isMainsPower: true,
+        batteryPercentage: 95,
+        networkActions: ['SMS alert dispatched to Security Office'],
+        specificZone: 'Main Gate, Floor 1, Node CS-C-001',
       ),
 
       // YESTERDAY
@@ -109,16 +173,31 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: false,
         sensorType: 'Flame',
         priority: 'Low',
+        currentStatus: 'Resolved',
+        peakSensorReading: 'No flame (digital LOW)',
+        thresholdLimit: 'Any detection = trigger',
+        isMainsPower: true,
+        batteryPercentage: 78,
+        networkActions: [],
+        specificZone: 'Block C, Floor 1, Node CS-F-004',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Central Stairs",
         message: "Heavy traffic detected. 45 pax / min exiting.",
         dateTime: now.subtract(const Duration(days: 1, hours: 6)),
-        iconColor: AppColors.accentBlue,
+        iconColor: Colors.cyanAccent,
         isUnread: false,
         sensorType: 'ToF',
         priority: 'Low',
+        currentStatus: 'Resolved',
+        duration: const Duration(minutes: 15),
+        peakSensorReading: '45 pax/min',
+        thresholdLimit: '80 pax/min',
+        isMainsPower: true,
+        batteryPercentage: 88,
+        networkActions: [],
+        specificZone: 'Central Stairwell, Floor 2, Node CS-C-003',
       ),
       DeviceLog(
         icon: Icons.thermostat,
@@ -129,9 +208,17 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: false,
         sensorType: 'Temp',
         priority: 'Mid',
+        currentStatus: 'Resolved',
+        duration: const Duration(minutes: 8),
+        peakSensorReading: '32°C',
+        thresholdLimit: '30°C (warning)',
+        isMainsPower: true,
+        batteryPercentage: 67,
+        networkActions: [],
+        specificZone: 'Block B, Floor 3, Node CS-T-009',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Parking Side",
         message: "Device rebooted successfully. Connection restored.",
         dateTime: now.subtract(const Duration(days: 1, hours: 14)),
@@ -139,9 +226,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: false,
         sensorType: 'ToF',
         priority: 'Low',
+        currentStatus: 'Resolved',
+        peakSensorReading: 'N/A (Reboot event)',
+        thresholdLimit: 'N/A',
+        isMainsPower: false,
+        batteryPercentage: 43,
+        networkActions: [],
+        specificZone: 'Parking Level 1, Node CS-P-004',
       ),
 
-      // TWO DAYS AGO / LAST TUESDAY
+      // TWO DAYS AGO
       DeviceLog(
         icon: Icons.smoking_rooms,
         title: "Smoke Sensor - Bathroom B",
@@ -151,6 +245,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: false,
         sensorType: 'Smoke',
         priority: 'High',
+        currentStatus: 'Resolved',
+        duration: const Duration(minutes: 25),
+        peakSensorReading: '520 ppm (analog)',
+        thresholdLimit: '300 ppm threshold',
+        isMainsPower: true,
+        batteryPercentage: 72,
+        relayTriggered: true,
+        sirenActivated: false,
+        networkActions: ['SMS alert dispatched to Administration Office', 'Incident report created'],
+        specificZone: 'Block A, Floor 2, Node CS-S-005',
       ),
       DeviceLog(
         icon: Icons.thermostat,
@@ -161,18 +265,37 @@ class _DevicesScreenState extends State<DevicesScreen> {
         isUnread: false,
         sensorType: 'Temp',
         priority: 'Low',
+        currentStatus: 'Resolved',
+        peakSensorReading: '26°C',
+        thresholdLimit: '38°C (critical)',
+        isMainsPower: true,
+        batteryPercentage: 99,
+        networkActions: [],
+        specificZone: 'Block A, Floor 1, Node CS-T-001',
       ),
       DeviceLog(
-        icon: Icons.center_focus_strong,
+        icon: Icons.radar,
         title: "ToF - Main Entrance 2",
         message: "Firmware update applied. System running version v3.14.",
         dateTime: now.subtract(const Duration(days: 2, hours: 18)),
-        iconColor: AppColors.accentBlue,
+        iconColor: Colors.cyanAccent,
         isUnread: false,
         sensorType: 'ToF',
         priority: 'Low',
+        currentStatus: 'Resolved',
+        peakSensorReading: 'N/A (Firmware update)',
+        thresholdLimit: 'N/A',
+        isMainsPower: true,
+        batteryPercentage: 85,
+        networkActions: [],
+        specificZone: 'Main Gate, Floor 1, Node CS-C-002',
       ),
     ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
   }
 
   @override
@@ -180,14 +303,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Devices",
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
+        const PageTitle(title: "Devices"),
         const SizedBox(height: 16),
         
         // Online / Offline count
@@ -219,11 +335,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
               clipBehavior: Clip.none,
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               children: [
-                _AnimatedBouncingDeviceCard(title: "Time-of-Flight\nDevices", icon: Icons.center_focus_strong, iconColor: AppColors.accentBlue, onTap: () => _showDeviceDetailsModal(context, "Time-of-Flight\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Flame Sensor\nDevices", icon: Icons.local_fire_department, iconColor: AppColors.statusWarning, onTap: () => _showDeviceDetailsModal(context, "Flame Sensor\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Smoke Sensor\nDevices", icon: Icons.smoking_rooms, iconColor: AppColors.textGrey, onTap: () => _showDeviceDetailsModal(context, "Smoke Sensor\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Temperature\nSensor Devices", icon: Icons.thermostat, iconColor: AppColors.statusDanger, onTap: () => _showDeviceDetailsModal(context, "Temperature\nSensor Devices")),
-                _AnimatedBouncingDeviceCard(title: "Power\nManagement", icon: Icons.power, iconColor: AppColors.statusSafe, onTap: () => _showDeviceDetailsModal(context, "Power\nManagement")),
+                _AnimatedBouncingDeviceCard(title: "Time-of-Flight\nDevices", icon: Icons.radar, iconColor: Colors.cyanAccent, onTap: () => _showDeviceDetailsModal(context, "Time-of-Flight\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Flame Sensor\nDevices", icon: Icons.local_fire_department, iconColor: Colors.deepOrangeAccent, onTap: () => _showDeviceDetailsModal(context, "Flame Sensor\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Smoke Sensor\nDevices", icon: Icons.smoking_rooms, iconColor: Colors.blueGrey[300]!, onTap: () => _showDeviceDetailsModal(context, "Smoke Sensor\nDevices")),
+                _AnimatedBouncingDeviceCard(title: "Temperature\nSensor Devices", icon: Icons.thermostat, iconColor: Colors.redAccent, onTap: () => _showDeviceDetailsModal(context, "Temperature\nSensor Devices")),
+                _AnimatedBouncingDeviceCard(title: "Power\nManagement", icon: Icons.bolt, iconColor: Colors.greenAccent[400]!, onTap: () => _showDeviceDetailsModal(context, "Power\nManagement")),
                 const SizedBox(width: 4), // extra trailing space
               ],
             ),
@@ -234,7 +350,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
         // Device Management Button
         InkWell(
           onTap: () {
-            // Placeholder: Navigate to settings/maintenance
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => const DeviceManagementModal(),
+            );
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -277,7 +398,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "Add, remove, or configure sensors",
+                        "Add, remove, or configure devices",
                         style: TextStyle(
                           fontSize: 13,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -336,72 +457,84 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black45, // Translucent underlying barrier
       builder: (context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
-                      blurRadius: Theme.of(context).brightness == Brightness.dark ? 20 : 30,
-                      offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 10 : 15),
-                    ),
-                  ],
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Filter Logs",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed: () {
-                                  setModalState(() {
-                                    tempDate = null;
-                                    tempSensors.clear();
-                                    tempPriorities.clear();
-                                  });
-                                },
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        return TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 450), // Slower animation as requested
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          curve: Curves.easeOutBack,
+          builder: (context, double value, child) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setModalState) {
+                      return Dialog(
+                    backgroundColor: Colors.transparent,
+                    insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
+                                  blurRadius: Theme.of(context).brightness == Brightness.dark ? 20 : 30,
+                                  offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 10 : 15),
                                 ),
-                                child: const Text("Clear All", style: TextStyle(color: AppColors.statusDanger)),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.close, color: AppColors.textGrey),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
+                              ],
+                            ),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Filter Logs",
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          TextButton(
+                                            onPressed: () {
+                                              setModalState(() {
+                                                tempDate = null;
+                                                tempSensors.clear();
+                                                tempPriorities.clear();
+                                              });
+                                            },
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            child: const Text("Clear All", style: TextStyle(color: AppColors.statusDanger)),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            icon: const Icon(Icons.close, color: AppColors.textGrey),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
                       
                       // 1. DATE FILTER
                       Text("Date", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -563,11 +696,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
               ),
             );
           },
+        ),
+      ),
+    ),
+  );
+          },
         );
       },
     );
   }
-
+ 
   List<Widget> _buildFilteredLogWidgets() {
     // 1. Filter Logs
     List<DeviceLog> filteredLogs = allLogs.where((log) {
@@ -645,14 +783,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     groupedLogs.forEach((dateKey, logs) {
       widgets.add(_buildDateHeader(dateKey, logs.length));
       for (var log in logs) {
-        widgets.add(_buildLogItem(
-          icon: log.icon,
-          title: log.title,
-          message: log.message,
-          time: DateFormat('h:mm a').format(log.dateTime),
-          iconColor: log.iconColor,
-          isUnread: log.isUnread,
-        ));
+        widgets.add(_buildLogItem(log));
       }
       widgets.add(const SizedBox(height: 16));
     });
@@ -661,14 +792,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
 
-  Widget _buildLogItem({
-    required IconData icon,
-    required String title,
-    required String message,
-    required String time,
-    required Color iconColor,
-    required bool isUnread,
-  }) {
+  Widget _buildLogItem(DeviceLog log) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -685,90 +809,100 @@ class _DevicesScreenState extends State<DevicesScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Left color indicator strip (like Valorant match history)
-              Container(
-                width: 6,
-                decoration: BoxDecoration(
-                  color: iconColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: iconColor.withOpacity(0.4),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 16, bottom: 16, right: 16),
-                  child: Row(
-                    children: [
-                      // Sensor Icon (replacing text initials)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: iconColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(icon, color: iconColor, size: 24),
+        child: InkWell(
+          onTap: () => _showLogDetailsModal(context, log),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left color indicator strip
+                Container(
+                  width: 6,
+                  decoration: BoxDecoration(
+                    color: log.iconColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: log.iconColor.withOpacity(0.4),
+                        blurRadius: 4,
+                        spreadRadius: 1,
                       ),
-                      const SizedBox(width: 16),
-                      // Text Content
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 16, bottom: 16, right: 16),
+                    child: Row(
+                      children: [
+                        // Sensor Icon
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: log.iconColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(log.icon, color: log.iconColor, size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        // Text Content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      log.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildSmallStatusBadge(log.currentStatus),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat('MM/dd/yy HH:mm:ss').format(log.dateTime),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                log.message,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  fontSize: 13,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Unread dot + chevron
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              message,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                fontSize: 13,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Time and unread dot
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            time,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (isUnread) ...[
-                            const SizedBox(height: 12),
-                            Container(
+                            if (log.isUnread) Container(
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.statusSafe, // Green for unread/active like match history
+                                color: AppColors.statusSafe,
                                 boxShadow: [
                                   BoxShadow(
                                     color: AppColors.statusSafe.withOpacity(0.4),
@@ -778,38 +912,273 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            Icon(Icons.chevron_right, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)),
                           ],
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildSmallStatusBadge(String status) {
+    Color bgColor;
+    Color textColor;
+    if (status == 'Active') {
+      bgColor = AppColors.statusDanger.withOpacity(0.15);
+      textColor = AppColors.statusDanger;
+    } else if (status == 'Resolved' || status == 'Acknowledged') {
+      bgColor = AppColors.statusSafe.withOpacity(0.15);
+      textColor = AppColors.statusSafe;
+    } else {
+      bgColor = AppColors.statusWarning.withOpacity(0.15);
+      textColor = AppColors.statusWarning;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: textColor.withOpacity(0.3)),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: textColor, letterSpacing: 0.5),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    if (duration.inHours > 0) return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
+    if (duration.inMinutes > 0) return '${duration.inMinutes}m';
+    return '${duration.inSeconds}s';
+  }
+
+  void _showLogDetailsModal(BuildContext context, DeviceLog log) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black45,
+      builder: (context) {
+        return TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 350),
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          curve: Curves.easeOutBack,
+          builder: (context, double value, child) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: Dialog(
+                    backgroundColor: Colors.transparent,
+                    insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface.withOpacity(0.95),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.6 : 0.2),
+                            blurRadius: 30,
+                            offset: const Offset(0, 15),
+                          ),
+                        ],
+                      ),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: log.iconColor.withOpacity(0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(log.icon, color: log.iconColor, size: 28),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Activity Report', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8))),
+                                      Text(log.title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface, height: 1.2)),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Message banner
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: log.iconColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: log.iconColor.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline, color: log.iconColor, size: 18),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Text(log.message, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13, height: 1.4))),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // 1. Time & Status
+                            _modalSection('Time & Status', Icons.schedule),
+                            _modalRow('Exact Timestamp', DateFormat('MMMM dd, yyyy – HH:mm:ss').format(log.dateTime)),
+                            if (log.duration != null) _modalRow('Duration', _formatDuration(log.duration!)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Current Status', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
+                                _buildSmallStatusBadge(log.currentStatus),
+                              ],
+                            ),
+                            const Divider(height: 28),
+
+                            // 2. Telemetry Snapshot
+                            _modalSection('Telemetry Snapshot', Icons.speed),
+                            _modalRow('Peak Reading', log.peakSensorReading ?? 'N/A'),
+                            _modalRow('Threshold Limit', log.thresholdLimit ?? 'N/A'),
+                            _modalRow('Power Source', log.isMainsPower ? 'Mains (Hardwired)' : 'Battery Backup'),
+                            if (log.batteryPercentage != null) _modalRow('Battery Level', '${log.batteryPercentage}%'),
+                            const Divider(height: 28),
+
+                            // 3. Automated Responses
+                            _modalSection('Automated System Responses', Icons.precision_manufacturing),
+                            _modalRow('Relay State', log.relayTriggered == null ? 'N/A' : (log.relayTriggered! ? 'Triggered' : 'Standby'), isHighlight: log.relayTriggered == true),
+                            _modalRow('Siren State', log.sirenActivated == null ? 'N/A' : (log.sirenActivated! ? 'Activated' : 'Standby'), isHighlight: log.sirenActivated == true),
+                            const SizedBox(height: 6),
+                            Text('Network Actions:', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            if (log.networkActions.isEmpty)
+                              Text('None recorded.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontStyle: FontStyle.italic, fontSize: 13))
+                            else
+                              ...log.networkActions.map((action) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4, left: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.circle, size: 5, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: Text(action, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13))),
+                                  ],
+                                ),
+                              )),
+                            const Divider(height: 28),
+
+                            // 4. Location Details
+                            _modalSection('Location Details', Icons.location_on),
+                            _modalRow('Specific Zone', log.specificZone),
+                            const SizedBox(height: 12),
+                            // Map placeholder
+                            Container(
+                              height: 130,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.2)),
+                              ),
+                              child: Stack(
+                                children: [
+                                  Center(child: Icon(Icons.map_outlined, size: 56, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.25))),
+                                  Center(child: Text('Floorplan View\n(Map integration pending)', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.bold))),
+                                  const Positioned(top: 36, left: 90, child: Icon(Icons.location_on, color: AppColors.statusDanger, size: 30)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _modalSection(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(title.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: Theme.of(context).colorScheme.primary)),
+        ],
+      ),
+    );
+  }
+
+  Widget _modalRow(String label, String value, {bool isHighlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: isHighlight ? AppColors.statusDanger : Theme.of(context).colorScheme.onSurface,
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeviceDetailsModal(BuildContext context, String title) {
-    showGeneralDialog(
+    showDialog(
       context: context,
       barrierColor: Colors.black45, // Translucent underlying barrier
-      barrierDismissible: true,
-      barrierLabel: "Dismiss",
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
-        
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8.0 * animation.value, sigmaY: 8.0 * animation.value),
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.8, end: 1.0).animate(curve),
-            child: FadeTransition(
-              opacity: animation,
-              child: Dialog(
+      builder: (context) {
+        return TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 450), // Matches exactly the slow, smooth filter curve
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          curve: Curves.easeOutBack,
+          builder: (context, double value, child) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: Dialog(
             backgroundColor: Colors.transparent,
             insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: Container(
@@ -912,9 +1281,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 ),
               ),
             ),
-              ),
-            ),
           ),
+        ),
+      ),
+    );
+          },
         );
       },
     );
@@ -1016,15 +1387,116 @@ class _DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
-  Widget _buildDeviceBatteryRow(String location, String battery) {
+  Widget _buildDeviceBatteryRow(String location, String batteryStr) {
+    int? batteryLevel;
+    if (batteryStr.endsWith('%')) {
+      batteryLevel = int.tryParse(batteryStr.substring(0, batteryStr.length - 1));
+    }
+
+    Color batteryColor;
+    if (batteryLevel == null) {
+      batteryColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    } else if (batteryLevel >= 80) {
+      batteryColor = Colors.green[700]!; // Dark green for high battery
+    } else if (batteryLevel >= 60) {
+      batteryColor = Colors.lightGreen; // Light green for good battery
+    } else if (batteryLevel >= 40) {
+      batteryColor = Colors.amber; // Yellow for medium battery
+    } else {
+      batteryColor = Colors.red; // Red for low battery
+    }
+
+    Widget batteryIndicator;
+    bool needsCharging = batteryLevel == 0 || batteryLevel == null;
+
+    if (needsCharging) {
+      batteryIndicator = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 50,
+            height: 24,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.red.withOpacity(0.5), width: 1.5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: const Center(
+              child: _BlinkingLightningIcon(),
+            ),
+          ),
+          Container(
+            width: 3,
+            height: 10,
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.5),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(3),
+                bottomRight: Radius.circular(3),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      batteryIndicator = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 50,
+            height: 24,
+            decoration: BoxDecoration(
+              border: Border.all(color: batteryColor.withOpacity(0.5), width: 1.5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 43 * (batteryLevel / 100).clamp(0.0, 1.0),
+                    decoration: BoxDecoration(
+                      color: batteryColor.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                Text(
+                  batteryStr,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    color: batteryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 3,
+            height: 10,
+            decoration: BoxDecoration(
+              color: batteryColor.withOpacity(0.5),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(3),
+                bottomRight: Radius.circular(3),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
-        Text(
-          battery,
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
+        batteryIndicator,
       ],
     );
   }
@@ -1419,6 +1891,49 @@ class _AnimatedPulsingDotState extends State<_AnimatedPulsingDot> with SingleTic
                 spreadRadius: _glowAnimation.value / 3,
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BlinkingLightningIcon extends StatefulWidget {
+  const _BlinkingLightningIcon({Key? key}) : super(key: key);
+
+  @override
+  State<_BlinkingLightningIcon> createState() => _BlinkingLightningIconState();
+}
+
+class _BlinkingLightningIconState extends State<_BlinkingLightningIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _controller.value,
+          child: const Icon(
+            Icons.bolt,
+            color: Colors.red,
+            size: 16,
           ),
         );
       },
