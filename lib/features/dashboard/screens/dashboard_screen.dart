@@ -27,50 +27,115 @@ class _DashboardScreenState extends State<DashboardScreen>
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
-  // --- Notification State ---
-  late List<AppNotification> _notifications;
+  // --- Log State ---
+  late List<DeviceLog> _deviceLogs;
 
   @override
   void initState() {
     super.initState();
 
-    // Define the sample notifications
-    _notifications = [
-      AppNotification(
-        id: 'u1',
-        title: 'Flame Sensor - Main Entrance',
-        body: 'FIRE ALERT: Flame detected at Block A, Floor 1. Relay triggered. Evacuation protocol initiated.',
+    final now = DateTime.now();
+    _deviceLogs = [
+      // TODAY
+      DeviceLog(
+        id: 'log1',
         icon: Icons.local_fire_department,
+        title: "Flame Sensor - Main Entrance",
+        message: "Triggered - Possible fire detected. Evacuation protocol standing by.",
+        dateTime: now.subtract(const Duration(minutes: 5)),
         iconColor: AppColors.statusDanger,
-        time: DateTime.now().subtract(const Duration(minutes: 5)),
-        isUrgent: true,
+        isUnread: true,
+        sensorType: 'Flame',
+        priority: 'High',
+        currentStatus: 'Active',
+        duration: const Duration(minutes: 5),
+        peakSensorReading: 'Flame Detected (Digital HIGH)',
+        thresholdLimit: 'Any detection = trigger',
+        isMainsPower: true,
+        batteryPercentage: 82,
+        relayTriggered: true,
+        sirenActivated: true,
+        networkActions: ['SMS alert dispatched to Security Office', 'Email notification sent to admin@crowdsense.ph'],
+        specificZone: 'Block A, Floor 1, Node CS-F-001',
       ),
-      AppNotification(
-        id: 'u2',
-        title: 'Temp Sensor - Server Room',
-        body: 'CRITICAL: Temperature reached 42°C (Limit: 38°C). Cooling system engaged.',
+      DeviceLog(
+        id: 'log2',
         icon: Icons.thermostat,
+        title: "Temp Sensor - Server Room",
+        message: "High temperature detected (42°C). Cooling system engaged automatically.",
+        dateTime: now.subtract(const Duration(minutes: 20)),
         iconColor: AppColors.statusDanger,
-        time: DateTime.now().subtract(const Duration(minutes: 20)),
-        isUrgent: true,
+        isUnread: true,
+        sensorType: 'Temp',
+        priority: 'High',
+        currentStatus: 'Acknowledged',
+        duration: const Duration(minutes: 20),
+        peakSensorReading: '42°C',
+        thresholdLimit: '38°C (critical)',
+        isMainsPower: true,
+        batteryPercentage: 91,
+        relayTriggered: false,
+        sirenActivated: false,
+        networkActions: ['SMS alert dispatched to IT Department'],
+        specificZone: 'Block B, Floor 2, Node CS-T-007',
       ),
-      AppNotification(
-        id: 's1',
-        title: 'Smoke Sensor - Hallway A',
-        body: 'Smoke detected (410 ppm). Investigating — possible false positive.',
+      DeviceLog(
+        id: 'log3',
         icon: Icons.smoking_rooms,
+        title: "Smoke Sensor - Hallway A",
+        message: "Smoke detected in proximity. Investigating false positive potential.",
+        dateTime: now.subtract(const Duration(minutes: 45)),
         iconColor: AppColors.statusWarning,
-        time: DateTime.now().subtract(const Duration(minutes: 45)),
-        isUrgent: false,
+        isUnread: false,
+        sensorType: 'Smoke',
+        priority: 'Mid',
+        currentStatus: 'Resolved',
+        duration: const Duration(minutes: 12),
+        peakSensorReading: '410 ppm (analog)',
+        thresholdLimit: '300 ppm threshold',
+        isMainsPower: false,
+        batteryPercentage: 54,
+        relayTriggered: false,
+        sirenActivated: false,
+        networkActions: [],
+        specificZone: 'Block A, Floor 3, Node CS-S-003',
       ),
-      AppNotification(
-        id: 's2',
-        title: 'ToF - Parking Entrance',
-        body: 'Device offline. Connection lost to gateway. Reboot attempt in progress.',
+      DeviceLog(
+        id: 'log4',
         icon: Icons.radar,
+        title: "ToF - Parking Entrance",
+        message: "Device offline - Connection lost to gateway. Attempting automated reboot.",
+        dateTime: now.subtract(const Duration(hours: 2, minutes: 15)),
         iconColor: AppColors.statusWarning,
-        time: DateTime.now().subtract(const Duration(hours: 2)),
-        isUrgent: false,
+        isUnread: false,
+        sensorType: 'ToF',
+        priority: 'Mid',
+        currentStatus: 'Active',
+        peakSensorReading: 'N/A (Offline)',
+        thresholdLimit: 'N/A',
+        isMainsPower: false,
+        batteryPercentage: 18,
+        networkActions: ['Automated reboot command sent'],
+        specificZone: 'Parking Level 1, Node CS-P-002',
+      ),
+      DeviceLog(
+        id: 'log5',
+        icon: Icons.radar,
+        title: "ToF - Main Entrance 1",
+        message: "Crowd density threshold exceeded. 120 pax / min entering.",
+        dateTime: now.subtract(const Duration(hours: 5)),
+        iconColor: Colors.cyanAccent,
+        isUnread: false,
+        sensorType: 'ToF',
+        priority: 'High',
+        currentStatus: 'Resolved',
+        duration: const Duration(minutes: 38),
+        peakSensorReading: '120 pax/min',
+        thresholdLimit: '80 pax/min',
+        isMainsPower: true,
+        batteryPercentage: 95,
+        networkActions: ['SMS alert dispatched to Security Office'],
+        specificZone: 'Main Gate, Floor 1, Node CS-C-001',
       ),
     ];
 
@@ -97,6 +162,23 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // Derived computed properties
+  List<AppNotification> get _notifications {
+    return _deviceLogs.where((log) => log.isUnread || log.currentStatus == 'Active' || log.currentStatus == 'Acknowledged').map((log) {
+      final isUrgent = log.priority == 'High';
+      return AppNotification(
+        id: log.id,
+        title: log.title,
+        body: log.message,
+        icon: log.icon,
+        iconColor: log.iconColor,
+        time: log.dateTime,
+        isUrgent: isUrgent,
+        isRead: !log.isUnread,
+        isResolved: log.currentStatus == 'Resolved',
+      );
+    }).toList();
+  }
+
   bool get _hasUrgentNotification =>
       _notifications.any((n) => n.isUrgent && !n.isResolved);
 
@@ -105,21 +187,45 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _markAsRead(String id) {
     setState(() {
-      final index = _notifications.indexWhere((n) => n.id == id);
+      final index = _deviceLogs.indexWhere((log) => log.id == id);
       if (index != -1) {
-        _notifications[index].isRead = true;
+        _deviceLogs[index].isUnread = false;
       }
     });
   }
 
   void _resolveUrgent(String id) {
     setState(() {
-      final index = _notifications.indexWhere((n) => n.id == id);
+      final index = _deviceLogs.indexWhere((log) => log.id == id);
       if (index != -1) {
-        _notifications[index].isResolved = true;
+        _deviceLogs[index].currentStatus = 'Resolved';
       }
     });
   }
+
+  void _handleNotificationTap(String id) {
+    _markAsRead(id);
+    _resolveUrgent(id);
+    
+    setState(() {
+      _currentIndex = 2; // Navigate to Devices tab
+      _showNotificationsPanel = false;
+      _highlightedLogId = id; // Set the highlighted log ID
+    });
+
+    // Clear highlight after a short delay
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          if (_highlightedLogId == id) {
+            _highlightedLogId = null;
+          }
+        });
+      }
+    });
+  }
+
+  String? _highlightedLogId;
 
   // --- Device data ---
   final List<Map<String, dynamic>> _deviceData = [
@@ -346,7 +452,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ],
                   ),
                   const AnalyticsScreen(),
-                  const DevicesScreen(),
+                  DevicesScreen(logs: _deviceLogs, highlightedLogId: _highlightedLogId),
                   const SettingsScreen(),
                 ][_currentIndex],
               ),
@@ -370,6 +476,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     setState(() => _showNotificationsPanel = false);
                   }
                 },
+                onNotificationTap: _handleNotificationTap,
                 onResolveUrgent: (id) => _resolveUrgent(id),
               ),
             ),

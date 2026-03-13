@@ -6,16 +6,17 @@ import '../../../../core/widgets/page_title.dart';
 import '../widgets/device_management_modal.dart';
 
 class DeviceLog {
+  final String id;
   final IconData icon;
   final String title;
   final String message;
   final DateTime dateTime;
   final Color iconColor;
-  final bool isUnread;
+  bool isUnread;
   final String sensorType; // 'ToF', 'Flame', 'Smoke', 'Temp'
   final String priority; // 'High', 'Mid', 'Low'
   // New detailed fields
-  final String currentStatus; // 'Active', 'Acknowledged', 'Resolved', 'False Alarm'
+  String currentStatus; // 'Active', 'Acknowledged', 'Resolved', 'False Alarm'
   final Duration? duration;
   final String? peakSensorReading;
   final String? thresholdLimit;
@@ -27,6 +28,7 @@ class DeviceLog {
   final String specificZone;
 
   DeviceLog({
+    required this.id,
     required this.icon,
     required this.title,
     required this.message,
@@ -49,7 +51,10 @@ class DeviceLog {
 }
 
 class DevicesScreen extends StatefulWidget {
-  const DevicesScreen({super.key});
+  final List<DeviceLog> logs;
+  final String? highlightedLogId;
+
+  const DevicesScreen({super.key, required this.logs, this.highlightedLogId});
 
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
@@ -60,239 +65,6 @@ class _DevicesScreenState extends State<DevicesScreen> {
   DateTime? selectedFilterDate;
   List<String> selectedSensorTypes = [];
   List<String> selectedPriorities = [];
-  
-  // Dummy Data (Matching the original hardcoded logs)
-  List<DeviceLog> get allLogs {
-    final now = DateTime.now();
-    
-    return [
-      // TODAY
-      DeviceLog(
-        icon: Icons.local_fire_department,
-        title: "Flame Sensor - Main Entrance",
-        message: "Triggered - Possible fire detected. Evacuation protocol standing by.",
-        dateTime: now.subtract(const Duration(minutes: 5)),
-        iconColor: AppColors.statusDanger,
-        isUnread: true,
-        sensorType: 'Flame',
-        priority: 'High',
-        currentStatus: 'Active',
-        duration: const Duration(minutes: 5),
-        peakSensorReading: 'Flame Detected (Digital HIGH)',
-        thresholdLimit: 'Any detection = trigger',
-        isMainsPower: true,
-        batteryPercentage: 82,
-        relayTriggered: true,
-        sirenActivated: true,
-        networkActions: ['SMS alert dispatched to Security Office', 'Email notification sent to admin@crowdsense.ph'],
-        specificZone: 'Block A, Floor 1, Node CS-F-001',
-      ),
-      DeviceLog(
-        icon: Icons.thermostat,
-        title: "Temp Sensor - Server Room",
-        message: "High temperature detected (42°C). Cooling system engaged automatically.",
-        dateTime: now.subtract(const Duration(minutes: 20)),
-        iconColor: AppColors.statusDanger,
-        isUnread: true,
-        sensorType: 'Temp',
-        priority: 'High',
-        currentStatus: 'Acknowledged',
-        duration: const Duration(minutes: 20),
-        peakSensorReading: '42°C',
-        thresholdLimit: '38°C (critical)',
-        isMainsPower: true,
-        batteryPercentage: 91,
-        relayTriggered: false,
-        sirenActivated: false,
-        networkActions: ['SMS alert dispatched to IT Department'],
-        specificZone: 'Block B, Floor 2, Node CS-T-007',
-      ),
-      DeviceLog(
-        icon: Icons.smoking_rooms,
-        title: "Smoke Sensor - Hallway A",
-        message: "Smoke detected in proximity. Investigating false positive potential.",
-        dateTime: now.subtract(const Duration(minutes: 45)),
-        iconColor: AppColors.statusWarning,
-        isUnread: false,
-        sensorType: 'Smoke',
-        priority: 'Mid',
-        currentStatus: 'Resolved',
-        duration: const Duration(minutes: 12),
-        peakSensorReading: '410 ppm (analog)',
-        thresholdLimit: '300 ppm threshold',
-        isMainsPower: false,
-        batteryPercentage: 54,
-        relayTriggered: false,
-        sirenActivated: false,
-        networkActions: [],
-        specificZone: 'Block A, Floor 3, Node CS-S-003',
-      ),
-      DeviceLog(
-        icon: Icons.radar,
-        title: "ToF - Parking Entrance",
-        message: "Device offline - Connection lost to gateway. Attempting automated reboot.",
-        dateTime: now.subtract(const Duration(hours: 2, minutes: 15)),
-        iconColor: AppColors.statusWarning,
-        isUnread: false,
-        sensorType: 'ToF',
-        priority: 'Mid',
-        currentStatus: 'Active',
-        peakSensorReading: 'N/A (Offline)',
-        thresholdLimit: 'N/A',
-        isMainsPower: false,
-        batteryPercentage: 18,
-        networkActions: ['Automated reboot command sent'],
-        specificZone: 'Parking Level 1, Node CS-P-002',
-      ),
-      DeviceLog(
-        icon: Icons.radar,
-        title: "ToF - Main Entrance 1",
-        message: "Crowd density threshold exceeded. 120 pax / min entering.",
-        dateTime: now.subtract(const Duration(hours: 5)),
-        iconColor: Colors.cyanAccent,
-        isUnread: false,
-        sensorType: 'ToF',
-        priority: 'High',
-        currentStatus: 'Resolved',
-        duration: const Duration(minutes: 38),
-        peakSensorReading: '120 pax/min',
-        thresholdLimit: '80 pax/min',
-        isMainsPower: true,
-        batteryPercentage: 95,
-        networkActions: ['SMS alert dispatched to Security Office'],
-        specificZone: 'Main Gate, Floor 1, Node CS-C-001',
-      ),
-
-      // YESTERDAY
-      DeviceLog(
-        icon: Icons.local_fire_department,
-        title: "Flame Sensor - Kitchen",
-        message: "Routine self-diagnostic completed. All systems functional.",
-        dateTime: now.subtract(const Duration(days: 1, hours: 2)),
-        iconColor: AppColors.statusSafe,
-        isUnread: false,
-        sensorType: 'Flame',
-        priority: 'Low',
-        currentStatus: 'Resolved',
-        peakSensorReading: 'No flame (digital LOW)',
-        thresholdLimit: 'Any detection = trigger',
-        isMainsPower: true,
-        batteryPercentage: 78,
-        networkActions: [],
-        specificZone: 'Block C, Floor 1, Node CS-F-004',
-      ),
-      DeviceLog(
-        icon: Icons.radar,
-        title: "ToF - Central Stairs",
-        message: "Heavy traffic detected. 45 pax / min exiting.",
-        dateTime: now.subtract(const Duration(days: 1, hours: 6)),
-        iconColor: Colors.cyanAccent,
-        isUnread: false,
-        sensorType: 'ToF',
-        priority: 'Low',
-        currentStatus: 'Resolved',
-        duration: const Duration(minutes: 15),
-        peakSensorReading: '45 pax/min',
-        thresholdLimit: '80 pax/min',
-        isMainsPower: true,
-        batteryPercentage: 88,
-        networkActions: [],
-        specificZone: 'Central Stairwell, Floor 2, Node CS-C-003',
-      ),
-      DeviceLog(
-        icon: Icons.thermostat,
-        title: "Temp Sensor - Room 302",
-        message: "Temperature anomaly detected (32°C). HVAC adjusted.",
-        dateTime: now.subtract(const Duration(days: 1, hours: 10)),
-        iconColor: AppColors.statusWarning,
-        isUnread: false,
-        sensorType: 'Temp',
-        priority: 'Mid',
-        currentStatus: 'Resolved',
-        duration: const Duration(minutes: 8),
-        peakSensorReading: '32°C',
-        thresholdLimit: '30°C (warning)',
-        isMainsPower: true,
-        batteryPercentage: 67,
-        networkActions: [],
-        specificZone: 'Block B, Floor 3, Node CS-T-009',
-      ),
-      DeviceLog(
-        icon: Icons.radar,
-        title: "ToF - Parking Side",
-        message: "Device rebooted successfully. Connection restored.",
-        dateTime: now.subtract(const Duration(days: 1, hours: 14)),
-        iconColor: AppColors.statusSafe,
-        isUnread: false,
-        sensorType: 'ToF',
-        priority: 'Low',
-        currentStatus: 'Resolved',
-        peakSensorReading: 'N/A (Reboot event)',
-        thresholdLimit: 'N/A',
-        isMainsPower: false,
-        batteryPercentage: 43,
-        networkActions: [],
-        specificZone: 'Parking Level 1, Node CS-P-004',
-      ),
-
-      // TWO DAYS AGO
-      DeviceLog(
-        icon: Icons.smoking_rooms,
-        title: "Smoke Sensor - Bathroom B",
-        message: "Vaping detected. Alert sent to local administration.",
-        dateTime: now.subtract(const Duration(days: 2, hours: 4)),
-        iconColor: AppColors.statusDanger,
-        isUnread: false,
-        sensorType: 'Smoke',
-        priority: 'High',
-        currentStatus: 'Resolved',
-        duration: const Duration(minutes: 25),
-        peakSensorReading: '520 ppm (analog)',
-        thresholdLimit: '300 ppm threshold',
-        isMainsPower: true,
-        batteryPercentage: 72,
-        relayTriggered: true,
-        sirenActivated: false,
-        networkActions: ['SMS alert dispatched to Administration Office', 'Incident report created'],
-        specificZone: 'Block A, Floor 2, Node CS-S-005',
-      ),
-      DeviceLog(
-        icon: Icons.thermostat,
-        title: "Temp Sensor - Main Lobby",
-        message: "Routine self-diagnostic completed. All systems functional.",
-        dateTime: now.subtract(const Duration(days: 2, hours: 8)),
-        iconColor: AppColors.statusSafe,
-        isUnread: false,
-        sensorType: 'Temp',
-        priority: 'Low',
-        currentStatus: 'Resolved',
-        peakSensorReading: '26°C',
-        thresholdLimit: '38°C (critical)',
-        isMainsPower: true,
-        batteryPercentage: 99,
-        networkActions: [],
-        specificZone: 'Block A, Floor 1, Node CS-T-001',
-      ),
-      DeviceLog(
-        icon: Icons.radar,
-        title: "ToF - Main Entrance 2",
-        message: "Firmware update applied. System running version v3.14.",
-        dateTime: now.subtract(const Duration(days: 2, hours: 18)),
-        iconColor: Colors.cyanAccent,
-        isUnread: false,
-        sensorType: 'ToF',
-        priority: 'Low',
-        currentStatus: 'Resolved',
-        peakSensorReading: 'N/A (Firmware update)',
-        thresholdLimit: 'N/A',
-        isMainsPower: true,
-        batteryPercentage: 85,
-        networkActions: [],
-        specificZone: 'Main Gate, Floor 1, Node CS-C-002',
-      ),
-    ];
-  }
-
   @override
   void initState() {
     super.initState();
@@ -708,7 +480,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
  
   List<Widget> _buildFilteredLogWidgets() {
     // 1. Filter Logs
-    List<DeviceLog> filteredLogs = allLogs.where((log) {
+    List<DeviceLog> filteredLogs = widget.logs.where((log) {
       bool matchesDate = true;
       if (selectedFilterDate != null) {
         matchesDate = log.dateTime.year == selectedFilterDate!.year &&
@@ -793,13 +565,29 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
 
   Widget _buildLogItem(DeviceLog log) {
-    return Container(
+    final isHighlighted = widget.highlightedLogId == log.id;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: isHighlighted 
+            ? log.iconColor.withOpacity(0.15) 
+            : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        boxShadow: [
+        border: Border.all(
+          color: isHighlighted 
+              ? log.iconColor.withOpacity(0.8) 
+              : (Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          width: isHighlighted ? 2.0 : 1.0,
+        ),
+        boxShadow: isHighlighted ? [
+          BoxShadow(
+            color: log.iconColor.withOpacity(0.4),
+            blurRadius: 16,
+            spreadRadius: 2,
+          ),
+        ] : [
           BoxShadow(
             color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
             blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
@@ -822,9 +610,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
                     color: log.iconColor,
                     boxShadow: [
                       BoxShadow(
-                        color: log.iconColor.withOpacity(0.4),
-                        blurRadius: 4,
-                        spreadRadius: 1,
+                        color: log.iconColor.withOpacity(isHighlighted ? 0.8 : 0.4),
+                        blurRadius: isHighlighted ? 8 : 4,
+                        spreadRadius: isHighlighted ? 2 : 1,
                       ),
                     ],
                   ),

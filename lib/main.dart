@@ -62,8 +62,6 @@ class CrowdSenseApp extends StatelessWidget {
             '/login': (context) => const LoginScreen(),
             '/signup': (context) => const SignupScreen(),
             '/dashboard': (context) => const DashboardScreen(),
-            '/analytics': (context) => const AnalyticsScreen(),
-            '/devices': (context) => const DevicesScreen(),
           },
         );
       },
