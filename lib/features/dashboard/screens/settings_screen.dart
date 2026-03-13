@@ -108,7 +108,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/login',
+                    (route) => false,
+                  );
+                },
                 icon: const Icon(Icons.logout, color: AppColors.statusDanger),
                 label: const Text(
                   "Log Out",
