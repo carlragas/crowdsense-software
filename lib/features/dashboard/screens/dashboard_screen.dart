@@ -23,7 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 0;
+  int _currentIndex = 2;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
@@ -208,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _resolveUrgent(id);
 
     setState(() {
-      _currentIndex = 2; // Navigate to Devices tab
+      _currentIndex = 3; // Navigate to Devices tab
       _showNotificationsPanel = false;
       _highlightedLogId = id;
       _highlightedItemKey = GlobalKey(); // Fresh key each tap
@@ -340,7 +340,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 if (value == 'account') {
                   // Static for now
                 } else if (value == 'settings') {
-                  setState(() => _currentIndex = 3);
+                  setState(() => _currentIndex = 4);
                 } else if (value == 'logout') {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
@@ -430,6 +430,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                     20,
                     100),
                 child: [
+                  // Index 0: Home / Overview
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.home_outlined, size: 60, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+                        Text('Home Page Coming Soon', style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  // Index 1: Analytics
+                  const AnalyticsScreen(),
+                  // Index 2 (Center): Dashboard Content
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -472,13 +486,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _buildCrowdCountList(),
                     ],
                   ),
-                  const AnalyticsScreen(),
+                  // Index 3: Devices
                   DevicesScreen(
                     logs: _deviceLogs,
                     highlightedLogId: _highlightedLogId,
                     highlightedItemKey: _highlightedItemKey,
                     parentScrollController: _scrollController,
                   ),
+                  // Index 4: Settings
                   const SettingsScreen(),
                 ][_currentIndex],
               ),
@@ -511,29 +526,105 @@ class _DashboardScreenState extends State<DashboardScreen>
       bottomNavigationBar: AnimatedSlide(
         duration: const Duration(milliseconds: 300),
         offset: _isBottomNavVisible ? Offset.zero : const Offset(0, 1.5),
-        child: BottomNavigationBar(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          currentIndex: _currentIndex,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-              _showNotificationsPanel = false; // close panel on nav
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard_rounded), label: "Dashboard"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.analytics_outlined), label: "Analytics"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.devices_other), label: "Devices"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.settings_outlined), label: "Settings"),
+        child: Container(
+          height: 85,
+          margin: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.white.withOpacity(0.05) 
+                  : Colors.black.withOpacity(0.04),
+              width: 1,
+            )
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavIcon(Icons.home_outlined, 0),
+              _buildNavIcon(Icons.analytics_outlined, 1),
+              _buildCenterButton(), // Center button (Index 2)
+              _buildNavIcon(Icons.devices_other, 3), // Devices
+              _buildNavIcon(Icons.settings_outlined, 4), // Settings
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavIcon(IconData icon, int index) {
+    final isSelected = _currentIndex == index;
+    final color = isSelected 
+        ? Theme.of(context).colorScheme.primary 
+        : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5);
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+          _showNotificationsPanel = false;
+        });
+      },
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          transform: isSelected ? Matrix4.identity().scaled(1.1) : Matrix4.identity(),
+          child: Icon(
+            icon,
+            color: color,
+            size: 26,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterButton() {
+    final isSelected = _currentIndex == 2;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = 2;
+          _showNotificationsPanel = false;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: isSelected 
+              ? [const Color(0xFFE91E63), const Color(0xFF1E88E5)] // Pink/Red to Blue gradient
+              : [const Color(0xFFD81B60), const Color(0xFF1976D2)], // Slightly darker gradient when not selected
+            begin: Alignment.bottomLeft,
+            end: Alignment.topRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1E88E5).withOpacity(0.4),
+              blurRadius: isSelected ? 15 : 8,
+              offset: const Offset(0, 4),
+            )
           ],
+        ),
+        child: const Icon(
+          Icons.dashboard_rounded, // Reverted to the original Dashboard icon
+          color: Colors.white,
+          size: 28,
         ),
       ),
     );
