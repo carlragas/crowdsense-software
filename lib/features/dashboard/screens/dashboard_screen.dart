@@ -236,6 +236,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   ];
   String _selectedLocation = "Main Entrance";
 
+  // Computed total across all sensors
+  int get _totalEntries => _deviceData.fold(0, (sum, d) => sum + (d['entries'] as int));
+  int get _totalExits => _deviceData.fold(0, (sum, d) => sum + (d['exits'] as int));
+  int get _totalPeopleInside => (_totalEntries - _totalExits).clamp(0, 99999);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -413,7 +418,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const PageTitle(title: "Dashboard"),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      _buildTotalTallyCard(),
+                      const SizedBox(height: 12),
                       Builder(builder: (context) {
                         final int realIndex = _deviceData.indexWhere(
                             (data) => data['location'] == _selectedLocation);
@@ -445,10 +452,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           },
                         );
                       }),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildCrowdCountList(),
-                      const SizedBox(height: 16),
-                      _buildQuickAccessButtons(context),
                     ],
                   ),
                   const AnalyticsScreen(),
@@ -509,6 +514,157 @@ class _DashboardScreenState extends State<DashboardScreen>
                 icon: Icon(Icons.settings_outlined), label: "Settings"),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTotalTallyCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final total = _totalPeopleInside;
+    const liveColor = Color(0xFF00C853);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.07)
+              : Colors.black.withOpacity(0.06),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left: icon + label
+          Icon(Icons.groups_rounded, color: colorScheme.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Total Inside Building',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          // Center: entries
+          _buildCompactStat(
+            icon: Icons.login_rounded,
+            value: _totalEntries,
+            color: const Color(0xFF00C853),
+          ),
+          const SizedBox(width: 12),
+          // Center: exits
+          _buildCompactStat(
+            icon: Icons.logout_rounded,
+            value: _totalExits,
+            color: const Color(0xFFFF5252),
+          ),
+          const SizedBox(width: 16),
+          // Right: big count
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$total',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: colorScheme.primary,
+                  height: 1.0,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _PulsingDot(color: liveColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Live',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactStat({required IconData icon, required int value, required Color color}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 4),
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTallyStatChip({
+    required IconData icon,
+    required String label,
+    required int value,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: color.withOpacity(0.8),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -621,160 +777,55 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
-
-  Widget _buildQuickAccessButtons(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildQuickAccessCard(
-            context,
-            title: "Analytics",
-            icon: Icons.analytics_outlined,
-            color: AppColors.primaryBlue,
-            onTap: () => setState(() => _currentIndex = 1),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildQuickAccessCard(
-            context,
-            title: "Devices",
-            icon: Icons.devices_other,
-            color: AppColors.statusWarning,
-            onTap: () => setState(() => _currentIndex = 2),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickAccessCard(BuildContext context,
-      {required String title,
-      required IconData icon,
-      required Color color,
-      required VoidCallback onTap}) {
-    return _BouncingCard(
-      title: title,
-      icon: icon,
-      color: color,
-      onTap: onTap,
-    );
-  }
 }
 
-class _BouncingCard extends StatefulWidget {
-  final VoidCallback onTap;
-  final String title;
-  final IconData icon;
+class _PulsingDot extends StatefulWidget {
   final Color color;
-
-  const _BouncingCard({
-    required this.onTap,
-    required this.title,
-    required this.icon,
-    required this.color,
-  });
+  const _PulsingDot({required this.color});
 
   @override
-  State<_BouncingCard> createState() => _BouncingCardState();
+  State<_PulsingDot> createState() => _PulsingDotState();
 }
 
-class _BouncingCardState extends State<_BouncingCard>
+class _PulsingDotState extends State<_PulsingDot>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  bool _isPressed = false;
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _isPressed = true);
-        _controller.forward();
-      },
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        _controller.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () {
-        setState(() => _isPressed = false);
-        _controller.reverse();
-      },
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: _isPressed
-                ? colorScheme.surface.withOpacity(0.6)
-                : colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.05)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(widget.icon, color: widget.color, size: 28),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                widget.title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "View details",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.8),
-                ),
-              ),
-            ],
-          ),
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) => Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.color.withOpacity(_anim.value),
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(_anim.value * 0.6),
+              blurRadius: 6,
+              spreadRadius: 1,
+            ),
+          ],
         ),
       ),
     );
