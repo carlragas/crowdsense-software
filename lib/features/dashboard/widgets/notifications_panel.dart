@@ -32,6 +32,7 @@ class NotificationsPanel extends StatefulWidget {
   final VoidCallback onClose;
   final Function(String id) onMarkAsRead;
   final Function(String id) onResolveUrgent;
+  final Function(String id)? onNotificationTap;
 
   const NotificationsPanel({
     super.key,
@@ -39,6 +40,7 @@ class NotificationsPanel extends StatefulWidget {
     required this.onClose,
     required this.onMarkAsRead,
     required this.onResolveUrgent,
+    this.onNotificationTap,
   });
 
   @override
@@ -212,7 +214,13 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                                         ...urgent.map((n) => _NotificationTile(
                                               notification: n,
                                               timeAgo: _timeAgo(n.time),
-                                              onTap: () => widget.onMarkAsRead(n.id),
+                                              onTap: () {
+                                                if (widget.onNotificationTap != null) {
+                                                  widget.onNotificationTap!(n.id);
+                                                } else {
+                                                  widget.onMarkAsRead(n.id);
+                                                }
+                                              },
                                               onResolve: () => widget.onResolveUrgent(n.id),
                                               isUrgent: true,
                                             )),
@@ -225,7 +233,13 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                                         ...standard.map((n) => _NotificationTile(
                                               notification: n,
                                               timeAgo: _timeAgo(n.time),
-                                              onTap: () => widget.onMarkAsRead(n.id),
+                                              onTap: () {
+                                                if (widget.onNotificationTap != null) {
+                                                  widget.onNotificationTap!(n.id);
+                                                } else {
+                                                  widget.onMarkAsRead(n.id);
+                                                }
+                                              },
                                               onResolve: null,
                                               isUrgent: false,
                                             )),
