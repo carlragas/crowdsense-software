@@ -21,7 +21,9 @@ class LoginScreen extends StatelessWidget {
       body: GeometricBackground(
         child: SingleChildScrollView(
           child: Container(
-            height: MediaQuery.of(context).size.height,
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height,
+            ),
             color: Colors.transparent, // Let background shine through
             child: SafeArea(
               child: Padding(
@@ -189,32 +191,6 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
-                  
-                  withFadeInUp(
-                    delay: const Duration(milliseconds: 200),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          "Don't have an account? ",
-                          style: TextStyle(color: AppColors.textGrey),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/signup');
-                          },
-                          child: const Text(
-                            "Create Account",
-                            style: TextStyle(
-                              color: AppColors.primaryBlue,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
