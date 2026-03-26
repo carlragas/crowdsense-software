@@ -23,7 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 0;
+  int _currentIndex = 2;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
@@ -430,7 +430,44 @@ class _DashboardScreenState extends State<DashboardScreen>
                     20,
                     100),
                 child: [
-                  // Index 0: Dashboard Content
+                  // Index 0: Devices
+                  DevicesScreen(
+                    logs: _deviceLogs,
+                    highlightedLogId: _highlightedLogId,
+                    highlightedItemKey: _highlightedItemKey,
+                    parentScrollController: _scrollController,
+                  ),
+                  // Index 1: Alerts (Manual Alarm Controllers)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const PageTitle(title: "Alerts & Manual Control"),
+                      const SizedBox(height: 24),
+                      Text("Emergency Overrides", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Fire / Evacuation Siren",
+                        subtitle: "Trigger all building sirens immediately",
+                        icon: Icons.campaign_rounded,
+                        color: AppColors.statusDanger,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Warning Chime",
+                        subtitle: "Broadcast a pre-warning alert across all zones",
+                        icon: Icons.notifications_active_rounded,
+                        color: AppColors.statusWarning,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Reset All Alarms",
+                        subtitle: "Cancel all active sirens and visual alerts",
+                        icon: Icons.refresh_rounded,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ],
+                  ),
+                  // Index 2 (Center): Dashboard Content
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -473,45 +510,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _buildCrowdCountList(),
                     ],
                   ),
-                  // Index 1: Analytics
+                  // Index 3: Trends (Analytics)
                   const AnalyticsScreen(),
-                  // Index 2 (Center): Manual Alarm Controllers
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const PageTitle(title: "Manual Control"),
-                      const SizedBox(height: 24),
-                      Text("Emergency Overrides", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                      const SizedBox(height: 16),
-                      _buildAlarmControlCard(
-                        title: "Fire / Evacuation Siren",
-                        subtitle: "Trigger all building sirens immediately",
-                        icon: Icons.campaign_rounded,
-                        color: AppColors.statusDanger,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAlarmControlCard(
-                        title: "Warning Chime",
-                        subtitle: "Broadcast a pre-warning alert across all zones",
-                        icon: Icons.notifications_active_rounded,
-                        color: AppColors.statusWarning,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAlarmControlCard(
-                        title: "Reset All Alarms",
-                        subtitle: "Cancel all active sirens and visual alerts",
-                        icon: Icons.refresh_rounded,
-                        color: AppColors.primaryBlue,
-                      ),
-                    ],
-                  ),
-                  // Index 3: Devices
-                  DevicesScreen(
-                    logs: _deviceLogs,
-                    highlightedLogId: _highlightedLogId,
-                    highlightedItemKey: _highlightedItemKey,
-                    parentScrollController: _scrollController,
-                  ),
                   // Index 4: Settings
                   const SettingsScreen(),
                 ][_currentIndex],
@@ -546,33 +546,83 @@ class _DashboardScreenState extends State<DashboardScreen>
         duration: const Duration(milliseconds: 300),
         offset: _isBottomNavVisible ? Offset.zero : const Offset(0, 1.5),
         child: Container(
-          height: 85,
+          height: 90,
           margin: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              )
-            ],
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark 
-                  ? Colors.white.withOpacity(0.05) 
-                  : Colors.black.withOpacity(0.04),
-              width: 1,
-            )
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              _buildNavIcon(Icons.dashboard_outlined, 0),
-              _buildNavIcon(Icons.analytics_outlined, 1),
-              _buildCenterButton(), // Center button (Index 2)
-              _buildNavIcon(Icons.devices_other, 3), // Devices
-              _buildNavIcon(Icons.settings_outlined, 4), // Settings
+              CustomPaint(
+                size: Size(MediaQuery.of(context).size.width - 32, 90),
+                painter: _NavBarPainter(context),
+              ),
+              Positioned.fill(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(icon: Icons.warning_amber_rounded, label: "Devices", index: 0),
+                    _buildNavItem(icon: Icons.notifications_none, label: "Alerts", index: 1),
+                    SizedBox(
+                      width: 80, 
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const SizedBox(height: 50),
+                          Text(
+                            "Dashboard", 
+                            style: TextStyle(
+                              fontSize: 11, 
+                              fontWeight: FontWeight.w800, 
+                              color: _currentIndex == 2 ? const Color(0xFFE53935) : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
+                    ),
+                    _buildNavItem(icon: Icons.show_chart_rounded, label: "Trends", index: 3),
+                    _buildNavItem(icon: Icons.settings_outlined, label: "Settings", index: 4),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: -10,
+                left: MediaQuery.of(context).size.width / 2 - 16 - 32, // Parent is margin 16 left -> Center visually
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
+                  },
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      gradient: const RadialGradient(
+                        colors: [Colors.white, Color(0xFFFFCDD2)],
+                        center: Alignment(0, -0.2),
+                        radius: 0.9,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFD50000).withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.home_rounded,
+                      color: Color(0xFFD50000), // Solid red icon
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -580,11 +630,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildNavIcon(IconData icon, int index) {
+  Widget _buildNavItem({required IconData icon, required String label, required int index}) {
     final isSelected = _currentIndex == index;
-    final color = isSelected 
-        ? Theme.of(context).colorScheme.primary 
-        : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5);
+    final color = isSelected ? const Color(0xFFE53935) : Colors.grey.withOpacity(0.9);
 
     return GestureDetector(
       onTap: () {
@@ -594,56 +642,27 @@ class _DashboardScreenState extends State<DashboardScreen>
         });
       },
       behavior: HitTestBehavior.translucent,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          transform: isSelected ? Matrix4.identity().scaled(1.1) : Matrix4.identity(),
-          child: Icon(
-            icon,
-            color: color,
-            size: 26,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCenterButton() {
-    final isSelected = _currentIndex == 2;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentIndex = 2;
-          _showNotificationsPanel = false;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            colors: isSelected 
-              ? [const Color(0xFFFF5252), const Color(0xFFD50000)] // Bright Red gradient
-              : [const Color(0xFFE53935), const Color(0xFFB71C1C)], // Darker Red gradient
-            begin: Alignment.bottomLeft,
-            end: Alignment.topRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF5252).withOpacity(0.5),
-              blurRadius: isSelected ? 20 : 10,
-              offset: const Offset(0, 4),
-            )
+      child: SizedBox(
+        width: 65,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 8),
+            AnimatedScale(
+              scale: isSelected ? 1.15 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(icon, color: color, size: 26),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
           ],
-        ),
-        child: const Icon(
-          Icons.campaign_rounded, // Alarm icon for the center button
-          color: Colors.white,
-          size: 28,
         ),
       ),
     );
@@ -1121,4 +1140,79 @@ class _PulsingDotState extends State<_PulsingDot>
       ),
     );
   }
+}
+
+class _NavBarPainter extends CustomPainter {
+  final BuildContext context;
+  _NavBarPainter(this.context);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final paint = Paint()
+      ..color = isDark ? const Color(0xFF1E1E1E) : Colors.white
+      ..style = PaintingStyle.fill;
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(isDark ? 0.3 : 0.08)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+
+    final path = Path();
+    final double w = size.width;
+    final double h = size.height;
+    
+    // Notch dimensions
+    final double notchRadius = 38.0;
+    final double notchDepth = 30.0;
+    final double center = w / 2;
+
+    path.moveTo(0, 24); // Top left radius
+    path.quadraticBezierTo(0, 0, 24, 0);
+
+    // Left line to notch
+    path.lineTo(center - notchRadius - 15, 0);
+    
+    // Notch curve (Bezier that mimics a concave well)
+    path.cubicTo(
+      center - notchRadius + 5, 0, 
+      center - notchRadius + 8, notchDepth, 
+      center, notchDepth,
+    );
+    path.cubicTo(
+      center + notchRadius - 8, notchDepth, 
+      center + notchRadius - 5, 0, 
+      center + notchRadius + 15, 0,
+    );
+
+    // Right line & top right radius
+    path.lineTo(w - 24, 0);
+    path.quadraticBezierTo(w, 0, w, 24);
+
+    // Bottom right radius
+    path.lineTo(w, h - 24);
+    path.quadraticBezierTo(w, h, w - 24, h);
+
+    // Bottom left radius
+    path.lineTo(24, h);
+    path.quadraticBezierTo(0, h, 0, h - 24);
+    path.close();
+
+    // Draw shadow then shape
+    canvas.drawPath(path, shadowPaint);
+    canvas.drawPath(path, paint);
+
+    // Subtle inner border for dark themes
+    if (isDark) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.white.withOpacity(0.06)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
