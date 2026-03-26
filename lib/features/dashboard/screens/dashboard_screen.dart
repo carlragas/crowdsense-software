@@ -23,7 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 2;
+  int _currentIndex = 0;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
@@ -208,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _resolveUrgent(id);
 
     setState(() {
-      _currentIndex = 3; // Navigate to Devices tab
+      _currentIndex = 1; // Navigate to Devices tab
       _showNotificationsPanel = false;
       _highlightedLogId = id;
       _highlightedItemKey = GlobalKey(); // Fresh key each tap
@@ -265,14 +265,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
               'assets/images/crowdsense_logo.png',
               height: 32,
               width: 32,
             ),
-            const SizedBox(width: 12),
-            const Text("CrowdSense"),
+            const SizedBox(width: 8),
+            const Flexible(
+              child: Text(
+                "CrowdSense",
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         backgroundColor: _isScrolled
@@ -430,44 +436,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     20,
                     100),
                 child: [
-                  // Index 0: Devices
-                  DevicesScreen(
-                    logs: _deviceLogs,
-                    highlightedLogId: _highlightedLogId,
-                    highlightedItemKey: _highlightedItemKey,
-                    parentScrollController: _scrollController,
-                  ),
-                  // Index 1: Alerts (Manual Alarm Controllers)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const PageTitle(title: "Alerts & Manual Control"),
-                      const SizedBox(height: 24),
-                      Text("Emergency Overrides", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                      const SizedBox(height: 16),
-                      _buildAlarmControlCard(
-                        title: "Fire / Evacuation Siren",
-                        subtitle: "Trigger all building sirens immediately",
-                        icon: Icons.campaign_rounded,
-                        color: AppColors.statusDanger,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAlarmControlCard(
-                        title: "Warning Chime",
-                        subtitle: "Broadcast a pre-warning alert across all zones",
-                        icon: Icons.notifications_active_rounded,
-                        color: AppColors.statusWarning,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAlarmControlCard(
-                        title: "Reset All Alarms",
-                        subtitle: "Cancel all active sirens and visual alerts",
-                        icon: Icons.refresh_rounded,
-                        color: AppColors.primaryBlue,
-                      ),
-                    ],
-                  ),
-                  // Index 2 (Center): Dashboard Content
+                  // Index 0: Dashboard Content
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -510,7 +479,44 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _buildCrowdCountList(),
                     ],
                   ),
-                  // Index 3: Trends (Analytics)
+                  // Index 1: Devices
+                  DevicesScreen(
+                    logs: _deviceLogs,
+                    highlightedLogId: _highlightedLogId,
+                    highlightedItemKey: _highlightedItemKey,
+                    parentScrollController: _scrollController,
+                  ),
+                  // Index 2 (Center): Alerts & Manual Siren Control
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const PageTitle(title: "Override Siren"),
+                      const SizedBox(height: 24),
+                      Text("Emergency Overrides", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Fire / Evacuation Siren",
+                        subtitle: "Trigger all building sirens immediately",
+                        icon: Icons.campaign_rounded,
+                        color: AppColors.statusDanger,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Warning Chime",
+                        subtitle: "Broadcast a pre-warning alert across all zones",
+                        icon: Icons.notifications_active_rounded,
+                        color: AppColors.statusWarning,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Reset All Alarms",
+                        subtitle: "Cancel all active sirens and visual alerts",
+                        icon: Icons.refresh_rounded,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ],
+                  ),
+                  // Index 3: Analytics
                   const AnalyticsScreen(),
                   // Index 4: Settings
                   const SettingsScreen(),
@@ -559,8 +565,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(icon: Icons.warning_amber_rounded, label: "Devices", index: 0),
-                    _buildNavItem(icon: Icons.notifications_none, label: "Alerts", index: 1),
+                    _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
+                    _buildNavItem(icon: Icons.devices_other, label: "Devices", index: 1),
                     SizedBox(
                       width: 80, 
                       child: Column(
@@ -568,7 +574,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [
                           const SizedBox(height: 50),
                           Text(
-                            "Dashboard", 
+                            "Alerts", 
                             style: TextStyle(
                               fontSize: 11, 
                               fontWeight: FontWeight.w800, 
@@ -579,7 +585,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ],
                       ),
                     ),
-                    _buildNavItem(icon: Icons.show_chart_rounded, label: "Trends", index: 3),
+                    _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 3),
                     _buildNavItem(icon: Icons.settings_outlined, label: "Settings", index: 4),
                   ],
                 ),
