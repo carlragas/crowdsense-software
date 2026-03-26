@@ -208,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _resolveUrgent(id);
 
     setState(() {
-      _currentIndex = 1; // Navigate to Devices tab
+      _currentIndex = 3; // Navigate to Devices tab
       _showNotificationsPanel = false;
       _highlightedLogId = id;
       _highlightedItemKey = GlobalKey(); // Fresh key each tap
@@ -479,35 +479,41 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _buildCrowdCountList(),
                     ],
                   ),
-                  // Index 1: Devices
-                  DevicesScreen(
-                    logs: _deviceLogs,
-                    highlightedLogId: _highlightedLogId,
-                    highlightedItemKey: _highlightedItemKey,
-                    parentScrollController: _scrollController,
-                  ),
+                  // Index 1: Analytics
+                  const AnalyticsScreen(),
                   // Index 2 (Center): Alerts & Manual Siren Control
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const PageTitle(title: "Override Siren"),
-                      const SizedBox(height: 24),
-                      Text("Emergency Overrides", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      // Compact occupancy banner
+                      _buildOccupancyBanner(),
+                      const SizedBox(height: 20),
+                      Text(
+                        "Emergency Overrides",
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "Tap an action to trigger a building-wide alert.",
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6)),
+                      ),
+                      const SizedBox(height: 20),
                       _buildAlarmControlCard(
                         title: "Fire / Evacuation Siren",
                         subtitle: "Trigger all building sirens immediately",
                         icon: Icons.campaign_rounded,
                         color: AppColors.statusDanger,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       _buildAlarmControlCard(
                         title: "Warning Chime",
                         subtitle: "Broadcast a pre-warning alert across all zones",
                         icon: Icons.notifications_active_rounded,
                         color: AppColors.statusWarning,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       _buildAlarmControlCard(
                         title: "Reset All Alarms",
                         subtitle: "Cancel all active sirens and visual alerts",
@@ -516,8 +522,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ],
                   ),
-                  // Index 3: Analytics
-                  const AnalyticsScreen(),
+                  // Index 3: Devices
+                  DevicesScreen(
+                    logs: _deviceLogs,
+                    highlightedLogId: _highlightedLogId,
+                    highlightedItemKey: _highlightedItemKey,
+                    parentScrollController: _scrollController,
+                  ),
                   // Index 4: Settings
                   const SettingsScreen(),
                 ][_currentIndex],
@@ -566,7 +577,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
-                    _buildNavItem(icon: Icons.devices_other, label: "Devices", index: 1),
+                    _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 1),
                     SizedBox(
                       width: 80, 
                       child: Column(
@@ -578,14 +589,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                             style: TextStyle(
                               fontSize: 11, 
                               fontWeight: FontWeight.w800, 
-                              color: _currentIndex == 2 ? const Color(0xFFE53935) : Colors.grey,
+                              color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey,
                             ),
                           ),
                           const SizedBox(height: 10),
                         ],
                       ),
                     ),
-                    _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 3),
+                    _buildNavItem(icon: Icons.devices_other, label: "Devices", index: 3),
                     _buildNavItem(icon: Icons.settings_outlined, label: "Settings", index: 4),
                   ],
                 ),
@@ -602,17 +613,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                     height: 64,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white,
                       gradient: const RadialGradient(
-                        colors: [Colors.white, Color(0xFFFFCDD2)],
-                        center: Alignment(0, -0.2),
-                        radius: 0.9,
+                        colors: [AppColors.accentBlue, AppColors.primaryBlue],
+                        center: Alignment(0, -0.3),
+                        radius: 1.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFD50000).withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                          color: AppColors.primaryBlue.withOpacity(0.45),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5),
                         ),
                         BoxShadow(
                           color: Colors.black.withOpacity(0.15),
@@ -622,8 +632,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ],
                     ),
                     child: const Icon(
-                      Icons.home_rounded,
-                      color: Color(0xFFD50000), // Solid red icon
+                      Icons.notifications_active_rounded,
+                      color: Colors.white,
                       size: 32,
                     ),
                   ),
@@ -638,7 +648,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildNavItem({required IconData icon, required String label, required int index}) {
     final isSelected = _currentIndex == index;
-    final color = isSelected ? const Color(0xFFE53935) : Colors.grey.withOpacity(0.9);
+    final color = isSelected ? AppColors.primaryBlue : Colors.grey.withOpacity(0.9);
 
     return GestureDetector(
       onTap: () {
@@ -824,6 +834,74 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
+
+  Widget _buildOccupancyBanner() {
+    final int inside = _totalPeopleInside;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.05)
+            : Colors.black.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primaryBlue.withOpacity(0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.groups_rounded, color: AppColors.primaryBlue, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            '$inside',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: AppColors.primaryBlue,
+            ),
+          ),
+          Text(
+            ' people inside',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurfaceVariant.withOpacity(0.65),
+            ),
+          ),
+          const Spacer(),
+          // Entries
+          Icon(Icons.login_rounded, size: 13, color: AppColors.statusSafe),
+          const SizedBox(width: 3),
+          Text(
+            '$_totalEntries',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: AppColors.statusSafe,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Exits
+          Icon(Icons.logout_rounded, size: 13, color: AppColors.statusDanger),
+          const SizedBox(width: 3),
+          Text(
+            '$_totalExits',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: AppColors.statusDanger,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _PulsingDot(color: AppColors.statusSafe),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildAlarmControlCard({required String title, required String subtitle, required IconData icon, required Color color}) {
     final bool isReset = title.contains("Reset");
@@ -1156,7 +1234,7 @@ class _NavBarPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final paint = Paint()
-      ..color = isDark ? const Color(0xFF1E1E1E) : Colors.white
+      ..color = isDark ? AppColors.surfaceDark : Colors.white
       ..style = PaintingStyle.fill;
 
     final shadowPaint = Paint()
