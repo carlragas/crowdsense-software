@@ -23,7 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 2;
+  int _currentIndex = 0;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
@@ -430,20 +430,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     20,
                     100),
                 child: [
-                  // Index 0: Home / Overview
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.home_outlined, size: 60, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)),
-                        const SizedBox(height: 16),
-                        Text('Home Page Coming Soon', style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                  // Index 1: Analytics
-                  const AnalyticsScreen(),
-                  // Index 2 (Center): Dashboard Content
+                  // Index 0: Dashboard Content
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -484,6 +471,38 @@ class _DashboardScreenState extends State<DashboardScreen>
                       }),
                       const SizedBox(height: 12),
                       _buildCrowdCountList(),
+                    ],
+                  ),
+                  // Index 1: Analytics
+                  const AnalyticsScreen(),
+                  // Index 2 (Center): Manual Alarm Controllers
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const PageTitle(title: "Manual Control"),
+                      const SizedBox(height: 24),
+                      Text("Emergency Overrides", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Fire / Evacuation Siren",
+                        subtitle: "Trigger all building sirens immediately",
+                        icon: Icons.campaign_rounded,
+                        color: AppColors.statusDanger,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Warning Chime",
+                        subtitle: "Broadcast a pre-warning alert across all zones",
+                        icon: Icons.notifications_active_rounded,
+                        color: AppColors.statusWarning,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAlarmControlCard(
+                        title: "Reset All Alarms",
+                        subtitle: "Cancel all active sirens and visual alerts",
+                        icon: Icons.refresh_rounded,
+                        color: AppColors.primaryBlue,
+                      ),
                     ],
                   ),
                   // Index 3: Devices
@@ -549,7 +568,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavIcon(Icons.home_outlined, 0),
+              _buildNavIcon(Icons.dashboard_outlined, 0),
               _buildNavIcon(Icons.analytics_outlined, 1),
               _buildCenterButton(), // Center button (Index 2)
               _buildNavIcon(Icons.devices_other, 3), // Devices
@@ -608,21 +627,21 @@ class _DashboardScreenState extends State<DashboardScreen>
           shape: BoxShape.circle,
           gradient: LinearGradient(
             colors: isSelected 
-              ? [const Color(0xFFE91E63), const Color(0xFF1E88E5)] // Pink/Red to Blue gradient
-              : [const Color(0xFFD81B60), const Color(0xFF1976D2)], // Slightly darker gradient when not selected
+              ? [const Color(0xFFFF5252), const Color(0xFFD50000)] // Bright Red gradient
+              : [const Color(0xFFE53935), const Color(0xFFB71C1C)], // Darker Red gradient
             begin: Alignment.bottomLeft,
             end: Alignment.topRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1E88E5).withOpacity(0.4),
-              blurRadius: isSelected ? 15 : 8,
+              color: const Color(0xFFFF5252).withOpacity(0.5),
+              blurRadius: isSelected ? 20 : 10,
               offset: const Offset(0, 4),
             )
           ],
         ),
         child: const Icon(
-          Icons.dashboard_rounded, // Reverted to the original Dashboard icon
+          Icons.campaign_rounded, // Alarm icon for the center button
           color: Colors.white,
           size: 28,
         ),
@@ -775,6 +794,166 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlarmControlCard({required String title, required String subtitle, required IconData icon, required Color color}) {
+    final bool isReset = title.contains("Reset");
+    final String actionText = isReset ? "RESET" : "ACTIVATE";
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 32),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: color, size: 28),
+                        const SizedBox(width: 12),
+                        const Text("Confirm Action", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    content: Text(
+                      "Are you sure you want to $actionText the '$title'?\n\nThis will execute the command immediately across the active zones.",
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("Cancel", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context); // Close the confirmation dialog
+                          
+                          if (!isReset) {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false, // Prevent dismissing by tapping outside
+                              builder: (context) {
+                                return AlertDialog(
+                                  backgroundColor: Theme.of(context).colorScheme.surface,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    side: BorderSide(color: color.withOpacity(0.5), width: 2),
+                                  ),
+                                  title: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(icon, color: color, size: 64),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        "$title\nis Active & Ringing!",
+                                        style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 22, height: 1.2),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                  content: Text(
+                                    "General alarms are currently sounding across the facility. Ensure proper emergency protocols are being followed.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                  ),
+                                  contentPadding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+                                  actionsAlignment: MainAxisAlignment.center,
+                                  actionsPadding: const EdgeInsets.only(bottom: 24),
+                                  actions: [
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text("$title DEACTIVATED successfully.", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                              backgroundColor: AppColors.primaryBlue,
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        },
+                                        icon: const Icon(Icons.stop_circle_rounded, size: 28),
+                                        label: const Text("DEACTIVATE ALARM", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 1.0)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: color.withOpacity(0.1),
+                                          foregroundColor: color,
+                                          padding: const EdgeInsets.symmetric(vertical: 18),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                            side: BorderSide(color: color.withOpacity(0.5), width: 2),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Action Executed: $title $actionText" + "TED"),
+                                backgroundColor: color,
+                              ),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: Text("CONFIRM $actionText", style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              elevation: 0,
+            ),
+            child: Text(actionText, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
