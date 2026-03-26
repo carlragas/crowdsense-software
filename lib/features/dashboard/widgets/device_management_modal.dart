@@ -19,9 +19,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       "name": "CEA 3rd Floor",
       "status": "online",
       "sensors": {
-        "tof_enabled": true,
-        "flame_enabled": true,
-        "smoke_enabled": false,
         "temp_threshold": 35.0,
       }
     },
@@ -30,9 +27,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       "name": "CEA 2nd Floor Landing",
       "status": "online",
       "sensors": {
-        "tof_enabled": true,
-        "flame_enabled": true,
-        "smoke_enabled": true,
         "temp_threshold": 40.0,
       }
     },
@@ -41,9 +35,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       "name": "Main Entrance",
       "status": "offline",
       "sensors": {
-        "tof_enabled": false,
-        "flame_enabled": false,
-        "smoke_enabled": false,
         "temp_threshold": 30.0,
       }
     },
@@ -85,9 +76,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       "name": _nameController.text.trim(),
       "status": "online", // Mock default state
       "sensors": {
-        "tof_enabled": true,
-        "flame_enabled": true,
-        "smoke_enabled": true,
         "temp_threshold": 35.0,
       }
     };
@@ -389,30 +377,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
             _buildStatusToggle(device),
             const SizedBox(height: 8),
             const Divider(height: 16),
-            _buildSensorSwitch(
-              "Time-of-Flight (Crowd Count)",
-              sensors["tof_enabled"],
-              (val) {
-                setState(() => sensors["tof_enabled"] = val);
-                _updateDeviceConfig(device["macAddress"], sensors);
-              },
-            ),
-            _buildSensorSwitch(
-              "Flame Sensor",
-              sensors["flame_enabled"],
-              (val) {
-                setState(() => sensors["flame_enabled"] = val);
-                _updateDeviceConfig(device["macAddress"], sensors);
-              },
-            ),
-            _buildSensorSwitch(
-              "Smoke Sensor",
-              sensors["smoke_enabled"],
-              (val) {
-                setState(() => sensors["smoke_enabled"] = val);
-                _updateDeviceConfig(device["macAddress"], sensors);
-              },
-            ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -458,6 +422,30 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
               label: "${settings.smokeThreshold.toStringAsFixed(0)} PPM",
               onChanged: (val) {
                 settings.setSmokeThreshold(val);
+              },
+              onChangeEnd: (val) {
+                _updateDeviceConfig(device["macAddress"], sensors);
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Flame Alert Threshold", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text("${settings.flameThreshold.toStringAsFixed(0)} PPM", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.statusWarning, fontSize: 14)),
+              ],
+            ),
+            Slider(
+              value: settings.flameThreshold,
+              min: 50.0,
+              max: 500.0,
+              divisions: 45,
+              activeColor: AppColors.statusWarning,
+              inactiveColor: AppColors.statusWarning.withOpacity(0.2),
+              thumbColor: AppColors.statusWarning,
+              label: "${settings.flameThreshold.toStringAsFixed(0)} PPM",
+              onChanged: (val) {
+                settings.setFlameThreshold(val);
               },
               onChangeEnd: (val) {
                 _updateDeviceConfig(device["macAddress"], sensors);
@@ -601,14 +589,4 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     );
   }
 
-  Widget _buildSensorSwitch(String title, bool value, ValueChanged<bool> onChanged) {
-    return SwitchListTile(
-      title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      value: value,
-      onChanged: onChanged,
-      activeColor: AppColors.primaryBlue,
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-    );
-  }
 }
