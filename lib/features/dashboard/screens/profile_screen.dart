@@ -1,7 +1,8 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 
@@ -114,12 +115,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     if (uid != null) {
       try {
-        await FirebaseDatabase.instance.ref().child('users').child(uid).update({
+        final idToken = await userProv.authUser!.getIdToken();
+        final dbBaseUrl = 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
+        final updateUrl = Uri.parse('$dbBaseUrl/users/$uid.json?auth=$idToken');
+        
+        final payload = json.encode({
           'name': _nameCtrl.text.trim(),
           'email': _emailCtrl.text.trim(),
           'phone': _phoneCtrl.text.trim(),
           'designation': _designationCtrl.text.trim(),
         });
+
+        final response = await http.patch(updateUrl, body: payload);
+
+        if (response.statusCode != 200) {
+          throw Exception('Server rejected edit: ${response.body}');
+        }
         
         userProv.updateProfile({
           'name': _nameCtrl.text.trim(),

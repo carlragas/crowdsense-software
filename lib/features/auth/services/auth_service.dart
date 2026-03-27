@@ -1,37 +1,44 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+  // Firebase Realtime DB REST API Base URL
+  final String _dbBaseUrl = 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
 
   /// Logs a user in using either their Email or their Username.
   /// Returns a Map payload containing the raw Firebase `User` object and the `userData` mapping.
   Future<Map<String, dynamic>> login(String identifier, String password) async {
     String loginEmail = identifier.trim();
     
-    // 1. Determine if the identifier is an email or a username
     if (!loginEmail.contains('@')) {
-      // It's a username! We must look up the associated email in the database.
-      final snapshot = await _dbRef
-          .child('users')
-          .orderByChild('username')
-          .equalTo(loginEmail)
-          .get();
+      // It's a username! We must securely look up the associated email in the database via REST
+      try {
+        final queryUrl = Uri.parse('$_dbBaseUrl/users.json?orderBy="username"&equalTo="${Uri.encodeQueryComponent(loginEmail)}"');
+        final response = await http.get(queryUrl);
 
-      if (!snapshot.exists) {
-        throw Exception('User with this username not found.');
-      }
+        if (response.statusCode != 200 || response.body == 'null' || response.body.isEmpty) {
+          throw Exception('User with this username not found. (Check Firebase Rules if this is incorrect)');
+        }
 
-      // Extract the exact email address tied to this username
-      final usersMap = snapshot.value as Map<dynamic, dynamic>;
-      final userRecord = usersMap.values.first as Map<dynamic, dynamic>;
-      
-      if (userRecord['email'] == null) {
-        throw Exception('Account configuration error: No email attached.');
+        // Extract the exact email address tied to this username
+        final usersMap = json.decode(response.body) as Map<String, dynamic>;
+        
+        if (usersMap.isEmpty) {
+          throw Exception('Username search yielded zero profiles.');
+        }
+
+        final userRecord = usersMap.values.first as Map<String, dynamic>;
+        
+        if (userRecord['email'] == null) {
+          throw Exception('Account configuration error: No email attached.');
+        }
+        
+        loginEmail = userRecord['email'] as String;
+      } catch (e) {
+        throw Exception('REST Lookup Failed: $e');
       }
-      
-      loginEmail = userRecord['email'] as String;
     }
 
     // 2. Perform the actual Firebase Authentication with Email and Password
@@ -41,21 +48,26 @@ class AuthService {
         password: password,
       );
       
-      // 3. Verify they actually exist in the DB and pull their FULL data profile
+      // 3. Verify they actually exist in the DB and pull their FULL data profile securely using pure REST HTTP
       final uid = userCredential.user!.uid;
-      final profileSnapshot = await _dbRef.child('users').child(uid).get();
       
-      if (!profileSnapshot.exists) {
+      // Grab Firebase Auth Token mathematically linked to this user's sign-in context for secure RTDB read
+      final idToken = await userCredential.user!.getIdToken();
+      final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
+      
+      final profileResponse = await http.get(profileUrl);
+      
+      if (profileResponse.statusCode != 200 || profileResponse.body == 'null' || profileResponse.body.isEmpty) {
         await _auth.signOut();
         throw Exception('Account exists in Auth but is missing from Database records.');
       }
       
-      final rawUserData = profileSnapshot.value as Map<dynamic, dynamic>;
+      final rawUserData = json.decode(profileResponse.body) as Map<String, dynamic>;
       
       // Return a convenient bundle containing both the secure auth reference and UI data 
       return {
         'user': userCredential.user,
-        'userData': Map<String, dynamic>.from(rawUserData),
+        'userData': rawUserData,
       };
       
     } on FirebaseAuthException catch (e) {
