@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'dart:ui';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/user_provider.dart';
+import '../../auth/services/auth_service.dart';
 import '../widgets/people_counter_card.dart';
 
 import '../../../../core/widgets/geometric_background.dart';
@@ -259,6 +262,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final userProv = context.watch<UserProvider>();
+    
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
@@ -342,13 +347,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: Icon(Icons.person,
                     color: Theme.of(context).colorScheme.primary),
               ),
-              onSelected: (value) {
+              onSelected: (value) async {
                 if (value == 'account') {
                   // Static for now
                 } else if (value == 'settings') {
                   setState(() => _currentIndex = 4);
                 } else if (value == 'logout') {
-                  Navigator.pushReplacementNamed(context, '/login');
+                  await AuthService().logout();
+                  if (context.mounted) {
+                    context.read<UserProvider>().clearUser();
+                    Navigator.pushReplacementNamed(context, '/login');
+                  }
                 }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -369,7 +378,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Welcome, Admin!',
+                        'Welcome, ${userProv.name}!',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,

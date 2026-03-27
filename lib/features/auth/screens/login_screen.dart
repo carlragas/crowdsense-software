@@ -1,19 +1,99 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/geometric_background.dart';
+import '../../../../core/providers/user_provider.dart';
+import '../services/auth_service.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   final bool animate;
   const LoginScreen({super.key, this.animate = true});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _identifierController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
+  
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _identifierController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _handleLogin() async {
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text;
+
+    if (identifier.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter both Email/Username and Password.'), 
+          backgroundColor: Color(0xFFEF4C33), // Red error color
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Dismiss keyboard
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Securely wait for the auth task to complete locally
+      final payload = await _authService.login(identifier, password);
+      
+      if (!mounted) return;
+      
+      // Inject global user state so all screens have live access to the profile
+      context.read<UserProvider>().setUser(payload['user'], payload['userData']);
+      
+      // If successful, boot to splash screen with a dummy complete future so it animates cleanly
+      Navigator.pushReplacementNamed(
+        context, 
+        '/splash', 
+        arguments: {
+          'nextRoute': '/dashboard',
+          'authFuture': Future.value(true),
+        }
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Show the explicit error thrown by AuthService or missing plugin
+      String errorMsg = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg), 
+          backgroundColor: const Color(0xFFEF4C33), // Red error color
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    Widget withFadeInDown(Widget child) => animate
+    Widget withFadeInDown(Widget child) => widget.animate
         ? FadeInDown(duration: const Duration(milliseconds: 800), child: child)
         : child;
 
-    Widget withFadeInUp(Widget child, {Duration delay = Duration.zero}) => animate
+    Widget withFadeInUp(Widget child, {Duration delay = Duration.zero}) => widget.animate
         ? FadeInUp(duration: const Duration(milliseconds: 800), delay: delay, child: child)
         : child;
 
@@ -140,41 +220,49 @@ class LoginScreen extends StatelessWidget {
                           const SizedBox(height: 32),
                           
                           TextField(
+                            controller: _identifierController,
                             style: const TextStyle(color: AppColors.textLight),
                             decoration: const InputDecoration(
                               labelText: "Email or Username",
                               prefixIcon: Icon(Icons.person_outline),
                             ),
+                            onSubmitted: (_) => _handleLogin(),
                           ),
                           const SizedBox(height: 16),
                           
                           TextField(
-                            obscureText: true,
+                            controller: _passwordController,
+                            obscureText: !_isPasswordVisible,
                             style: const TextStyle(color: AppColors.textLight),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: "Password",
-                              prefixIcon: Icon(Icons.lock_outline),
-                              suffixIcon: Icon(Icons.visibility_off_outlined),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                  color: AppColors.textGrey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isPasswordVisible = !_isPasswordVisible;
+                                  });
+                                },
+                              ),
                             ),
+                            onSubmitted: (_) => _handleLogin(),
                           ),
                           
                           const SizedBox(height: 24),
                           
                           ElevatedButton(
-                            onPressed: () {
-                              // Simulate an authentication network request (e.g., 3 seconds)
-                              final authTask = Future.delayed(const Duration(seconds: 3));
-                              
-                              Navigator.pushReplacementNamed(
-                                context, 
-                                '/splash', 
-                                arguments: {
-                                  'nextRoute': '/dashboard',
-                                  'authFuture': authTask,
-                                }
-                              );
-                            },
-                            child: const Text("Log In"),
+                            onPressed: _isLoading ? null : _handleLogin,
+                            child: _isLoading 
+                                ? const SizedBox(
+                                    height: 20, 
+                                    width: 20, 
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                  )
+                                : const Text("Log In"),
                           ),
                           
                           const SizedBox(height: 16),

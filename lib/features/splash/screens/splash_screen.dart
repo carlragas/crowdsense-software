@@ -55,8 +55,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         }).catchError((error) {
            if (mounted) {
             setState(() {
-              _authCompleted = true; // Even on error we should stop looping eventually
+              _authCompleted = true; // Stop loop
+              _targetRoute = '/login'; // Re-route to login
             });
+            String errorMsg = error.toString().replaceFirst('Exception: ', '');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMsg), 
+                backgroundColor: const Color(0xFFEF4C33), // Red
+                behavior: SnackBarBehavior.floating,
+              )
+            );
           }
         });
       }

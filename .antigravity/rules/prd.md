@@ -11,9 +11,9 @@
 ## 1. Project Overview & Objective
 CrowdSense is an integrated IoT and mobile application system designed to enhance building safety and spatial management. The system utilizes an ESP32 microcontroller equipped with a Time-of-Flight (ToF) sensor to accurately monitor foot traffic in hourly intervals, alongside a suite of environmental sensors (Flame, Gas/Smoke, Temperature) to detect potential fire hazards. The mobile app serves as the centralized command center, utilizing REST APIs to provide building administrators with historical analytics, device management, and critical emergency alerts when environmental thresholds are breached.
 
-## 2. Target Audience
-* **Building Administrators & Facility Managers:** Primary users who monitor building usage trends and safety status.
-* **Safety & Security Personnel:** Users who require immediate, localized alerts and actionable data during emergency protocols.
+## 2. Target Audience & User Roles
+* **Admin (e.g., Building Administrators):** Full system access. They can monitor building usage, manage ESP32 prototype units, adjust thresholds, and have the exclusive authority to create or delete user accounts (Admins and Facilitators). They can also edit their own account info.
+* **Facilitator (e.g., Safety & Security Personnel):** Operational access. They have all the system management capabilities of an Admin (including adding/removing ESP32 connections and changing sensor thresholds), with the *only limitation* being they cannot add or delete user accounts. They can edit their own account info.
 
 ---
 
@@ -43,7 +43,9 @@ CrowdSense is an integrated IoT and mobile application system designed to enhanc
 
 ### 4.4. Device & System Management
 * **Hardware Connectivity Status:** An indicator showing if the ESP32 is currently online and communicating with Firebase.
-* **Threshold Configuration:** A settings page where the admin can adjust the trigger points (e.g., setting the critical temperature from 45°C to 50°C).
+* **Threshold Configuration:** A settings page where Admins and Facilitators can adjust the trigger points (e.g., setting the critical temperature from 45°C to 50°C).
+* **Device Provisioning:** The ability to add or remove ESP32 prototype units to the system (accessible to both Admins and Facilitators).
+* **User Management:** An administrative interface exclusively for Admins to create or delete user accounts.
 
 ---
 

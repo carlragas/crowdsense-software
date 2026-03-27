@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/user_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -18,10 +21,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _phoneCtrl;
   late TextEditingController _designationCtrl;
 
-  final String _adminId = 'CS-ADMIN-2026-001';
+  late String _adminId;
+  late String _accessLevel;
 
   // static display data
-  final String _accessLevel = 'Official Admin';
   final List<String> _permissions = ['Read/Write – Sensor Thresholds', 'Device Decommissioning', 'Trend Reporting'];
   final List<String> _managedZones = ['Sector 7 – North CEA Wing', 'Main Access Gateway – PUP-CEA'];
   final String _lastLogin = 'Mar 26, 2026  •  17:34 PHT';
@@ -51,10 +54,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _origName = '';
-    _origEmail = '';
-    _origPhone = '';
-    _origDesignation = '';
+    final userProv = context.read<UserProvider>();
+    
+    _origName = userProv.name;
+    _origEmail = userProv.email;
+    _origPhone = userProv.phone.isEmpty ? '+63 900 000 0000' : userProv.phone;
+    _origDesignation = userProv.designation;
+    _adminId = userProv.id;
+    _accessLevel = userProv.role.toUpperCase();
 
     _nameCtrl = TextEditingController(text: _origName)..addListener(_onChange);
     _emailCtrl = TextEditingController(text: _origEmail)..addListener(_onChange);
@@ -90,22 +97,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  void _save() {
+  void _save() async {
     if (_nameCtrl.text.trim().isEmpty ||
         _emailCtrl.text.trim().isEmpty ||
         _designationCtrl.text.trim().isEmpty) {
       _showError('Update incomplete. Please provide a valid Designation to proceed.');
       return;
     }
+    
     setState(() {
-      _origName = _nameCtrl.text;
-      _origEmail = _emailCtrl.text;
-      _origPhone = _phoneCtrl.text;
-      _origDesignation = _designationCtrl.text;
       _isEditing = false;
-      _hasChanges = false;
     });
-    _showSuccess('Profile updated. Your changes are now synced across the CrowdSense network.');
+
+    final userProv = context.read<UserProvider>();
+    final uid = userProv.authUser?.uid;
+    
+    if (uid != null) {
+      try {
+        await FirebaseDatabase.instance.ref().child('users').child(uid).update({
+          'name': _nameCtrl.text.trim(),
+          'email': _emailCtrl.text.trim(),
+          'phone': _phoneCtrl.text.trim(),
+          'designation': _designationCtrl.text.trim(),
+        });
+        
+        userProv.updateProfile({
+          'name': _nameCtrl.text.trim(),
+          'email': _emailCtrl.text.trim(),
+          'phone': _phoneCtrl.text.trim(),
+          'designation': _designationCtrl.text.trim(),
+        });
+        
+        setState(() {
+          _origName = _nameCtrl.text;
+          _origEmail = _emailCtrl.text;
+          _origPhone = _phoneCtrl.text;
+          _origDesignation = _designationCtrl.text;
+          _hasChanges = false;
+        });
+        
+        _showSuccess('Profile updated. Your changes are now synced across the CrowdSense network.');
+      } catch (e) {
+        setState(() => _isEditing = true);
+        _showError('Failed to sync changes with server: $e');
+      }
+    }
   }
 
   void _showSuccess(String msg) {
