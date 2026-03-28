@@ -46,6 +46,8 @@ CrowdSense is an integrated IoT and mobile application system designed to enhanc
 * **Threshold Configuration:** A settings page where Admins and Facilitators can adjust the trigger points (e.g., setting the critical temperature from 45°C to 50°C).
 * **Device Provisioning:** The ability to add or remove ESP32 prototype units to the system (accessible to both Admins and Facilitators).
 * **User Management:** An administrative interface exclusively for Admins to create or delete user accounts.
+  * **Constraint:** Strict one-email-per-account policy; duplicate emails are explicitly forbidden across the authentication system.
+  * **Onboarding Flow:** New Admins/Facilitators receive an auto-generated temporary password via email. The client app will track a `requiresPasswordChange` flag to enforce a mandatory password reset screen on their very first login before granting Dashboard access.
 
 ---
 
