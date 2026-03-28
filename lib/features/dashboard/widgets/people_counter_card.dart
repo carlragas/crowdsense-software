@@ -48,7 +48,7 @@ class PeopleCounterCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                "Live Crowd Count",
+                "Area Crowd Count",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -69,7 +69,7 @@ class PeopleCounterCard extends StatelessWidget {
                     Icon(Icons.circle, size: 6, color: isOnline ? statusColor : Colors.redAccent),
                     const SizedBox(width: 4),
                     Text(
-                      isOnline ? "LIVE" : "OFFLINE",
+                      isOnline ? "ONLINE" : "OFFLINE",
                       style: TextStyle(
                         color: isOnline ? statusColor : Colors.redAccent,
                         fontWeight: FontWeight.bold,
@@ -116,25 +116,41 @@ class PeopleCounterCard extends StatelessWidget {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.only(left: 14, right: 6, top: 4, bottom: 4),
                                 decoration: BoxDecoration(
-                                  color: (pageEntries > 0 ? AppColors.statusWarning : AppColors.statusSafe).withOpacity(0.1),
+                                  color: pageEntries > 0 ? AppColors.statusWarning : AppColors.statusSafe,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: (pageEntries > 0 ? AppColors.statusWarning : AppColors.statusSafe).withOpacity(0.2)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (pageEntries > 0 ? AppColors.statusWarning : AppColors.statusSafe).withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    )
+                                  ]
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(pageEntries > 0 ? Icons.error_outline : Icons.check_circle_outline, 
-                                         size: 14, 
-                                         color: pageEntries > 0 ? AppColors.statusWarning : AppColors.statusSafe),
-                                    const SizedBox(width: 4),
                                     Text(
                                       pageEntries > 0 ? "NOT CLEAR" : "CLEAR",
-                                      style: TextStyle(
-                                        color: pageEntries > 0 ? AppColors.statusWarning : AppColors.statusSafe,
+                                      style: const TextStyle(
+                                        color: Colors.white,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        pageEntries > 0 ? Icons.priority_high_rounded : Icons.check_rounded,
+                                        size: 14,
+                                        color: pageEntries > 0 ? AppColors.statusWarning : AppColors.statusSafe,
                                       ),
                                     ),
                                   ],

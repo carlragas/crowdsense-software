@@ -413,17 +413,25 @@ class _NotificationTile extends StatelessWidget {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          OutlinedButton.icon(
+                          ElevatedButton.icon(
                             onPressed: onResolve,
-                            icon: const Icon(Icons.check_circle_outline, size: 14),
-                            label: const Text('Mark Resolved', style: TextStyle(fontSize: 12)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.statusSafe,
-                              side: BorderSide(color: AppColors.statusSafe.withOpacity(0.6)),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            icon: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.check_rounded, size: 12, color: AppColors.statusSafe),
+                            ),
+                            label: const Text('Mark Resolved', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.statusSafe,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                             ),
                           ),
                           const SizedBox(width: 8),
