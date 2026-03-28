@@ -51,9 +51,10 @@ class AuthService {
       // 3. Verify they actually exist in the DB and pull their FULL data profile securely using pure REST HTTP
       final uid = userCredential.user!.uid;
       
-      // Grab Firebase Auth Token mathematically linked to this user's sign-in context for secure RTDB read
-      final idToken = await userCredential.user!.getIdToken();
-      final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
+      // Because your Firebase Rules allow `.read: true` for the `users` node, 
+      // we can fetch the user profile without asking for an active `idToken`.
+      // This completely sidesteps the Windows background-thread crash bug!
+      final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json');
       
       final profileResponse = await http.get(profileUrl);
       

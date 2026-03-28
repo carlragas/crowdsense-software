@@ -26,6 +26,16 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Catch the firebase_auth Windows threading bug at the zone level
+  // so it doesn't hard-crash the "Lost connection to device"
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (error.toString().contains('firebase_auth_plugin') ||
+        error.toString().contains('non-platform thread')) {
+      return true; // silently handle the plugin's false-alarm bug
+    }
+    return false; // let all other real errors crash normally
+  };
+
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     await windowManager.ensureInitialized();
 
