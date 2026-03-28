@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/secondary_geometric_background.dart';
 
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({super.key});
@@ -210,10 +211,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: colorScheme.background,
-      appBar: AppBar(
-        backgroundColor: colorScheme.surface,
+    return SecondaryGeometricBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
@@ -399,7 +401,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
           const SizedBox(height: 40),
         ],
       ),
-    );
+    ));
   }
 
   BoxDecoration _cardDecoration(ColorScheme colorScheme, bool isDark) {

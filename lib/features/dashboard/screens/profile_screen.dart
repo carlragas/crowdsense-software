@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
+import '../../../../core/widgets/secondary_geometric_background.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -18,6 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── editable state ─────────────────────────────────────────────────────────
   late TextEditingController _nameCtrl;
+  late TextEditingController _usernameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
   late TextEditingController _designationCtrl;
@@ -50,7 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasChanges = false;
 
   // originals for cancel-reset
-  late String _origName, _origEmail, _origPhone, _origDesignation;
+  late String _origName, _origUsername, _origEmail, _origPhone, _origDesignation;
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userProv = context.read<UserProvider>();
     
     _origName = userProv.name;
+    _origUsername = userProv.username;
     _origEmail = userProv.email;
     _origPhone = userProv.phone.isEmpty ? '+63 900 000 0000' : userProv.phone;
     _origDesignation = userProv.designation;
@@ -65,6 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _accessLevel = userProv.role.toUpperCase();
 
     _nameCtrl = TextEditingController(text: _origName)..addListener(_onChange);
+    _usernameCtrl = TextEditingController(text: _origUsername)..addListener(_onChange);
     _emailCtrl = TextEditingController(text: _origEmail)..addListener(_onChange);
     _phoneCtrl = TextEditingController(text: _origPhone)..addListener(_onChange);
     _designationCtrl = TextEditingController(text: _origDesignation)..addListener(_onChange);
@@ -72,6 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _onChange() {
     final changed = _nameCtrl.text != _origName ||
+        _usernameCtrl.text != _origUsername ||
         _emailCtrl.text != _origEmail ||
         _phoneCtrl.text != _origPhone ||
         _designationCtrl.text != _origDesignation;
@@ -81,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _usernameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _designationCtrl.dispose();
@@ -100,6 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _save() async {
     if (_nameCtrl.text.trim().isEmpty ||
+        _usernameCtrl.text.trim().isEmpty ||
         _emailCtrl.text.trim().isEmpty ||
         _designationCtrl.text.trim().isEmpty) {
       _showError('Update incomplete. Please provide a valid Designation to proceed.');
@@ -121,6 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         
         final payload = json.encode({
           'name': _nameCtrl.text.trim(),
+          'username': _usernameCtrl.text.trim(),
           'email': _emailCtrl.text.trim(),
           'phone': _phoneCtrl.text.trim(),
           'designation': _designationCtrl.text.trim(),
@@ -134,6 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         
         userProv.updateProfile({
           'name': _nameCtrl.text.trim(),
+          'username': _usernameCtrl.text.trim(),
           'email': _emailCtrl.text.trim(),
           'phone': _phoneCtrl.text.trim(),
           'designation': _designationCtrl.text.trim(),
@@ -141,6 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         
         setState(() {
           _origName = _nameCtrl.text;
+          _origUsername = _usernameCtrl.text;
           _origEmail = _emailCtrl.text;
           _origPhone = _phoneCtrl.text;
           _origDesignation = _designationCtrl.text;
@@ -191,31 +201,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: cs.background,
-      appBar: AppBar(
-        backgroundColor: cs.surface,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
+    return SecondaryGeometricBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_rounded),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
           _isEditing ? 'Edit Profile Details' : 'Profile Details',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        actions: [
-          if (!_isEditing)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: TextButton.icon(
-                onPressed: () => setState(() => _isEditing = true),
-                icon: const Icon(Icons.edit_rounded, size: 16),
-                label: const Text('Edit'),
-                style: TextButton.styleFrom(foregroundColor: _accentBlue),
-              ),
-            ),
-        ],
+        actions: [],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -278,7 +278,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Text(_designationCtrl.text, style: TextStyle(color: _accentBlue, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
+          if (!_isEditing)
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () => setState(() => _isEditing = true),
+                icon: const Icon(Icons.edit_rounded, size: 18),
+                label: const Text('Edit Profile Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _accentBlue.withOpacity(0.12),
+                  foregroundColor: _accentBlue,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ),
+          const SizedBox(height: 24),
 
           // ─── SECTION 1: Personal Identity & Role ─────────────────────────
           _SectionLabel(label: '1. Personal Identity & Professional Role'),
@@ -287,6 +303,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _isEditing
                 ? _EditField(label: 'Full Name', controller: _nameCtrl, keyboardType: TextInputType.name, accentColor: _accentBlue)
                 : _StaticRow(icon: Icons.badge_outlined, label: 'Full Name', value: _nameCtrl.text, colorScheme: cs),
+            const _Divider(),
+            _isEditing
+                ? _EditField(label: 'Username', controller: _usernameCtrl, keyboardType: TextInputType.text, accentColor: _accentBlue)
+                : _StaticRow(icon: Icons.alternate_email_rounded, label: 'Username', value: _usernameCtrl.text, colorScheme: cs),
             const _Divider(),
             _StaticRow(icon: Icons.tag_rounded, label: 'Admin ID', value: _adminId, colorScheme: cs, locked: true),
             const _Divider(),
@@ -302,7 +322,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _SectionLabel(label: '2. Administrative Credentials & Access'),
           const SizedBox(height: 10),
           _ProfileCard(colorScheme: cs, isDark: isDark, children: [
-            _StaticRow(icon: Icons.shield_rounded, label: 'Access Level', value: _accessLevel, colorScheme: cs, badge: _accessLevel),
+            _StaticRow(
+              icon: Icons.shield_rounded, 
+              label: 'Access Level', 
+              value: _accessLevel, 
+              colorScheme: cs, 
+              badge: _accessLevel,
+              badgeColor: _accessLevel.toLowerCase() == 'admin' ? AppColors.statusDanger : AppColors.statusWarning,
+            ),
             const _Divider(),
             _PermissionsRow(permissions: _permissions, colorScheme: cs),
             const _Divider(),
@@ -487,7 +514,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ]),
             )
           : null,
-    );
+    ));
   }
 }
 
@@ -558,6 +585,7 @@ class _StaticRow extends StatelessWidget {
   final ColorScheme colorScheme;
   final bool locked;
   final String? badge;
+  final Color? badgeColor;
 
   const _StaticRow({
     required this.icon,
@@ -566,6 +594,7 @@ class _StaticRow extends StatelessWidget {
     required this.colorScheme,
     this.locked = false,
     this.badge,
+    this.badgeColor,
   });
 
   @override
@@ -584,8 +613,8 @@ class _StaticRow extends StatelessWidget {
           if (badge != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-              child: Text(badge!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.primary)),
+              decoration: BoxDecoration(color: (badgeColor ?? colorScheme.primary).withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+              child: Text(badge!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: badgeColor ?? colorScheme.primary)),
             )
           else
             Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),

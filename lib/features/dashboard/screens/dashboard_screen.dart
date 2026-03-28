@@ -6,12 +6,14 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../auth/services/auth_service.dart';
 import '../widgets/people_counter_card.dart';
+import 'users_management_screen.dart';
 
 import '../../../../core/widgets/geometric_background.dart';
 import '../../../../core/widgets/page_title.dart';
 import 'analytics_screen.dart';
 import 'devices_screen.dart';
 import 'settings_screen.dart';
+import 'profile_screen.dart';
 import '../widgets/notifications_panel.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -305,8 +307,25 @@ class _DashboardScreenState extends State<DashboardScreen>
             fontSize: 20),
         centerTitle: false,
         actions: [
-          // --- Notification Bell ---
-          IconButton(
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.white.withOpacity(0.05) 
+                    : Colors.black.withOpacity(0.03),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // --- Notification Bell ---
+                  IconButton(
             tooltip: 'Notifications',
             icon: Badge(
               isLabelVisible: _hasAnyNotification,
@@ -333,10 +352,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               });
             },
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: PopupMenuButton<String>(
-              offset: const Offset(0, 56),
+          const SizedBox(width: 2),
+          PopupMenuButton<String>(
+            offset: const Offset(0, 56),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -349,15 +367,46 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               onSelected: (value) async {
                 if (value == 'account') {
-                  // Static for now
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  );
                 } else if (value == 'settings') {
                   setState(() => _currentIndex = 4);
                 } else if (value == 'logout') {
-                  await AuthService().logout();
-                  if (context.mounted) {
-                    context.read<UserProvider>().clearUser();
-                    Navigator.pushReplacementNamed(context, '/login');
-                  }
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return AlertDialog(
+                        title: const Text("Log Out"),
+                        content: const Text("Log out of your account?"),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              Navigator.of(dialogContext).pop();
+                              await AuthService().logout();
+                              if (context.mounted) {
+                                context.read<UserProvider>().clearUser();
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/login',
+                                  (route) => false,
+                                );
+                              }
+                            },
+                            child: const Text(
+                              "Log Out",
+                              style: TextStyle(color: AppColors.statusDanger),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
                 }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -378,7 +427,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Welcome, ${userProv.name}!',
+                        'Welcome, ${userProv.firstName}!',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -427,9 +476,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ],
                   ),
                 ),
-              ],
+                ],
+              ),
+                ],
+              ),
             ),
-          )
+          ),
         ],
       ),
       body: Stack(
@@ -486,6 +538,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                       }),
                       const SizedBox(height: 12),
                       _buildCrowdCountList(),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(child: _buildRoleCard(context, "Admins Online", 1, Icons.admin_panel_settings, AppColors.statusDanger)), // Red
+                          const SizedBox(width: 12),
+                          Expanded(child: _buildRoleCard(context, "Facilitators Online", 0, Icons.support_agent, AppColors.statusWarning)), // Orange
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildShowUsersButton(context),
                     ],
                   ),
                   // Index 1: Analytics
@@ -1180,7 +1242,128 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
+
+  Widget _buildRoleCard(BuildContext context, String label, int count, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
+            blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
+            offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "$count",
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShowUsersButton(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UsersManagementScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
+              blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
+              offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.manage_accounts, color: AppColors.accentBlue),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Show Users",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Manage administrators and facilitators",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
 
 class _PulsingDot extends StatefulWidget {
   final Color color;

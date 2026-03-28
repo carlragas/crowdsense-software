@@ -13,6 +13,7 @@ class UserProvider extends ChangeNotifier {
   String get id => _userData?['customId'] ?? 'Unknown ID';
   String get role => _userData?['role'] ?? 'Unknown';
   String get name => _userData?['name'] ?? 'Admin';
+  String get firstName => name.isNotEmpty ? name.split(' ').first : 'Admin';
   String get username => _userData?['username'] ?? '';
   String get email => _userData?['email'] ?? '';
   String get phone => _userData?['phone'] ?? '';
