@@ -88,4 +88,17 @@ class AuthService {
   Future<void> logout() async {
     await _auth.signOut();
   }
+
+  /// Creates a persistent user profile in the database via REST.
+  Future<void> createUserRecord(Map<String, dynamic> userData) async {
+    final url = Uri.parse('$_dbBaseUrl/users.json');
+    final response = await http.post(
+      url,
+      body: json.encode(userData),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Database Write Error: Status Code ${response.statusCode}');
+    }
+  }
 }

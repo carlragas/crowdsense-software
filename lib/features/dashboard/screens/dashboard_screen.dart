@@ -1132,9 +1132,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ],
       ),
     );
-  }
-
-  Widget _buildCrowdCountList() {
+  }  Widget _buildCrowdCountList() {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(

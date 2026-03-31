@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
+import '../../auth/services/auth_service.dart';
 
 class UsersManagementScreen extends StatefulWidget {
   const UsersManagementScreen({super.key});
@@ -518,8 +519,12 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     final usernameCtrl = TextEditingController();
     String selectedRole = 'User';
 
+    bool isSaving = false;
+    final AuthService authService = AuthService();
+
     showDialog(
       context: context,
+      barrierDismissible: !isSaving,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
@@ -543,50 +548,77 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildDialogField(nameCtrl, "Full Name", Icons.badge_outlined),
+                _buildDialogField(nameCtrl, "Full Name", Icons.badge_outlined, isSaving),
                 const SizedBox(height: 12),
-                _buildDialogField(usernameCtrl, "Username", Icons.alternate_email_rounded),
+                _buildDialogField(usernameCtrl, "Username", Icons.alternate_email_rounded, isSaving),
                 const SizedBox(height: 12),
-                _buildDialogField(emailCtrl, "Email Address", Icons.mail_outline_rounded),
+                _buildDialogField(emailCtrl, "Email Address", Icons.mail_outline_rounded, isSaving),
                 const SizedBox(height: 20),
                 _buildDialogRoleSelector(selectedRole, (val) {
-                  if (val != null) setDialogState(() => selectedRole = val);
+                  if (val != null && !isSaving) setDialogState(() => selectedRole = val);
                 }),
               ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isSaving ? null : () => Navigator.pop(context),
               child: Text("Cancel", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: isSaving ? null : () async {
                 if (nameCtrl.text.isNotEmpty && emailCtrl.text.isNotEmpty) {
-                  final newUser = {
-                    'uid': 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                    'id': 'U${(1000 + _allUsers.length).toString()}',
-                    'name': nameCtrl.text,
-                    'username': usernameCtrl.text.isEmpty ? nameCtrl.text.split(' ').first.toLowerCase() : usernameCtrl.text,
-                    'email': emailCtrl.text,
-                    'phone': '',
-                    'role': selectedRole,
-                    'designation': selectedRole == 'Admin' ? 'System Administrator' : 'Field Personnel',
-                    'isOnline': false,
-                    'createdAt': DateTime.now(),
-                  };
-                  setState(() {
-                    _allUsers.insert(0, newUser);
-                    _offlineCount++;
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      content: Text("User '${nameCtrl.text}' assigned as $selectedRole successfully."),
-                      backgroundColor: AppColors.primaryBlue,
-                    ),
-                  );
+                  setDialogState(() => isSaving = true);
+
+                  try {
+                    final userData = {
+                      'customId': 'U${(1000 + _allUsers.length).toString()}',
+                      'name': nameCtrl.text.trim(),
+                      'username': usernameCtrl.text.isEmpty ? nameCtrl.text.split(' ').first.toLowerCase() : usernameCtrl.text.trim(),
+                      'email': emailCtrl.text.trim().toLowerCase(),
+                      'phone': '',
+                      'role': selectedRole,
+                      'designation': selectedRole == 'Admin' ? 'System Administrator' : 'Field Personnel',
+                      'isOnline': false,
+                      'createdAt': DateTime.now().toIso8601String(),
+                    };
+
+                    // --- SAVE TO DATABASE ---
+                    await authService.createUserRecord(userData);
+
+                    // --- REFRESH LOCAL UI ---
+                    setState(() {
+                      // We could also re-fetch _fetchUsers() but for speed we'll append
+                      _allUsers.insert(0, {
+                        ...userData,
+                        'uid': 'pending_refresh',
+                        'createdAt': DateTime.now(),
+                      });
+                      _offlineCount++;
+                    });
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content: Text("User '${nameCtrl.text}' saved to database as $selectedRole."),
+                          backgroundColor: Colors.green.shade700,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      setDialogState(() => isSaving = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content: Text("Failed to save: ${e.toString()}"),
+                          backgroundColor: AppColors.statusDanger,
+                        ),
+                      );
+                    }
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -594,7 +626,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text("Create User", style: TextStyle(fontWeight: FontWeight.bold)),
+              child: isSaving 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text("Create User", style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -602,9 +636,10 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     );
   }
 
-  Widget _buildDialogField(TextEditingController ctrl, String label, IconData icon) {
+  Widget _buildDialogField(TextEditingController ctrl, String label, IconData icon, bool isSaving) {
     return TextField(
       controller: ctrl,
+      enabled: !isSaving,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),

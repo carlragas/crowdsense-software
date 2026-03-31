@@ -100,31 +100,65 @@ class _DevicesScreenState extends State<DevicesScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Device types horizontal list
-        SizedBox(
-          height: 140,
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {
-                PointerDeviceKind.touch,
-                PointerDeviceKind.mouse,
-              },
+        // Power Management Full-Width Card
+        InkWell(
+          onTap: () => _showDeviceDetailsModal(context, "Power Management"),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
+                  blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
+                  offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
+                ),
+              ],
             ),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            child: Row(
               children: [
-                _AnimatedBouncingDeviceCard(title: "Time-of-Flight\nDevices", icon: Icons.radar, iconColor: Colors.cyanAccent, onTap: () => _showDeviceDetailsModal(context, "Time-of-Flight\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Flame Sensor\nDevices", icon: Icons.local_fire_department, iconColor: Colors.deepOrangeAccent, onTap: () => _showDeviceDetailsModal(context, "Flame Sensor\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Smoke Sensor\nDevices", icon: Icons.smoking_rooms, iconColor: Colors.blueGrey[300]!, onTap: () => _showDeviceDetailsModal(context, "Smoke Sensor\nDevices")),
-                _AnimatedBouncingDeviceCard(title: "Temperature\nSensor Devices", icon: Icons.thermostat, iconColor: Colors.redAccent, onTap: () => _showDeviceDetailsModal(context, "Temperature\nSensor Devices")),
-                _AnimatedBouncingDeviceCard(title: "Power\nManagement", icon: Icons.bolt, iconColor: Colors.greenAccent[400]!, onTap: () => _showDeviceDetailsModal(context, "Power\nManagement")),
-                const SizedBox(width: 4), // extra trailing space
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.greenAccent[400]!.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.bolt, color: Colors.greenAccent[400]!),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Power Management",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Monitor UPS battery and AC power status",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ],
             ),
           ),
         ),
+        const SizedBox(height: 16),
         const SizedBox(height: 24),
 
         // Device Management Button
@@ -382,7 +416,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: ['ToF', 'Flame', 'Smoke', 'Temp'].map((sensor) {
+                        children: ['Power'].map((sensor) {
                           final isSelected = tempSensors.contains(sensor);
                           return FilterChip(
                             label: Text(sensor),
