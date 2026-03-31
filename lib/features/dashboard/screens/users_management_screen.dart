@@ -168,13 +168,43 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               ),
               const SizedBox(height: 24),
 
+              // ── SEARCH BAR & ADD ACTION ─────────────────────────────────────────
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSearchBar(isDark),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddUserDialog(context),
+                    icon: const Icon(Icons.person_add_rounded, size: 20),
+                    label: const Text(
+                      "ADD USER",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                        fontSize: 13,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                      shadowColor: AppColors.primaryBlue.withOpacity(0.4),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
               // ── FILTER BAR ──────────────────────────────────────────────────────
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildSearchBar(isDark),
-                    const SizedBox(width: 12),
                     _buildFilterDropdown(
                       icon: Icons.grid_view_rounded,
                       label: 'Type: ',
@@ -478,6 +508,136 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
         ],
       ),
+    );
+  }
+
+  // ─── Add User Dialog Implementation ─────────────────────────────────────────
+  void _showAddUserDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final usernameCtrl = TextEditingController();
+    String selectedRole = 'User';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.person_add_rounded, color: AppColors.primaryBlue),
+              ),
+              const SizedBox(width: 16),
+              const Text("Add New System User", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDialogField(nameCtrl, "Full Name", Icons.badge_outlined),
+                const SizedBox(height: 12),
+                _buildDialogField(usernameCtrl, "Username", Icons.alternate_email_rounded),
+                const SizedBox(height: 12),
+                _buildDialogField(emailCtrl, "Email Address", Icons.mail_outline_rounded),
+                const SizedBox(height: 20),
+                _buildDialogRoleSelector(selectedRole, (val) {
+                  if (val != null) setDialogState(() => selectedRole = val);
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameCtrl.text.isNotEmpty && emailCtrl.text.isNotEmpty) {
+                  final newUser = {
+                    'uid': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+                    'id': 'U${(1000 + _allUsers.length).toString()}',
+                    'name': nameCtrl.text,
+                    'username': usernameCtrl.text.isEmpty ? nameCtrl.text.split(' ').first.toLowerCase() : usernameCtrl.text,
+                    'email': emailCtrl.text,
+                    'phone': '',
+                    'role': selectedRole,
+                    'designation': selectedRole == 'Admin' ? 'System Administrator' : 'Field Personnel',
+                    'isOnline': false,
+                    'createdAt': DateTime.now(),
+                  };
+                  setState(() {
+                    _allUsers.insert(0, newUser);
+                    _offlineCount++;
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      content: Text("User '${nameCtrl.text}' assigned as $selectedRole successfully."),
+                      backgroundColor: AppColors.primaryBlue,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text("Create User", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogField(TextEditingController ctrl, String label, IconData icon) {
+    return TextField(
+      controller: ctrl,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+    );
+  }
+
+  Widget _buildDialogRoleSelector(String selected, ValueChanged<String?> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Assign Access Level", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: selected,
+              isExpanded: true,
+              items: ['User', 'Admin', 'Facilitator']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
