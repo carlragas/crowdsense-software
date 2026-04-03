@@ -145,9 +145,8 @@ class AuthService {
           role: userData['role']?.toString() ?? '',
         );
       } catch (e) {
-        // We log the error but don't explicitly throw it upwards, 
-        // because the user successfully created the database and auth accounts natively.
-        print('Email distribution failed (Likely missing SMTP credentials): \$e');
+        // Re-throw and surface the real error so we can see WHY it failed
+        throw Exception('User created successfully, but email failed: $e');
       }
 
     } finally {

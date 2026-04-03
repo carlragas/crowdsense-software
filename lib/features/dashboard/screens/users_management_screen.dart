@@ -703,18 +703,22 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                           // 2. Format Unix Timestamp
                           final int createdAtUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-                          // 3. Generate Temporary Password
-                          const chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890!@#\$%^&*';
+                          // 3. Generate Temporary Password in structured format: XX-xxxxxx (e.g. RX-pyvt94)
+                          const upperChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid confusion
+                          const lowerNumChars = 'abcdefghjkmnpqrstuvwxyz23456789'; // no l/1/0/o
                           math.Random rnd = math.Random();
-                          final String tempPassword = String.fromCharCodes(Iterable.generate(
-                              8, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
+                          final prefix = String.fromCharCodes(Iterable.generate(
+                              2, (_) => upperChars.codeUnitAt(rnd.nextInt(upperChars.length))));
+                          final suffix = String.fromCharCodes(Iterable.generate(
+                              6, (_) => lowerNumChars.codeUnitAt(rnd.nextInt(lowerNumChars.length))));
+                          final String tempPassword = '$prefix-$suffix';
 
                           final userData = {
                             'customId': customId,
                             'name': nameCtrl.text.trim(),
                             'username': usernameCtrl.text.trim(),
                             'email': emailCtrl.text.trim().toLowerCase(),
-                            'phone': '',
+                            'phone': 'N/A',
                             'role': roleKey,
                             'designation': designationCtrl.text.trim().isEmpty ? 'N/A' : designationCtrl.text.trim(),
                             'isOnline': false,

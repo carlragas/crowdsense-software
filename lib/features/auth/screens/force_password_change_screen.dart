@@ -1,6 +1,7 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../../core/theme/app_colors.dart';
@@ -68,18 +69,10 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
       await user.updatePassword(_newPasswordCtrl.text);
 
       // 2. Remove the 'requiresPasswordChange' flag from RTDB to allow dashboard entry
-      final adminToken = await user.getIdToken(true);
-      final url = Uri.parse('https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app/users/\${user.uid}.json?auth=\$adminToken');
-      
-      // We use PATCH to just flip the specific flag, avoiding overwriting the rest of the profile.
-      final response = await http.patch(
-        url,
-        body: json.encode({'requiresPasswordChange': false}),
-      );
-
-      if (response.statusCode != 200) {
-         throw Exception("Failed to sync status to database: \${response.statusCode}");
-      }
+      await FirebaseDatabase.instance.ref()
+          .child('users')
+          .child(user.uid)
+          .update({'requiresPasswordChange': false});
       
       if (!mounted) return;
       
@@ -109,7 +102,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             met ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
@@ -117,11 +110,13 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
             size: 16,
           ),
           const SizedBox(width: 8),
-          Text(text, style: TextStyle(
-            color: met ? AppColors.statusSafe : Colors.grey.shade400,
-            fontSize: 13,
-            fontWeight: met ? FontWeight.bold : FontWeight.normal
-          )),
+          Expanded(
+            child: Text(text, style: TextStyle(
+              color: met ? AppColors.statusSafe : Colors.grey.shade400,
+              fontSize: 13,
+              fontWeight: met ? FontWeight.bold : FontWeight.normal
+            )),
+          ),
         ],
       ),
     );

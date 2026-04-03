@@ -17,8 +17,7 @@ class EmailService {
 
     // If not configured, just return early entirely or throw error
     if (senderEmail == null || senderEmail.isEmpty || appPassword == null || appPassword.isEmpty) {
-      debugPrint('SMTP not configured. Skipping email sending to $targetEmail. The password is $tempPassword');
-      return;
+      throw Exception('SMTP Configuration Missing: Unable to load credentials from .env. Received: Email (\$senderEmail), Pass (\$appPassword)');
     }
 
     final smtpServer = gmail(senderEmail, appPassword);
@@ -57,20 +56,20 @@ class EmailService {
         </div>
         <div class="content">
             <div class="greeting">
-                Hello <strong>\$name</strong>,<br><br>
+                Hello <strong>$name</strong>,<br><br>
                 Your account has been created successfully. Here are your temporary login credentials:
             </div>
             
             <div class="credentials-box">
                 <div class="grid">
                     <div class="label">Username</div>
-                    <div class="val">\$username</div>
+                    <div class="val">$username</div>
                     
                     <div class="label">Temporary Password</div>
-                    <div class="val" style="font-family: monospace; font-size: 16px; padding: 2px 6px; background: #e2e8f0; border-radius: 4px;">\$tempPassword</div>
+                    <div class="val" style="font-family: monospace; font-size: 16px; padding: 2px 6px; background: #e2e8f0; border-radius: 4px;">$tempPassword</div>
                     
                     <div class="label">System Role</div>
-                    <div class="val" style="text-transform: capitalize;">\$role</div>
+                    <div class="val" style="text-transform: capitalize;">$role</div>
                 </div>
             </div>
 
@@ -96,9 +95,9 @@ class EmailService {
 
     try {
       await send(message, smtpServer);
-      debugPrint('SMTP Email sent successfully to \$targetEmail');
+      debugPrint('SMTP Email sent successfully to $targetEmail');
     } catch (e) {
-      debugPrint('Failed to send SMTP email: \$e');
+      debugPrint('Failed to send SMTP email: $e');
       throw Exception('Failed to email temporary password.');
     }
   }
