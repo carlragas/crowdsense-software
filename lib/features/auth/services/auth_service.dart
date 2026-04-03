@@ -95,6 +95,9 @@ class AuthService {
   Future<void> createUserRecord(Map<String, dynamic> userData, String tempPassword) async {
     final email = userData['email'] as String;
     
+    // Inject the flag that forces the new user to reset their password on first login
+    userData['requiresPasswordChange'] = true;
+    
     // 1. Get the current admin's auth token for the secure RTDB write.
     // We do this before creating the secondary app just to be safe.
     final currentUser = _auth.currentUser;

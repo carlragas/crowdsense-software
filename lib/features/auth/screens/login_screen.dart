@@ -60,15 +60,30 @@ class _LoginScreenState extends State<LoginScreen> {
       // Inject global user state so all screens have live access to the profile
       context.read<UserProvider>().setUser(payload['user'], payload['userData']);
       
-      // If successful, boot to splash screen with a dummy complete future so it animates cleanly
-      Navigator.pushReplacementNamed(
-        context, 
-        '/splash', 
-        arguments: {
-          'nextRoute': '/dashboard',
-          'authFuture': Future.value(true),
-        }
-      );
+      final userData = payload['userData'] as Map<String, dynamic>;
+      final bool requiresPasswordChange = userData['requiresPasswordChange'] == true;
+
+      if (requiresPasswordChange) {
+        // Immediately siphon to the Forced Reset UI barrier before allowing dashboard access
+        Navigator.pushReplacementNamed(
+          context, 
+          '/force-password-change',
+          arguments: {
+            'email': payload['user'].email ?? '',
+            'userData': userData,
+          }
+        );
+      } else {
+        // Normal successful boot to splash screen -> dashboard
+        Navigator.pushReplacementNamed(
+          context, 
+          '/splash', 
+          arguments: {
+            'nextRoute': '/dashboard',
+            'authFuture': Future.value(true),
+          }
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
