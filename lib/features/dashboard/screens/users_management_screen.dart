@@ -604,8 +604,68 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
       });
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text('Successfully deleted user: ${targetUser['name']}'), backgroundColor: AppColors.statusSafe),
+      
+      // Show elegant Success Popup for Deletion
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final bgColor = Theme.of(context).colorScheme.surface;
+          return Dialog(
+            backgroundColor: bgColor,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Container(
+              width: 500,
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: AppColors.statusDanger.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close_rounded, color: AppColors.statusDanger, size: 40),
+                  ),
+                  const SizedBox(height: 24),
+                  Text("Account Deleted", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                  const SizedBox(height: 16),
+                  Text(
+                    "${targetUser['name']} (@${targetUser['username']}) has been permanently removed.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Their system access and database profile have been securely erased.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text("Done", style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       );
     } catch (error) {
       if (!mounted) return;
@@ -887,51 +947,17 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
         ),
         const SizedBox(height: 24),
         Text("Account Created!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+        const SizedBox(height: 16),
+        Text(
+          "$name ($role) has been added to the system.",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+        ),
         const SizedBox(height: 8),
         Text(
-          "$name ($role) has been added to the system.\nThey have been emailed the following temporary credentials:",
+          "They have been emailed on their email address for their temporary credentials.",
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 24),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E2E) : Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Username', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(username, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              Text('Temporary Password', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    tempPassword, 
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryBlue, fontFamily: 'monospace'),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: tempPassword));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Password copied to clipboard!'), behavior: SnackBarBehavior.floating, backgroundColor: AppColors.primaryBlue),
-                      );
-                    },
-                    icon: const Icon(Icons.copy_rounded, color: AppColors.primaryBlue),
-                    tooltip: 'Copy to Clipboard',
-                  ),
-                ],
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: 32),
         SizedBox(
@@ -965,10 +991,11 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     );
   }
 
-  Widget _buildDialogTextInput(TextEditingController ctrl, String hint, bool isSaving, bool isDark, {IconData? icon, bool hasError = false}) {
+  Widget _buildDialogTextInput(TextEditingController ctrl, String hint, bool isSaving, bool isDark, {IconData? icon, bool hasError = false, void Function(String)? onChanged}) {
     return TextField(
       controller: ctrl,
       enabled: !isSaving,
+      onChanged: onChanged,
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
