@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
@@ -23,6 +24,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   // ─── Data State ─────────────────────────────────────────────────────────────
+  final String _dbBaseUrl = 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
   final GlobalKey _roleDropdownKey = GlobalKey();
   List<Map<String, dynamic>> _allUsers = [];
   bool _isLoading = true;
@@ -45,7 +47,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   // ─── Firebase Fetch (Using safe SDK instead of REST) ────────────────────────
   Future<void> _fetchUsers() async {
     try {
-      final url = Uri.parse('https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app/users.json');
+      final url = Uri.parse('$_dbBaseUrl/users.json');
       final response = await http.get(url);
 
       if (response.statusCode != 200 || response.body == 'null') {
@@ -295,6 +297,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                 DataColumn(label: Text('Status')),
                 DataColumn(label: Text('Contact')),
                 DataColumn(label: Text('Joined')),
+                DataColumn(label: Text('Actions')),
               ],
               rows: _filteredUsers.map((user) {
                 final role = user['role'] as String;
@@ -347,6 +350,41 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       ],
                     )),
                     DataCell(Text('Joined at ${_formatDate(user['createdAt'] as DateTime)}', style: const TextStyle(fontSize: 12))),
+                    DataCell(
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 20),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                        onSelected: (value) {
+                          if (value == 'delete') {
+                            _confirmAndDeleteUser(user);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined, size: 18, color: cs.onSurfaceVariant),
+                                const SizedBox(width: 8),
+                                Text('Edit Profile', style: TextStyle(color: cs.onSurface)),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.statusDanger),
+                                const SizedBox(width: 8),
+                                const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 );
               }).toList(),
@@ -410,6 +448,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               user: _filteredUsers[sourceIndex],
               isDark: isDark,
               formatDate: _formatDate,
+              onDelete: () => _confirmAndDeleteUser(_filteredUsers[sourceIndex]),
             );
           },
         );
@@ -524,6 +563,60 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     );
   }
 
+  // ─── Delete User Mechanism ──────────────────────────────────────────────────
+  Future<void> _confirmAndDeleteUser(Map<String, dynamic> targetUser) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to permanently delete ${targetUser['name']} (@${targetUser['username']})?\n\nThis will completely erase their system access and telemetry history. This action cannot be undone.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusDanger, foregroundColor: Colors.white),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final targetUid = targetUser['uid'] as String;
+
+      // Use the newly integrated AuthService helper which handles authentication tokens automatically.
+      await AuthService().deleteUser(targetUid);
+
+      // Successfully eradicated from RTDB. Let's update UI locally
+      setState(() {
+        _allUsers.removeWhere((u) => u['uid'] == targetUid);
+        // Refresh counts
+        _onlineCount = _allUsers.where((u) => u['isOnline'] == true).length;
+        _offlineCount = _allUsers.where((u) => u['isOnline'] == false).length;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text('Successfully deleted user: ${targetUser['name']}'), backgroundColor: AppColors.statusSafe),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text('Error deleting user: $error'), backgroundColor: AppColors.statusDanger),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   // ─── Add User Dialog Implementation ─────────────────────────────────────────
   void _showAddUserDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
@@ -537,6 +630,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     bool emailError = false;
 
     bool isSaving = false;
+    bool isSuccess = false;
+    String? tempPasswordForDialog;
     final AuthService authService = AuthService();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -546,7 +641,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
     showDialog(
       context: context,
-      barrierDismissible: !isSaving,
+      barrierDismissible: false, // Ensure they acknowledge success
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
           backgroundColor: bgColor,
@@ -556,7 +651,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           child: Container(
             width: 500, // Make it wider like the reference image
             padding: const EdgeInsets.all(32),
-            child: Column(
+            child: isSuccess ? _buildSuccessView(context, tempPasswordForDialog!, usernameCtrl.text, nameCtrl.text, selectedRole, isDark) 
+            : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -726,27 +822,24 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                           };
 
                           // --- SAVE TO DATABASE AND AUTH ---
-                          await authService.createUserRecord(userData, tempPassword);
+                          final String generatedUid = await authService.createUserRecord(userData, tempPassword);
 
                           // --- REFRESH LOCAL UI ---
                           setState(() {
                             _allUsers.insert(0, {
                               ...userData,
-                              'uid': 'pending_refresh',
+                              'uid': generatedUid,
                               'createdAt': DateTime.fromMillisecondsSinceEpoch(createdAtUnix * 1000), 
                             });
                             _offlineCount++;
                           });
 
                           if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                behavior: SnackBarBehavior.floating,
-                                content: Text("User '${nameCtrl.text}' saved to database as $selectedRole."),
-                                backgroundColor: Colors.green.shade700,
-                              ),
-                            );
+                            setDialogState(() {
+                              isSaving = false;
+                              isSuccess = true;
+                              tempPasswordForDialog = tempPassword;
+                            });
                           }
                         } catch (e) {
                           if (context.mounted) {
@@ -775,6 +868,86 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSuccessView(BuildContext context, String tempPassword, String username, String name, String role, bool isDark) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: AppColors.statusSafe.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.check_circle_rounded, color: AppColors.statusSafe, size: 40),
+        ),
+        const SizedBox(height: 24),
+        Text("Account Created!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+        const SizedBox(height: 8),
+        Text(
+          "$name ($role) has been added to the system.\nThey have been emailed the following temporary credentials:",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E2E) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Username', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(username, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text('Temporary Password', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    tempPassword, 
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryBlue, fontFamily: 'monospace'),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: tempPassword));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Password copied to clipboard!'), behavior: SnackBarBehavior.floating, backgroundColor: AppColors.primaryBlue),
+                      );
+                    },
+                    icon: const Icon(Icons.copy_rounded, color: AppColors.primaryBlue),
+                    tooltip: 'Copy to Clipboard',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("Done", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -910,11 +1083,13 @@ class _UserGridCard extends StatelessWidget {
   final Map<String, dynamic> user;
   final bool isDark;
   final String Function(DateTime) formatDate;
+  final VoidCallback onDelete;
 
   const _UserGridCard({
     required this.user,
     required this.isDark,
     required this.formatDate,
+    required this.onDelete,
   });
 
   @override
@@ -954,7 +1129,39 @@ class _UserGridCard extends StatelessWidget {
                     Text(isOnline ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                   ]),
                 ),
-                Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 20),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                    onSelected: (value) {
+                      if (value == 'delete') {
+                        onDelete();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 18, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 8),
+                            Text('Edit Profile', style: TextStyle(color: cs.onSurface)),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.statusDanger),
+                            const SizedBox(width: 8),
+                            const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),

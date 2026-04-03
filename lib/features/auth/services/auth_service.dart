@@ -92,7 +92,7 @@ class AuthService {
   }
 
   /// Creates a persistent user profile in the database via REST and Auth via Secondary App.
-  Future<void> createUserRecord(Map<String, dynamic> userData, String tempPassword) async {
+  Future<String> createUserRecord(Map<String, dynamic> userData, String tempPassword) async {
     final email = userData['email'] as String;
     
     // Inject the flag that forces the new user to reset their password on first login
@@ -107,6 +107,7 @@ class AuthService {
     final adminToken = await currentUser.getIdToken(true);
 
     FirebaseApp? secondaryApp;
+    String newUid = '';
     try {
       // 2. Initialize a secondary Firebase App to create the user without logging out the Admin
       secondaryApp = await Firebase.initializeApp(
@@ -122,7 +123,7 @@ class AuthService {
         password: tempPassword,
       );
 
-      final newUid = userCredential.user!.uid;
+      newUid = userCredential.user!.uid;
 
       // 4. Securely write the data to RTDB using PUT on the specific $uid node, authenticated by the Admin
       final url = Uri.parse('$_dbBaseUrl/users/$newUid.json?auth=$adminToken');
@@ -149,11 +150,48 @@ class AuthService {
         throw Exception('User created successfully, but email failed: $e');
       }
 
+      return newUid;
+
     } finally {
       // 6. Gracefully clean up the temporary app instance
       if (secondaryApp != null) {
         await secondaryApp.delete();
       }
+    }
+  }
+
+  /// Deletes a user profile from the database and attempts to trigger the auth wipe.
+  Future<void> deleteUser(String targetUid) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Authorization Error: Must be logged in as Admin to perform deletions.');
+    }
+
+    // 1. Get Admin Token for RTDB REST authentication
+    final adminToken = await currentUser.getIdToken(true);
+
+    // 2. Perform the Database Wipe (Soft Delete - Immediate ban)
+    final profileUrl = Uri.parse('$_dbBaseUrl/users/$targetUid.json?auth=$adminToken');
+    final response = await http.delete(profileUrl);
+
+    if (response.statusCode != 200) {
+      throw Exception('Database Deletion Failed: ${response.statusCode} - ${response.body}');
+    }
+
+    // 3. Attempt the Cloud Function (Hard Delete - Auth account wipe)
+    // This will gracefully fail with a log if the user hasn't upgraded to Blaze yet.
+    try {
+      final cloudUrl = Uri.parse('https://us-central1-crowdsense-db.cloudfunctions.net/deleteUserAccount');
+      await http.post(
+        cloudUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $adminToken', // Cloud functions require Bearer auth for onCall
+        },
+        body: json.encode({'data': {'targetUid': targetUid}}),
+      ).timeout(const Duration(seconds: 8));
+    } catch (e) {
+      print('Cloud Function trigger skipped/failed (Blaze Plan required): $e');
     }
   }
 }
