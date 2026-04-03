@@ -1,5 +1,6 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
@@ -65,14 +66,37 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("Session lost. Please log in again.");
 
-      // 1. Update Firebase Authentication Password Securely
-      await user.updatePassword(_newPasswordCtrl.text);
+      final idToken = await user.getIdToken();
+      
+      // 1. Remove the 'requiresPasswordChange' flag from RTDB to allow dashboard entry (VIA REST API)
+      final dbUrl = Uri.parse('https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app/users/${user.uid}.json?auth=$idToken');
+      final dbResponse = await http.patch(
+        dbUrl,
+        body: json.encode({'requiresPasswordChange': false}),
+      );
+      if (dbResponse.statusCode != 200) {
+        throw Exception("Failed to sync status to database securely: ${dbResponse.statusCode}");
+      }
 
-      // 2. Remove the 'requiresPasswordChange' flag from RTDB to allow dashboard entry
-      await FirebaseDatabase.instance.ref()
-          .child('users')
-          .child(user.uid)
-          .update({'requiresPasswordChange': false});
+      // 2. Update Firebase Authentication Password Securely (VIA REST ON WINDOWS TO PREVENT C++ PLUGIN CRASH)
+      // The `firebase_auth_windows` plugin contains a severe C++ threading crash condition on `updatePassword`.
+      // Bypassing the native MethodChannel entirely by using Google's raw Identity Toolkit API for updates:
+      final apiKey = Firebase.app().options.apiKey;
+      final url = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:update?key=$apiKey');
+      
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'idToken': idToken,
+          'password': _newPasswordCtrl.text,
+          'returnSecureToken': true,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception("Failed to perform secure password exchange: ${response.statusCode}");
+      }
       
       if (!mounted) return;
       
