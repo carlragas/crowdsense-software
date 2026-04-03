@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -530,6 +531,10 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     final usernameCtrl = TextEditingController();
     final designationCtrl = TextEditingController(); // Optional
     String selectedRole = 'Facilitator'; // Default since it's restricted to Admin/Facilitator
+    String? errorMessage;
+    bool nameError = false;
+    bool usernameError = false;
+    bool emailError = false;
 
     bool isSaving = false;
     final AuthService authService = AuthService();
@@ -569,6 +574,25 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                     ),
                   ],
                 ),
+                
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusDanger.withOpacity(0.1),
+                      border: Border.all(color: AppColors.statusDanger.withOpacity(0.5)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: AppColors.statusDanger, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(errorMessage!, style: const TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold, fontSize: 13))),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
 
                 // Form Fields wrapped in Expanded scrolling if constrained vertically
@@ -578,15 +602,15 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildDialogFieldLabel("Full Name *", isDark),
-                        _buildDialogTextInput(nameCtrl, "Enter full name...", isSaving, isDark, icon: Icons.person_outline_rounded),
+                        _buildDialogTextInput(nameCtrl, "Enter full name...", isSaving, isDark, icon: Icons.person_outline_rounded, hasError: nameError),
                         const SizedBox(height: 16),
                         
                         _buildDialogFieldLabel("Username *", isDark),
-                        _buildDialogTextInput(usernameCtrl, "Enter username...", isSaving, isDark, icon: Icons.alternate_email_rounded),
+                        _buildDialogTextInput(usernameCtrl, "Enter username...", isSaving, isDark, icon: Icons.alternate_email_rounded, hasError: usernameError),
                         const SizedBox(height: 16),
 
                         _buildDialogFieldLabel("Email *", isDark),
-                        _buildDialogTextInput(emailCtrl, "Enter email address...", isSaving, isDark, icon: Icons.mail_outline_rounded),
+                        _buildDialogTextInput(emailCtrl, "Enter email address...", isSaving, isDark, icon: Icons.mail_outline_rounded, hasError: emailError),
                         const SizedBox(height: 16),
 
                         _buildDialogFieldLabel("Official Designation (Optional)", isDark),
@@ -647,56 +671,85 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: isSaving ? null : () async {
-                        if (nameCtrl.text.isNotEmpty && emailCtrl.text.isNotEmpty && usernameCtrl.text.isNotEmpty) {
-                          setDialogState(() => isSaving = true);
+                        final bool isNameEmpty = nameCtrl.text.trim().isEmpty;
+                        final bool isEmailEmpty = emailCtrl.text.trim().isEmpty;
+                        final bool isUsernameEmpty = usernameCtrl.text.trim().isEmpty;
 
-                          try {
-                            final userData = {
-                              'customId': 'U${(1000 + _allUsers.length).toString()}',
-                              'name': nameCtrl.text.trim(),
-                              'username': usernameCtrl.text.trim(),
-                              'email': emailCtrl.text.trim().toLowerCase(),
-                              'phone': '',
-                              'role': selectedRole.toLowerCase(),
-                              'designation': designationCtrl.text.trim().isEmpty ? 'N/A' : designationCtrl.text.trim(),
-                              'isOnline': false,
-                              'createdAt': DateTime.now().toIso8601String(),
-                            };
+                        if (isNameEmpty || isEmailEmpty || isUsernameEmpty) {
+                          setDialogState(() {
+                            errorMessage = "Please fill out all required fields.";
+                            nameError = isNameEmpty;
+                            emailError = isEmailEmpty;
+                            usernameError = isUsernameEmpty;
+                          });
+                          return;
+                        }
 
-                            // --- SAVE TO DATABASE ---
-                            await authService.createUserRecord(userData);
+                        setDialogState(() {
+                          errorMessage = null;
+                          nameError = false;
+                          emailError = false;
+                          usernameError = false;
+                          isSaving = true;
+                        });
 
-                            // --- REFRESH LOCAL UI ---
-                            setState(() {
-                              _allUsers.insert(0, {
-                                ...userData,
-                                'uid': 'pending_refresh',
-                                'createdAt': DateTime.now(),
-                              });
-                              _offlineCount++;
+                        try {
+                          // 1. Generate Custom ID Based on Role
+                          final roleKey = selectedRole.toLowerCase();
+                          final idPrefix = roleKey == 'admin' ? 'CPE-A' : 'CPE-F';
+                          final count = _allUsers.where((u) => (u['role'] as String).toLowerCase() == roleKey).length;
+                          final customId = '$idPrefix${(count + 1).toString().padLeft(3, '0')}';
+
+                          // 2. Format Unix Timestamp
+                          final int createdAtUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+                          // 3. Generate Temporary Password
+                          const chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890!@#\$%^&*';
+                          math.Random rnd = math.Random();
+                          final String tempPassword = String.fromCharCodes(Iterable.generate(
+                              8, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
+
+                          final userData = {
+                            'customId': customId,
+                            'name': nameCtrl.text.trim(),
+                            'username': usernameCtrl.text.trim(),
+                            'email': emailCtrl.text.trim().toLowerCase(),
+                            'phone': '',
+                            'role': roleKey,
+                            'designation': designationCtrl.text.trim().isEmpty ? 'N/A' : designationCtrl.text.trim(),
+                            'isOnline': false,
+                            'createdAt': createdAtUnix,
+                          };
+
+                          // --- SAVE TO DATABASE AND AUTH ---
+                          await authService.createUserRecord(userData, tempPassword);
+
+                          // --- REFRESH LOCAL UI ---
+                          setState(() {
+                            _allUsers.insert(0, {
+                              ...userData,
+                              'uid': 'pending_refresh',
+                              'createdAt': DateTime.fromMillisecondsSinceEpoch(createdAtUnix * 1000), 
                             });
+                            _offlineCount++;
+                          });
 
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  behavior: SnackBarBehavior.floating,
-                                  content: Text("User '${nameCtrl.text}' saved to database as $selectedRole."),
-                                  backgroundColor: Colors.green.shade700,
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              setDialogState(() => isSaving = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  behavior: SnackBarBehavior.floating,
-                                  content: Text("Failed to save: ${e.toString()}"),
-                                  backgroundColor: AppColors.statusDanger,
-                                ),
-                              );
-                            }
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                content: Text("User '${nameCtrl.text}' saved to database as $selectedRole."),
+                                backgroundColor: Colors.green.shade700,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            setDialogState(() {
+                              isSaving = false;
+                              errorMessage = "Failed to save: ${e.toString()}";
+                            });
                           }
                         }
                       },
@@ -735,7 +788,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     );
   }
 
-  Widget _buildDialogTextInput(TextEditingController ctrl, String hint, bool isSaving, bool isDark, {IconData? icon}) {
+  Widget _buildDialogTextInput(TextEditingController ctrl, String hint, bool isSaving, bool isDark, {IconData? icon, bool hasError = false}) {
     return TextField(
       controller: ctrl,
       enabled: !isSaving,
@@ -743,16 +796,16 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: isDark ? Colors.grey.shade600 : Colors.grey.shade400, fontSize: 14),
-        prefixIcon: icon != null ? Icon(icon, size: 18, color: isDark ? Colors.grey.shade500 : Colors.grey.shade400) : null,
+        prefixIcon: icon != null ? Icon(icon, size: 18, color: hasError ? AppColors.statusDanger : (isDark ? Colors.grey.shade500 : Colors.grey.shade400)) : null,
         filled: true,
         fillColor: isDark ? const Color(0xFF1E1E2E) : Colors.grey.shade50,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+          borderSide: BorderSide(color: hasError ? AppColors.statusDanger : Theme.of(context).colorScheme.outline.withOpacity(0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+          borderSide: BorderSide(color: hasError ? AppColors.statusDanger : Theme.of(context).colorScheme.outline.withOpacity(0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),

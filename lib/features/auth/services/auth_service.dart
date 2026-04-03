@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'email_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -89,16 +91,67 @@ class AuthService {
     await _auth.signOut();
   }
 
-  /// Creates a persistent user profile in the database via REST.
-  Future<void> createUserRecord(Map<String, dynamic> userData) async {
-    final url = Uri.parse('$_dbBaseUrl/users.json');
-    final response = await http.post(
-      url,
-      body: json.encode(userData),
-    );
+  /// Creates a persistent user profile in the database via REST and Auth via Secondary App.
+  Future<void> createUserRecord(Map<String, dynamic> userData, String tempPassword) async {
+    final email = userData['email'] as String;
+    
+    // 1. Get the current admin's auth token for the secure RTDB write.
+    // We do this before creating the secondary app just to be safe.
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Must be logged in to create a user.');
+    }
+    final adminToken = await currentUser.getIdToken(true);
 
-    if (response.statusCode != 200) {
-      throw Exception('Database Write Error: Status Code ${response.statusCode}');
+    FirebaseApp? secondaryApp;
+    try {
+      // 2. Initialize a secondary Firebase App to create the user without logging out the Admin
+      secondaryApp = await Firebase.initializeApp(
+        name: 'SecondaryAppRegistration',
+        options: Firebase.app().options,
+      );
+
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+      // 3. Create the user in Auth
+      final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: tempPassword,
+      );
+
+      final newUid = userCredential.user!.uid;
+
+      // 4. Securely write the data to RTDB using PUT on the specific $uid node, authenticated by the Admin
+      final url = Uri.parse('$_dbBaseUrl/users/$newUid.json?auth=$adminToken');
+      final response = await http.put(
+        url,
+        body: json.encode(userData),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Database Write Error: Status Code ${response.statusCode} - ${response.body}');
+      }
+
+      // 5. Send custom HTML welcome email via SMTP directly from app
+      try {
+        await EmailService.sendWelcomeEmail(
+          targetEmail: email,
+          name: userData['name']?.toString() ?? '',
+          username: userData['username']?.toString() ?? '',
+          tempPassword: tempPassword,
+          role: userData['role']?.toString() ?? '',
+        );
+      } catch (e) {
+        // We log the error but don't explicitly throw it upwards, 
+        // because the user successfully created the database and auth accounts natively.
+        print('Email distribution failed (Likely missing SMTP credentials): \$e');
+      }
+
+    } finally {
+      // 6. Gracefully clean up the temporary app instance
+      if (secondaryApp != null) {
+        await secondaryApp.delete();
+      }
     }
   }
 }
