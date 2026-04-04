@@ -8,6 +8,7 @@ import '../../../../core/providers/user_provider.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
 import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../../../core/utils/phone_formatter.dart';
+import '../../auth/widgets/update_email_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -411,6 +412,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _StaticRow(icon: Icons.access_time_rounded, label: 'Last Login', value: _lastLogin, colorScheme: cs),
             const _Divider(),
             _StaticRow(icon: Icons.language_rounded, label: 'Last IP Address', value: _lastIp, colorScheme: cs),
+            const _Divider(),
+            // ── Change Email Address ──────────────────────────────────────
+            InkWell(
+              onTap: () => UpdateEmailDialog.show(context),
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.alternate_email_rounded,
+                          size: 18, color: cs.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Change Email Address',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'A verification link will be sent to your new email',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        color: cs.onSurfaceVariant.withOpacity(0.4)),
+                  ],
+                ),
+              ),
+            ),
             const _Divider(),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [

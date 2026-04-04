@@ -1,11 +1,12 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/geometric_background.dart';
-import '../../../../core/widgets/custom_notification_modal.dart';
-import '../../../../core/providers/user_provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/geometric_background.dart';
+import '../../../core/widgets/custom_notification_modal.dart';
+import '../../../core/providers/user_provider.dart';
 import '../services/auth_service.dart';
+import '../widgets/forgot_password_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool animate;
@@ -21,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -47,39 +49,58 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     if (!mounted) return;
 
-    // Capture provider reference before async gap
-    final userProvider = context.read<UserProvider>();
+    // Show loading state on button
+    setState(() => _isLoading = true);
 
-    // Build a smart future that resolves to the destination route.
-    // This lets us navigate to splash IMMEDIATELY while auth runs in the background.
-    final authFuture = _authService.login(identifier, password).then((payload) {
-      // Inject user state into the global provider as soon as auth resolves
+    try {
+      // Capture provider reference before async gap
+      final userProvider = context.read<UserProvider>();
+
+      // Perform the authentication handshake BEFORE leaving the screen.
+      // This ensures errors (like wrong password) stay on the login page.
+      final payload = await _authService.login(identifier, password);
+      
+      if (!mounted) return;
+
+      // SUCCESS PATH: Prepare the transitions and user state
       userProvider.setUser(payload['user'], payload['userData']);
       
       final userData = payload['userData'] as Map<String, dynamic>;
       final bool requiresPasswordChange = userData['requiresPasswordChange'] == true;
 
+      // Determine where the splash screen should go when its animation finishes
+      Future<Map<String, dynamic>> resolvedFuture;
       if (requiresPasswordChange) {
-        // Encode the force-password-change route + its required args
-        return <String, dynamic>{
+        resolvedFuture = Future.value({
           'route': '/force-password-change',
           'args': {'email': payload['user'].email ?? '', 'userData': userData},
-        };
+        });
+      } else {
+        resolvedFuture = Future.value({'route': '/dashboard'});
       }
-      // Standard success → dashboard
-      return <String, dynamic>{'route': '/dashboard'};
-    });
 
-    // ── Navigate to splash IMMEDIATELY — no awaiting here ──────────────────
-    // Splash shows the animation + loading circle while auth resolves in background.
-    // The resolved route map above tells splash exactly where to go when done.
-    Navigator.pushReplacementNamed(
-      context,
-      '/splash',
-      arguments: {
-        'authFuture': authFuture, // Smart future carrying both auth + routing
-      },
-    );
+      // Transition to splash for the "Loading Data" / "Syncing" vibe
+      Navigator.pushReplacementNamed(
+        context,
+        '/splash',
+        arguments: {
+          'authFuture': resolvedFuture, 
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      
+      // Stop loading so user can try again
+      setState(() => _isLoading = false);
+
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      CustomNotificationModal.show(
+        context: context,
+        title: "Login Error",
+        message: errorMsg,
+        isSuccess: false,
+      );
+    }
   }
 
   @override
@@ -250,14 +271,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 24),
                           
                           ElevatedButton(
-                            onPressed: _handleLogin,
-                            child: const Text("Log In"),
+                            onPressed: _isLoading ? null : _handleLogin,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text("Log In"),
                           ),
                           
                           const SizedBox(height: 16),
                           
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () => ForgotPasswordDialog.show(context),
                             child: Text(
                               "Forgot Password?",
                               style: TextStyle(color: AppColors.textGrey.withOpacity(0.8)),
