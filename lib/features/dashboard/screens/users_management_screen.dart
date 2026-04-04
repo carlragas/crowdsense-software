@@ -457,35 +457,43 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
   Widget _buildSearchBar(bool isDark) {
     final bool hasFocus = _searchFocusNode.hasFocus;
-    final Color blueAccent = AppColors.primaryBlue;
+
+    // CSS reference colors mapped to Flutter
+    // Container = the pill (.search-container)
+    // TextField  = transparent input (.search-input { background: transparent; border: none; outline: none })
+    const Color containerBg  = Color(0xFF313338); // #313338 dark grey fill
+    const Color borderBlue   = Color(0xFF3b82f6); // #3b82f6 crisp blue
+    const Color lightBg      = Color(0xFFF1F5F9); // light-mode equivalent
+    const Color placeholderC = Color(0xFF9CA3AF); // #9ca3af placeholder
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 44, // Slightly slimmer for a sleeker pill look
+      height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D2D2D) : Colors.white, // Continuous dark grey fill
-        borderRadius: BorderRadius.circular(100), // Perfectly smooth pill (oval-like)
+        // .search-container { background-color: #313338 }
+        color: isDark ? containerBg : lightBg,
+        // border-radius: 9999px → perfect pill
+        borderRadius: BorderRadius.circular(9999),
+        // border: 1px solid #3b82f6
         border: Border.all(
-          color: hasFocus ? blueAccent : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-          width: 1.2, // Crisp, unified border
+          color: hasFocus ? borderBlue : borderBlue.withOpacity(isDark ? 0.35 : 0.2),
+          width: 1.0,
         ),
+        // box-shadow: 0 0 12px rgba(59,130,246,0.4) → glow
         boxShadow: [
-          if (hasFocus)
-            BoxShadow(
-              color: blueAccent.withOpacity(isDark ? 0.4 : 0.2), 
-              blurRadius: 8, 
-              spreadRadius: 1,
-            ),
+          BoxShadow(
+            color: borderBlue.withOpacity(hasFocus ? 0.45 : 0.2),
+            blurRadius: hasFocus ? 16 : 10,
+            spreadRadius: 0,
+          ),
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search_rounded, 
-            size: 20, 
-            color: hasFocus ? blueAccent : (isDark ? Colors.grey.shade600 : Colors.grey.shade400)
-          ),
+          // .search-icon { color: #3b82f6 }
+          Icon(Icons.search_rounded, size: 18, color: borderBlue),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
@@ -493,22 +501,27 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               focusNode: _searchFocusNode,
               onChanged: (_) => setState(() {}),
               textAlignVertical: TextAlignVertical.center,
-              cursorColor: blueAccent,
+              cursorColor: borderBlue,
+              // .search-input { background: transparent; border: none; outline: none }
               decoration: InputDecoration(
-                hintText: 'Search...', 
-                hintStyle: TextStyle(
-                  fontSize: 14, 
-                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade400, 
-                  fontWeight: FontWeight.w400
-                ), 
-                // Purge all internal gaps/edges
+                hintText: 'Search user...',
+                hintStyle: const TextStyle(
+                  fontSize: 14,
+                  color: placeholderC, // #9ca3af
+                  fontWeight: FontWeight.w400,
+                ),
+                filled: false,           // transparent background
                 border: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 enabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
                 isDense: true,
-                contentPadding: EdgeInsets.zero, // Direct placement
+                contentPadding: const EdgeInsets.only(bottom: 5),
               ),
-              style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? const Color(0xFFE4E4E7) : Colors.black87, // #e4e4e7 light text
+              ),
             ),
           ),
         ],
