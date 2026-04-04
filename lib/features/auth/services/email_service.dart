@@ -35,17 +35,15 @@ class EmailService {
         .header p { margin: 10px 0 0; font-size: 14px; opacity: 0.8; font-weight: 500; }
         .content { padding: 40px; background-color: #222838; } 
         .greeting { font-size: 16px; margin-bottom: 24px; line-height: 1.6; color: #ffffff; }
-        .credentials-box { border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; background-color: #11141D; margin-bottom: 24px; }
-        .grid { display: grid; grid-template-columns: 140px 1fr; gap: 16px; font-size: 15px; }
-        .label { color: #9CA3AF; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
-        .val { font-weight: 700; color: #ffffff; }
+        .credentials-box { border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 28px; background-color: #11141D; margin-bottom: 24px; }
+        .label { color: #9CA3AF; font-weight: 500; font-size: 14px; }
+        .val { font-weight: 600; color: #ffffff; font-size: 15px; }
+        .temp-pass-pill { background-color: rgba(30, 58, 138, 0.4); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 8px 14px; display: inline-block; font-family: 'Courier New', Courier, monospace; font-size: 16px; font-weight: 700; color: #93C5FD; letter-spacing: 1px; }
         .warning-box { background-color: rgba(245, 158, 11, 0.1); border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
         .warning-title { color: #F59E0B; font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; }
         .warning-title span { margin-left: 6px; }
         .warning-text { color: #F59E0B; font-size: 13px; margin: 0; }
         .footer { padding: 24px; text-align: center; font-size: 12px; color: #9CA3AF; border-top: 1px solid rgba(255,255,255,0.05); background-color: #11141D; }
-        .copy-icon { width: 12px; height: 12px; border: 2px solid #60A5FA; border-radius: 3px; position: relative; display: inline-block; margin-top: 4px; margin-right: 4px; }
-        .copy-icon::after { content: ''; position: absolute; top: -6px; right: -6px; width: 12px; height: 12px; border-top: 2px solid #60A5FA; border-right: 2px solid #60A5FA; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -61,21 +59,22 @@ class EmailService {
             </div>
             
             <div class="credentials-box">
-                <div class="grid">
-                    <div class="label">Username</div>
-                    <div class="val">$username</div>
-                    
-                    <div class="label">Temporary Password</div>
-                    <div class="val" style="display: flex; align-items: center;">
-                        <span style="font-family: 'Courier New', Courier, monospace; font-size: 18px; color: #60A5FA; user-select: all; margin-right: 12px;" title="Double-click to highlight">$tempPassword</span>
-                        <div title="Note: Please highlight to copy. Email clients block automatic copy buttons." style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background-color: rgba(96, 165, 250, 0.15); border: 1px solid rgba(96, 165, 250, 0.3);">
-                            <span class="copy-icon"></span>
-                        </div>
-                    </div>
-                    
-                    <div class="label">System Role</div>
-                    <div class="val" style="text-transform: capitalize;">$role</div>
-                </div>
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse;">
+                    <tr>
+                        <td width="160" class="label" style="padding-bottom: 20px;">Username</td>
+                        <td class="val" style="padding-bottom: 20px;">$username</td>
+                    </tr>
+                    <tr>
+                        <td width="160" class="label" style="padding-bottom: 20px;">Temporary Password</td>
+                        <td class="val" style="padding-bottom: 20px;">
+                            <div class="temp-pass-pill" title="Double-click to highlight">$tempPassword</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td width="160" class="label">Access Level</td>
+                        <td class="val" style="text-transform: capitalize;">$role</td>
+                    </tr>
+                </table>
             </div>
  
             <div class="warning-box">

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/settings_provider.dart';
+import '../../../../core/widgets/custom_notification_modal.dart';
 
 class DeviceManagementModal extends StatefulWidget {
   const DeviceManagementModal({super.key});
@@ -65,8 +66,11 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
 
   void _handleAddDevice() {
     if (_macController.text.trim().isEmpty || _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill in both MAC Address and Node Name")),
+      CustomNotificationModal.show(
+        context: context,
+        title: "Missing Fields",
+        message: "Please fill in both MAC Address and Node Name.",
+        isSuccess: false,
       );
       return;
     }
@@ -91,8 +95,11 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
 
     FocusScope.of(context).unfocus();
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Device '${newDevice["name"]}' added successfully.")),
+    CustomNotificationModal.show(
+      context: context,
+      title: "Device Added",
+      message: "Device '${newDevice["name"]}' has been added successfully.",
+      isSuccess: true,
     );
   }
 
@@ -141,8 +148,12 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     });
     _removeDeviceFromFirebase(mac);
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Device '$name' removed.")),
+    CustomNotificationModal.show(
+      context: context,
+      title: "Device Removed",
+      message: "Device '$name' has been permanently removed.",
+      isSuccess: true,
+      isDestructive: true,
     );
   }
 

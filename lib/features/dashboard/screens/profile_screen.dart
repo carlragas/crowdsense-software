@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
+import '../../../../core/widgets/custom_notification_modal.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -62,24 +63,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _origName = userProv.name;
     _origUsername = userProv.username;
     _origEmail = userProv.email;
-    _origPhone = userProv.phone.isEmpty ? '+63 900 000 0000' : userProv.phone;
-    _origDesignation = userProv.designation;
+    _origPhone = userProv.phone.isEmpty ? 'N/A' : userProv.phone;
+    _origDesignation = userProv.designation.isEmpty ? 'N/A' : userProv.designation;
     _adminId = userProv.id;
     _accessLevel = userProv.role.toUpperCase();
 
     _nameCtrl = TextEditingController(text: _origName)..addListener(_onChange);
     _usernameCtrl = TextEditingController(text: _origUsername)..addListener(_onChange);
     _emailCtrl = TextEditingController(text: _origEmail)..addListener(_onChange);
-    _phoneCtrl = TextEditingController(text: _origPhone)..addListener(_onChange);
-    _designationCtrl = TextEditingController(text: _origDesignation)..addListener(_onChange);
+    _phoneCtrl = TextEditingController(text: _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '' : _origPhone)..addListener(_onChange);
+    _designationCtrl = TextEditingController(text: _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation)..addListener(_onChange);
   }
 
   void _onChange() {
-    final changed = _nameCtrl.text != _origName ||
-        _usernameCtrl.text != _origUsername ||
-        _emailCtrl.text != _origEmail ||
-        _phoneCtrl.text != _origPhone ||
-        _designationCtrl.text != _origDesignation;
+    final currentPhone = _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim();
+    final currentDesignation = _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim();
+    
+    final origP = _origPhone == '+63 900 000 0000' ? 'N/A' : _origPhone;
+    final origD = _origDesignation == 'Official Administrator' ? 'N/A' : _origDesignation;
+
+    final changed = _nameCtrl.text.trim() != _origName.trim() ||
+        _usernameCtrl.text.trim() != _origUsername.trim() ||
+        _emailCtrl.text.trim() != _origEmail.trim() ||
+        currentPhone != origP ||
+        currentDesignation != origD;
+
     if (_hasChanges != changed) setState(() => _hasChanges = changed);
   }
 
@@ -96,9 +104,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _cancel() {
     setState(() {
       _nameCtrl.text = _origName;
+      _usernameCtrl.text = _origUsername;
       _emailCtrl.text = _origEmail;
-      _phoneCtrl.text = _origPhone;
-      _designationCtrl.text = _origDesignation;
+      _phoneCtrl.text = _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '' : _origPhone;
+      _designationCtrl.text = _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation;
       _isEditing = false;
       _hasChanges = false;
     });
@@ -107,9 +116,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _save() async {
     if (_nameCtrl.text.trim().isEmpty ||
         _usernameCtrl.text.trim().isEmpty ||
-        _emailCtrl.text.trim().isEmpty ||
-        _designationCtrl.text.trim().isEmpty) {
-      _showError('Update incomplete. Please provide a valid Designation to proceed.');
+        _emailCtrl.text.trim().isEmpty) {
+      _showError('Update incomplete. Full Name, Username, and Email are required.');
       return;
     }
     
@@ -126,12 +134,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final dbBaseUrl = 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
         final updateUrl = Uri.parse('$dbBaseUrl/users/$uid.json?auth=$idToken');
         
+        final finalPhone = _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim();
+        final finalDesignation = _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim();
+
         final payload = json.encode({
           'name': _nameCtrl.text.trim(),
           'username': _usernameCtrl.text.trim(),
           'email': _emailCtrl.text.trim(),
-          'phone': _phoneCtrl.text.trim(),
-          'designation': _designationCtrl.text.trim(),
+          'phone': finalPhone,
+          'designation': finalDesignation,
         });
 
         final response = await http.patch(updateUrl, body: payload);
@@ -144,16 +155,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'name': _nameCtrl.text.trim(),
           'username': _usernameCtrl.text.trim(),
           'email': _emailCtrl.text.trim(),
-          'phone': _phoneCtrl.text.trim(),
-          'designation': _designationCtrl.text.trim(),
+          'phone': finalPhone,
+          'designation': finalDesignation,
         });
         
         setState(() {
-          _origName = _nameCtrl.text;
-          _origUsername = _usernameCtrl.text;
-          _origEmail = _emailCtrl.text;
-          _origPhone = _phoneCtrl.text;
-          _origDesignation = _designationCtrl.text;
+          _origName = _nameCtrl.text.trim();
+          _origUsername = _usernameCtrl.text.trim();
+          _origEmail = _emailCtrl.text.trim();
+          _origPhone = finalPhone;
+          _origDesignation = finalDesignation;
           _hasChanges = false;
         });
         
@@ -167,33 +178,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showSuccess(String msg) {
     HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [
-        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-        const SizedBox(width: 10),
-        Expanded(child: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600))),
-      ]),
-      backgroundColor: const Color(0xFF2E7D32),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      duration: const Duration(seconds: 3),
-    ));
+    CustomNotificationModal.show(
+      context: context,
+      title: 'Success!',
+      message: msg,
+      isSuccess: true,
+    );
   }
 
   void _showError(String msg) {
     HapticFeedback.heavyImpact();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [
-        const Icon(Icons.error_rounded, color: Colors.white, size: 20),
-        const SizedBox(width: 10),
-        Expanded(child: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600))),
-      ]),
-      backgroundColor: AppColors.statusDanger,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      duration: const Duration(seconds: 6),
-      action: SnackBarAction(label: 'Dismiss', textColor: Colors.white, onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar()),
-    ));
+    CustomNotificationModal.show(
+      context: context,
+      title: 'Error Encountered',
+      message: msg,
+      isSuccess: false,
+    );
   }
 
   @override
@@ -275,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(color: _accentBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text(_designationCtrl.text, style: TextStyle(color: _accentBlue, fontSize: 12, fontWeight: FontWeight.bold)),
+              child: Text(_designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim(), style: TextStyle(color: _accentBlue, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(height: 24),
@@ -311,8 +311,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _StaticRow(icon: Icons.tag_rounded, label: 'Admin ID', value: _adminId, colorScheme: cs, locked: true),
             const _Divider(),
             _isEditing
-                ? _EditField(label: 'Official Designation', controller: _designationCtrl, accentColor: _accentBlue)
-                : _StaticRow(icon: Icons.work_outline_rounded, label: 'Official Designation', value: _designationCtrl.text, colorScheme: cs),
+                ? _EditField(label: 'Official Designation', controller: _designationCtrl, accentColor: _accentBlue, hint: 'N/A')
+                : _StaticRow(icon: Icons.work_outline_rounded, label: 'Official Designation', value: _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim(), colorScheme: cs),
             const _Divider(),
             _StaticRow(icon: Icons.corporate_fare_rounded, label: 'Department / Unit', value: 'Disaster Response Team – CEA', colorScheme: cs),
           ]),
@@ -351,9 +351,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
                     accentColor: _accentBlue,
-                    hint: 'This number is used for critical SMS sensor alerts.',
+                    hint: 'N/A',
                   )
-                : _StaticRow(icon: Icons.phone_outlined, label: 'Emergency Contact Number', value: _phoneCtrl.text, colorScheme: cs),
+                : _StaticRow(icon: Icons.phone_outlined, label: 'Emergency Contact Number', value: _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim(), colorScheme: cs),
             const _Divider(),
             _StaticRow(icon: Icons.person_pin_outlined, label: 'Emergency Escalation Path', value: 'Backup: Shift Lead B – H. Llarinas', colorScheme: cs),
             const _Divider(),

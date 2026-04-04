@@ -8,6 +8,7 @@ import '../../auth/services/auth_service.dart';
 import '../widgets/people_counter_card.dart';
 import 'users_management_screen.dart';
 
+import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../../../core/widgets/geometric_background.dart';
 import '../../../../core/widgets/page_title.dart';
 import 'analytics_screen.dart';
@@ -1072,12 +1073,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       child: ElevatedButton.icon(
                                         onPressed: () {
                                           Navigator.pop(context);
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text("$title DEACTIVATED successfully.", style: const TextStyle(fontWeight: FontWeight.bold)),
-                                              backgroundColor: AppColors.primaryBlue,
-                                              behavior: SnackBarBehavior.floating,
-                                            ),
+                                          CustomNotificationModal.show(
+                                            context: context,
+                                            title: "Alarm Deactivated",
+                                            message: "$title DEACTIVATED successfully.",
+                                            isSuccess: true,
+                                            customColor: AppColors.primaryBlue,
+                                            customIcon: Icons.volume_off_rounded,
                                           );
                                         },
                                         icon: const Icon(Icons.stop_circle_rounded, size: 28),
@@ -1099,11 +1101,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                               },
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Action Executed: $title $actionText" + "TED"),
-                                backgroundColor: color,
-                              ),
+                            CustomNotificationModal.show(
+                              context: context,
+                              title: "System Update",
+                              message: "$title has been ${isReset ? 'RESET' : 'ACTIVATED'}.",
+                              isSuccess: true,
+                              customColor: color,
+                              customIcon: icon,
                             );
                           }
                         },

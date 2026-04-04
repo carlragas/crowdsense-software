@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 
@@ -59,12 +60,11 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               _targetRoute = '/login'; // Re-route to login
             });
             String errorMsg = error.toString().replaceFirst('Exception: ', '');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMsg), 
-                backgroundColor: const Color(0xFFEF4C33), // Red
-                behavior: SnackBarBehavior.floating,
-              )
+            CustomNotificationModal.show(
+              context: context,
+              title: "Authentication Error",
+              message: errorMsg,
+              isSuccess: false,
             );
           }
         });

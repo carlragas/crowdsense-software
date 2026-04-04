@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
+import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../auth/services/auth_service.dart';
 
 class UsersManagementScreen extends StatefulWidget {
@@ -18,7 +19,6 @@ class UsersManagementScreen extends StatefulWidget {
 
 class _UsersManagementScreenState extends State<UsersManagementScreen> {
   // ─── Filter State ───────────────────────────────────────────────────────────
-  String _viewType = 'Grid View';
   String _statusFilter = 'All';
   String _roleFilter = 'All';
   final TextEditingController _searchCtrl = TextEditingController();
@@ -220,14 +220,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                 child: Row(
                   children: [
                     _buildFilterDropdown(
-                      icon: Icons.grid_view_rounded,
-                      label: 'Type: ',
-                      selectedValue: _viewType,
-                      items: ['Grid View', 'List View'],
-                      onChanged: (val) { if (val != null) setState(() => _viewType = val); },
-                    ),
-                    const SizedBox(width: 12),
-                    _buildFilterDropdown(
                       icon: Icons.show_chart_rounded,
                       label: 'Status: ',
                       selectedValue: _statusFilter,
@@ -255,9 +247,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : _filteredUsers.isEmpty
                         ? _buildEmptyState()
-                        : _viewType == 'Grid View'
-                            ? _buildGridView(isDark)
-                            : _buildListView(isDark),
+                        : _buildGridView(isDark),
               ),
             ],
           ),
@@ -351,7 +341,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                     )),
                     DataCell(Text('Joined at ${_formatDate(user['createdAt'] as DateTime)}', style: const TextStyle(fontSize: 12))),
                     DataCell(
-                      PopupMenuButton<String>(
+                      !_isAdmin ? const SizedBox.shrink() : PopupMenuButton<String>(
                         icon: Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 20),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
@@ -361,17 +351,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                           }
                         },
                         itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit_outlined, size: 18, color: cs.onSurfaceVariant),
-                                const SizedBox(width: 8),
-                                Text('Edit Profile', style: TextStyle(color: cs.onSurface)),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuDivider(),
                           PopupMenuItem(
                             value: 'delete',
                             child: Row(
@@ -449,6 +428,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               isDark: isDark,
               formatDate: _formatDate,
               onDelete: () => _confirmAndDeleteUser(_filteredUsers[sourceIndex]),
+              isAdmin: _isAdmin,
             );
           },
         );
@@ -567,22 +547,76 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   Future<void> _confirmAndDeleteUser(Map<String, dynamic> targetUser) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to permanently delete ${targetUser['name']} (@${targetUser['username']})?\n\nThis will completely erase their system access and telemetry history. This action cannot be undone.'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+      builder: (context) {
+        final bgColor = Theme.of(context).colorScheme.surface;
+        return Dialog(
+          backgroundColor: bgColor,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.statusDanger.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.warning_rounded, color: AppColors.statusDanger, size: 40),
+                ),
+                const SizedBox(height: 24),
+                Text("Delete User", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                const SizedBox(height: 16),
+                Text(
+                  "Are you sure you want to permanently delete ${targetUser['name']} (@${targetUser['username']})?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "This will completely erase their system access and telemetry history. This action cannot be undone.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.5))),
+                        ),
+                        child: Text("Cancel", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.statusDanger,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text("Delete Permanently", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusDanger, foregroundColor: Colors.white),
-            child: const Text('Delete Permanently'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirm != true) return;
@@ -606,71 +640,18 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
       if (!mounted) return;
       
       // Show elegant Success Popup for Deletion
-      showDialog(
+      CustomNotificationModal.show(
         context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
-          final bgColor = Theme.of(context).colorScheme.surface;
-          return Dialog(
-            backgroundColor: bgColor,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Container(
-              width: 500,
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: AppColors.statusDanger.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.close_rounded, color: AppColors.statusDanger, size: 40),
-                  ),
-                  const SizedBox(height: 24),
-                  Text("Account Deleted", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                  const SizedBox(height: 16),
-                  Text(
-                    "${targetUser['name']} (@${targetUser['username']}) has been permanently removed.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Their system access and database profile have been securely erased.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: const Text("Done", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+        title: "Account Deleted",
+        message: "${targetUser['name']} (@${targetUser['username']}) has been permanently removed.\n\nTheir system access and database profile have been securely erased.",
+        isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text('Error deleting user: $error'), backgroundColor: AppColors.statusDanger),
+      CustomNotificationModal.show(
+        context: context,
+        title: "Deletion Failed",
+        message: "Error deleting user: $error",
+        isSuccess: false,
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -690,8 +671,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     bool emailError = false;
 
     bool isSaving = false;
-    bool isSuccess = false;
-    String? tempPasswordForDialog;
     final AuthService authService = AuthService();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -711,8 +690,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           child: Container(
             width: 500, // Make it wider like the reference image
             padding: const EdgeInsets.all(32),
-            child: isSuccess ? _buildSuccessView(context, tempPasswordForDialog!, usernameCtrl.text, nameCtrl.text, selectedRole, isDark) 
-            : Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -758,15 +736,36 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildDialogFieldLabel("Full Name *", isDark),
-                        _buildDialogTextInput(nameCtrl, "Enter full name...", isSaving, isDark, icon: Icons.person_outline_rounded, hasError: nameError),
+                        _buildDialogTextInput(nameCtrl, "Enter full name...", isSaving, isDark, icon: Icons.person_outline_rounded, hasError: nameError, onChanged: (val) {
+                          if (nameError && val.trim().isNotEmpty) {
+                            setDialogState(() {
+                              nameError = false;
+                              if (nameCtrl.text.trim().isNotEmpty && usernameCtrl.text.trim().isNotEmpty && emailCtrl.text.trim().isNotEmpty) errorMessage = null;
+                            });
+                          }
+                        }),
                         const SizedBox(height: 16),
                         
                         _buildDialogFieldLabel("Username *", isDark),
-                        _buildDialogTextInput(usernameCtrl, "Enter username...", isSaving, isDark, icon: Icons.alternate_email_rounded, hasError: usernameError),
+                        _buildDialogTextInput(usernameCtrl, "Enter username...", isSaving, isDark, icon: Icons.alternate_email_rounded, hasError: usernameError, onChanged: (val) {
+                          if (usernameError && val.trim().isNotEmpty) {
+                            setDialogState(() {
+                              usernameError = false;
+                              if (nameCtrl.text.trim().isNotEmpty && usernameCtrl.text.trim().isNotEmpty && emailCtrl.text.trim().isNotEmpty) errorMessage = null;
+                            });
+                          }
+                        }),
                         const SizedBox(height: 16),
 
                         _buildDialogFieldLabel("Email *", isDark),
-                        _buildDialogTextInput(emailCtrl, "Enter email address...", isSaving, isDark, icon: Icons.mail_outline_rounded, hasError: emailError),
+                        _buildDialogTextInput(emailCtrl, "Enter email address...", isSaving, isDark, icon: Icons.mail_outline_rounded, hasError: emailError, onChanged: (val) {
+                          if (emailError && val.trim().isNotEmpty) {
+                            setDialogState(() {
+                              emailError = false;
+                              if (nameCtrl.text.trim().isNotEmpty && usernameCtrl.text.trim().isNotEmpty && emailCtrl.text.trim().isNotEmpty) errorMessage = null;
+                            });
+                          }
+                        }),
                         const SizedBox(height: 16),
 
                         _buildDialogFieldLabel("Official Designation (Optional)", isDark),
@@ -895,11 +894,13 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                           });
 
                           if (context.mounted) {
-                            setDialogState(() {
-                              isSaving = false;
-                              isSuccess = true;
-                              tempPasswordForDialog = tempPassword;
-                            });
+                            Navigator.pop(context);
+                            CustomNotificationModal.show(
+                              context: context,
+                              title: "Account Created!",
+                              message: "${nameCtrl.text.trim()} ($selectedRole) has been added to the system.\n\nThey have been emailed on their email address for their temporary credentials.",
+                              isSuccess: true,
+                            );
                           }
                         } catch (e) {
                           if (context.mounted) {
@@ -928,52 +929,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildSuccessView(BuildContext context, String tempPassword, String username, String name, String role, bool isDark) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: AppColors.statusSafe.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.check_circle_rounded, color: AppColors.statusSafe, size: 40),
-        ),
-        const SizedBox(height: 24),
-        Text("Account Created!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-        const SizedBox(height: 16),
-        Text(
-          "$name ($role) has been added to the system.",
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "They have been emailed on their email address for their temporary credentials.",
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text("Done", style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1111,12 +1066,14 @@ class _UserGridCard extends StatelessWidget {
   final bool isDark;
   final String Function(DateTime) formatDate;
   final VoidCallback onDelete;
+  final bool isAdmin;
 
   const _UserGridCard({
     required this.user,
     required this.isDark,
     required this.formatDate,
     required this.onDelete,
+    required this.isAdmin,
   });
 
   @override
@@ -1156,39 +1113,29 @@ class _UserGridCard extends StatelessWidget {
                     Text(isOnline ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                   ]),
                 ),
-                  PopupMenuButton<String>(
-                    icon: Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 20),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-                    onSelected: (value) {
-                      if (value == 'delete') {
-                        onDelete();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined, size: 18, color: cs.onSurfaceVariant),
-                            const SizedBox(width: 8),
-                            Text('Edit Profile', style: TextStyle(color: cs.onSurface)),
-                          ],
+                  if (isAdmin)
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 20),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          onDelete();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.statusDanger),
+                              const SizedBox(width: 8),
+                              const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
-                      ),
-                      const PopupMenuDivider(),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.statusDanger),
-                            const SizedBox(width: 8),
-                            const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
               ],
             ),
           ),

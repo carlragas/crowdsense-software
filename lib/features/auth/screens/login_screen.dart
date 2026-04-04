@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/geometric_background.dart';
+import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../services/auth_service.dart';
 
@@ -34,12 +35,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (identifier.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter both Email/Username and Password.'), 
-          backgroundColor: Color(0xFFEF4C33), // Red error color
-          behavior: SnackBarBehavior.floating,
-        ),
+      CustomNotificationModal.show(
+        context: context,
+        title: "Login Failed",
+        message: "Please enter both Email/Username and Password.",
+        isSuccess: false,
       );
       return;
     }
@@ -92,12 +92,11 @@ class _LoginScreenState extends State<LoginScreen> {
       
       // Show the explicit error thrown by AuthService or missing plugin
       String errorMsg = e.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMsg), 
-          backgroundColor: const Color(0xFFEF4C33), // Red error color
-          behavior: SnackBarBehavior.floating,
-        ),
+      CustomNotificationModal.show(
+        context: context,
+        title: "Login Error",
+        message: errorMsg,
+        isSuccess: false,
       );
     }
   }
