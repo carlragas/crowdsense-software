@@ -21,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   
   bool _isPasswordVisible = false;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -46,59 +45,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Dismiss keyboard
     FocusScope.of(context).unfocus();
+    if (!mounted) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    // Capture provider reference before async gap
+    final userProvider = context.read<UserProvider>();
 
-    try {
-      // Securely wait for the auth task to complete locally
-      final payload = await _authService.login(identifier, password);
-      
-      if (!mounted) return;
-      
-      // Inject global user state so all screens have live access to the profile
-      context.read<UserProvider>().setUser(payload['user'], payload['userData']);
+    // Build a smart future that resolves to the destination route.
+    // This lets us navigate to splash IMMEDIATELY while auth runs in the background.
+    final authFuture = _authService.login(identifier, password).then((payload) {
+      // Inject user state into the global provider as soon as auth resolves
+      userProvider.setUser(payload['user'], payload['userData']);
       
       final userData = payload['userData'] as Map<String, dynamic>;
       final bool requiresPasswordChange = userData['requiresPasswordChange'] == true;
 
       if (requiresPasswordChange) {
-        // Immediately siphon to the Forced Reset UI barrier before allowing dashboard access
-        Navigator.pushReplacementNamed(
-          context, 
-          '/force-password-change',
-          arguments: {
-            'email': payload['user'].email ?? '',
-            'userData': userData,
-          }
-        );
-      } else {
-        // Normal successful boot to splash screen -> dashboard
-        Navigator.pushReplacementNamed(
-          context, 
-          '/splash', 
-          arguments: {
-            'nextRoute': '/dashboard',
-            'authFuture': Future.value(true),
-          }
-        );
+        // Encode the force-password-change route + its required args
+        return <String, dynamic>{
+          'route': '/force-password-change',
+          'args': {'email': payload['user'].email ?? '', 'userData': userData},
+        };
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-      
-      // Show the explicit error thrown by AuthService or missing plugin
-      String errorMsg = e.toString().replaceFirst('Exception: ', '');
-      CustomNotificationModal.show(
-        context: context,
-        title: "Login Error",
-        message: errorMsg,
-        isSuccess: false,
-      );
-    }
+      // Standard success → dashboard
+      return <String, dynamic>{'route': '/dashboard'};
+    });
+
+    // ── Navigate to splash IMMEDIATELY — no awaiting here ──────────────────
+    // Splash shows the animation + loading circle while auth resolves in background.
+    // The resolved route map above tells splash exactly where to go when done.
+    Navigator.pushReplacementNamed(
+      context,
+      '/splash',
+      arguments: {
+        'authFuture': authFuture, // Smart future carrying both auth + routing
+      },
+    );
   }
 
   @override
@@ -269,14 +250,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 24),
                           
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            child: _isLoading 
-                                ? const SizedBox(
-                                    height: 20, 
-                                    width: 20, 
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                                  )
-                                : const Text("Log In"),
+                            onPressed: _handleLogin,
+                            child: const Text("Log In"),
                           ),
                           
                           const SizedBox(height: 16),
@@ -284,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextButton(
                             onPressed: () {},
                             child: Text(
-                              "Having Trouble?",
+                              "Forgot Password?",
                               style: TextStyle(color: AppColors.textGrey.withOpacity(0.8)),
                             ),
                           ),

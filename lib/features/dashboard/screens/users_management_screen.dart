@@ -480,13 +480,14 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           color: hasFocus ? borderBlue : borderBlue.withOpacity(isDark ? 0.35 : 0.2),
           width: 1.0,
         ),
-        // box-shadow: 0 0 12px rgba(59,130,246,0.4) → glow
+        // box-shadow only on focus (like :focus-within in CSS)
         boxShadow: [
-          BoxShadow(
-            color: borderBlue.withOpacity(hasFocus ? 0.45 : 0.2),
-            blurRadius: hasFocus ? 16 : 10,
-            spreadRadius: 0,
-          ),
+          if (hasFocus)
+            BoxShadow(
+              color: borderBlue.withOpacity(0.45),
+              blurRadius: 16,
+              spreadRadius: 0,
+            ),
         ],
       ),
       child: Row(

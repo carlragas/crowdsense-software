@@ -642,7 +642,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               CustomPaint(
                 size: Size(MediaQuery.of(context).size.width - 32, 90),
-                painter: _NavBarPainter(context),
+                painter: _NavBarPainter(context, _currentIndex),
               ),
               Positioned.fill(
                 child: Row(
@@ -680,36 +680,49 @@ class _DashboardScreenState extends State<DashboardScreen>
                   onTap: () {
                     setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
                   },
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const RadialGradient(
-                        colors: [AppColors.accentBlue, AppColors.primaryBlue],
-                        center: Alignment(0, -0.3),
-                        radius: 1.0,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primaryBlue.withOpacity(0.45),
-                          blurRadius: 14,
-                          offset: const Offset(0, 5),
+                    child: AnimatedScale(
+                      scale: _currentIndex == 2 ? 1.12 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const RadialGradient(
+                            colors: [AppColors.accentBlue, AppColors.primaryBlue],
+                            center: Alignment(0, -0.3),
+                            radius: 1.0,
+                          ),
+                          boxShadow: [
+                            // Main shadow
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withOpacity(0.45),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
+                            ),
+                            // Optional glow when selected
+                            if (_currentIndex == 2)
+                              BoxShadow(
+                                color: AppColors.primaryBlue.withOpacity(0.6),
+                                blurRadius: 20,
+                                spreadRadius: 4,
+                              ),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
                         ),
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.notifications_active_rounded,
-                      color: Colors.white,
-                      size: 32,
+                        child: const Icon(
+                          Icons.notifications_active_rounded,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
                     ),
                   ),
-                ),
               ),
             ],
           ),
@@ -1422,11 +1435,18 @@ class _PulsingDotState extends State<_PulsingDot>
 
 class _NavBarPainter extends CustomPainter {
   final BuildContext context;
-  _NavBarPainter(this.context);
+  final int currentIndex;
+  _NavBarPainter(this.context, this.currentIndex);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Safely get properties to avoid Null type errors during hot reload transitions
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Safety check: sometimes hot reload can leave fields uninitialized
+    // although they are non-nullable in code. We use a fallback to prevent crashes.
+    final int safeIndex = currentIndex;
+    
     final paint = Paint()
       ..color = isDark ? AppColors.surfaceDark : Colors.white
       ..style = PaintingStyle.fill;
@@ -1439,10 +1459,12 @@ class _NavBarPainter extends CustomPainter {
     final double w = size.width;
     final double h = size.height;
     
-    // Notch dimensions
-    final double notchRadius = 38.0;
-    final double notchDepth = 30.0;
     final double center = w / 2;
+    
+    // Notch dimensions - expands when Alerts (index 2) is active
+    final bool isAlerts = safeIndex == 2;
+    final double notchRadius = isAlerts ? 44.0 : 38.0;
+    final double notchDepth = isAlerts ? 36.0 : 30.0;
 
     path.moveTo(0, 24); // Top left radius
     path.quadraticBezierTo(0, 0, 24, 0);
@@ -1492,5 +1514,13 @@ class _NavBarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    if (oldDelegate is! _NavBarPainter) return true;
+    // Standard safety check for hot reload transitions
+    try {
+      return oldDelegate.currentIndex != currentIndex;
+    } catch (_) {
+      return true;
+    }
+  }
 }
