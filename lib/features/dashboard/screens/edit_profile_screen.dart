@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../core/utils/phone_formatter.dart';
 
 class EditProfileScreen extends StatelessWidget {
   const EditProfileScreen({super.key});
@@ -62,7 +64,7 @@ class EditProfileScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Contact details stacked vertically
-            _buildTextField(context, "Phone", initialValue: "+1 234 567 8900"),
+            _buildTextField(context, "Phone", initialValue: "+63 921 535 1298", inputFormatters: [PhilippinePhoneFormatter()]),
             const SizedBox(height: 20),
             _buildTextField(context, "Email", initialValue: "admin@example.com"),
             const SizedBox(height: 20),
@@ -95,7 +97,7 @@ class EditProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTextField(BuildContext context, String label, {String? initialValue}) {
+  Widget _buildTextField(BuildContext context, String label, {String? initialValue, List<TextInputFormatter>? inputFormatters}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return TextFormField(
@@ -125,6 +127,7 @@ class EditProfileScreen extends StatelessWidget {
           ),
         ),
       ),
+      inputFormatters: inputFormatters,
     );
   }
 }

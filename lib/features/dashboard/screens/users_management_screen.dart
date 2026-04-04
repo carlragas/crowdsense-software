@@ -22,6 +22,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   String _statusFilter = 'All';
   String _roleFilter = 'All';
   final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   // ─── Data State ─────────────────────────────────────────────────────────────
   final String _dbBaseUrl = 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
@@ -36,11 +37,23 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     super.initState();
     _fetchUsers();
     _searchCtrl.addListener(() => setState(() {}));
+    
+    // Auto-select text when clicked (YouTube style)
+    _searchFocusNode.addListener(() {
+      if (_searchFocusNode.hasFocus) {
+        _searchCtrl.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _searchCtrl.text.length,
+        );
+      }
+      setState(() {}); // Rebuild for focus highlight
+    });
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -159,84 +172,88 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           foregroundColor: cs.onSurface,
         ),
         body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── HEADER SECTION ──────────────────────────────────────────────────
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const PageTitle(title: "System Users"),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _dotBadge(AppColors.statusSafe, 'Online $_onlineCount'),
-                      const SizedBox(width: 16),
-                      _dotBadge(cs.onSurfaceVariant.withOpacity(0.5), 'Offline $_offlineCount'),
-                    ],
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const PageTitle(title: "System Users"),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _dotBadge(AppColors.statusSafe, 'Online $_onlineCount'),
+                        const SizedBox(width: 16),
+                        _dotBadge(Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), 'Offline $_offlineCount'),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
               // ── SEARCH BAR & ADD ACTION ─────────────────────────────────────────
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSearchBar(isDark),
-                  if (_isAdmin) ...[
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddUserDialog(context),
-                      icon: const Icon(Icons.person_add_rounded, size: 20),
-                      label: const Text(
-                        "ADD USER",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          fontSize: 13,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildSearchBar(isDark)),
+                    if (_isAdmin) ...[
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 46,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showAddUserDialog(context),
+                          icon: const Icon(Icons.person_add_rounded, size: 18),
+                          label: const Text(
+                            "ADD USER",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryBlue,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(23)), // Perfectly rounded
+                          ),
                         ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 4,
-                        shadowColor: AppColors.primaryBlue.withOpacity(0.4),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
               const SizedBox(height: 24),
 
               // ── FILTER BAR ──────────────────────────────────────────────────────
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterDropdown(
-                      icon: Icons.show_chart_rounded,
-                      label: 'Status: ',
-                      selectedValue: _statusFilter,
-                      items: ['All', 'Online', 'Offline'],
-                      onChanged: (val) { if (val != null) setState(() => _statusFilter = val); },
-                    ),
-                    const SizedBox(width: 12),
-                    _buildFilterDropdown(
-                      icon: Icons.badge_outlined,
-                      label: 'Role: ',
-                      selectedValue: _roleFilter,
-                      items: ['All', 'Admin', 'Facilitator'],
-                      onChanged: (val) { if (val != null) setState(() => _roleFilter = val); },
-                    ),
-                    const SizedBox(width: 12),
-                    _buildAdvanceFilterButton(isDark),
-                  ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterDropdown(
+                        icon: Icons.show_chart_rounded,
+                        label: 'Status: ',
+                        selectedValue: _statusFilter,
+                        items: ['All', 'Online', 'Offline'],
+                        onChanged: (val) { if (val != null) setState(() => _statusFilter = val); },
+                      ),
+                      const SizedBox(width: 12),
+                      _buildFilterDropdown(
+                        icon: Icons.badge_outlined,
+                        label: 'Role: ',
+                        selectedValue: _roleFilter,
+                        items: ['All', 'Admin', 'Facilitator'],
+                        onChanged: (val) { if (val != null) setState(() => _roleFilter = val); },
+                      ),
+                      const SizedBox(width: 12),
+                      _buildAdvanceFilterButton(isDark),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -380,57 +397,33 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   Widget _buildGridView(bool isDark) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // On mobile-sized windows (<480px available), go single column
-        // so each card is fat enough to fully show all content.
-        // On wider screens, show 2 columns.
-        final availableWidth = constraints.maxWidth;
-        final crossAxisCount = availableWidth < 480 ? 1 : 2;
+        // Force single column so cards are the "same length as the screen"
+        final crossAxisCount = 1;
         final spacing = 20.0;
-        final cardWidth = crossAxisCount == 1
-            ? availableWidth
-            : (availableWidth - spacing) / 2;
-
-        // Narrowing the cards by 25% (adding 12.5% padding on each side)
-        // and reducing height by 10% (420 -> 378)
-        final horizontalPadding = availableWidth * 0.12;
-
-        return GridView.builder(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisExtent: 378,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: 16,
+        
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                mainAxisExtent: 430, // Increased to 430 to resolve the 2px overflow and provide a safe buffer
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: _filteredUsers.length,
+              itemBuilder: (context, index) {
+                return _UserGridCard(
+                  user: _filteredUsers[index],
+                  isDark: isDark,
+                  formatDate: _formatDate,
+                  onDelete: () => _confirmAndDeleteUser(_filteredUsers[index]),
+                  isAdmin: _isAdmin,
+                );
+              },
+            ),
           ),
-          itemCount: _filteredUsers.length,
-          itemBuilder: (context, index) {
-            // Remap index to achieve vertical-first ordering (1 3, 2 4...) 
-            // when we have 2 columns.
-            int sourceIndex = index;
-            if (crossAxisCount == 2) {
-              final int N = _filteredUsers.length;
-              final int rows = (N + 1) ~/ 2;
-              final int col = index % 2;
-              final int row = index ~/ 2;
-              
-              if (col == 0) {
-                sourceIndex = row;
-              } else {
-                sourceIndex = row + rows;
-              }
-              
-              // Fallback just in case of odd numbers at the end
-              if (sourceIndex >= N) sourceIndex = index;
-            }
-
-            return _UserGridCard(
-              user: _filteredUsers[sourceIndex],
-              isDark: isDark,
-              formatDate: _formatDate,
-              onDelete: () => _confirmAndDeleteUser(_filteredUsers[sourceIndex]),
-              isAdmin: _isAdmin,
-            );
-          },
         );
       },
     );
@@ -463,22 +456,59 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   }
 
   Widget _buildSearchBar(bool isDark) {
-    final bgColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final borderColor = Theme.of(context).colorScheme.outline.withOpacity(0.2);
-    return Container(
-      height: 38,
-      width: 220,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8), border: Border.all(color: borderColor)),
+    final bool hasFocus = _searchFocusNode.hasFocus;
+    final Color blueAccent = AppColors.primaryBlue;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      height: 44, // Slightly slimmer for a sleeker pill look
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2D2D2D) : Colors.white, // Continuous dark grey fill
+        borderRadius: BorderRadius.circular(100), // Perfectly smooth pill (oval-like)
+        border: Border.all(
+          color: hasFocus ? blueAccent : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+          width: 1.2, // Crisp, unified border
+        ),
+        boxShadow: [
+          if (hasFocus)
+            BoxShadow(
+              color: blueAccent.withOpacity(isDark ? 0.4 : 0.2), 
+              blurRadius: 8, 
+              spreadRadius: 1,
+            ),
+        ],
+      ),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 16, color: Colors.grey),
-          const SizedBox(width: 8),
+          Icon(
+            Icons.search_rounded, 
+            size: 20, 
+            color: hasFocus ? blueAccent : (isDark ? Colors.grey.shade600 : Colors.grey.shade400)
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: _searchCtrl,
-              decoration: InputDecoration(hintText: 'Search', hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500), border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
-              style: const TextStyle(fontSize: 13),
+              focusNode: _searchFocusNode,
+              onChanged: (_) => setState(() {}),
+              textAlignVertical: TextAlignVertical.center,
+              cursorColor: blueAccent,
+              decoration: InputDecoration(
+                hintText: 'Search...', 
+                hintStyle: TextStyle(
+                  fontSize: 14, 
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade400, 
+                  fontWeight: FontWeight.w400
+                ), 
+                // Purge all internal gaps/edges
+                border: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero, // Direct placement
+              ),
+              style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
             ),
           ),
         ],
@@ -1096,69 +1126,113 @@ class _UserGridCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Top: Status badge ──────────────────────────────────────────────
+          // ── Top: Status & Actions ──────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Status Badge (Left)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isOnline ? AppColors.statusSafe : cs.onSurfaceVariant.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(12),
+                    color: isOnline ? AppColors.statusSafe.withOpacity(0.15) : cs.onSurfaceVariant.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isOnline ? AppColors.statusSafe.withOpacity(0.3) : cs.onSurfaceVariant.withOpacity(0.2)),
                   ),
-                  child: Row(children: [
-                    Container(width: 6, height: 6, margin: const EdgeInsets.only(right: 6), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                    Text(isOnline ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                  ]),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7, 
+                        height: 7, 
+                        decoration: BoxDecoration(color: isOnline ? AppColors.statusSafe : cs.onSurfaceVariant.withOpacity(0.5), shape: BoxShape.circle)
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isOnline ? 'Active' : 'Offline', 
+                        style: TextStyle(color: isOnline ? AppColors.statusSafe : cs.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.bold)
+                      ),
+                    ],
+                  ),
                 ),
-                  if (isAdmin)
-                    PopupMenuButton<String>(
-                      icon: Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 20),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-                      onSelected: (value) {
-                        if (value == 'delete') {
-                          onDelete();
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.statusDanger),
-                              const SizedBox(width: 8),
-                              const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                // Actions (Right)
+                if (isAdmin)
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_horiz, color: cs.onSurfaceVariant.withOpacity(0.5), size: 22),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    offset: const Offset(0, 40),
+                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                    onSelected: (value) {
+                      if (value == 'delete') onDelete();
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.statusDanger),
+                            const SizedBox(width: 10),
+                            const Text('Delete User', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold)),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
 
           // ── Avatar & Identity ──────────────────────────────────────────────
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Center(
-            child: CircleAvatar(
-              radius: 34,
-              backgroundColor: roleColor.withOpacity(0.15),
-              child: Text(user['name'].toString().substring(0, 1).toUpperCase(), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: roleColor)),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Decorative Background Shape
+                Container(
+                  width: 78,
+                  height: 78,
+                  decoration: BoxDecoration(
+                    color: roleColor.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                CircleAvatar(
+                  radius: 33,
+                  backgroundColor: roleColor.withOpacity(0.15),
+                  child: Text(
+                    user['name'].toString().substring(0, 1).toUpperCase(), 
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: roleColor)
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(children: [
-              Text(user['name'], textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 4),
-              Text(user['designation'], textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ]),
+            child: Column(
+              children: [
+                Text(
+                  user['name'], 
+                  textAlign: TextAlign.center, 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17), 
+                  maxLines: 1, 
+                  overflow: TextOverflow.ellipsis
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user['designation'], 
+                  textAlign: TextAlign.center, 
+                  style: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w500), 
+                  maxLines: 1, 
+                  overflow: TextOverflow.ellipsis
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // ── Encased Info Box ───────────────────────────────────────────────
           Expanded(
@@ -1175,25 +1249,39 @@ class _UserGridCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // ID + Role
-                    Row(children: [
-                      Flexible(
-                        child: Text('# ${user['id']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(role.toUpperCase(), textAlign: TextAlign.right, style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                      ),
-                    ]),
-                    Divider(color: cs.outline.withOpacity(0.1), height: 16),
-                    // Username
-                    _buildIconLabel(Icons.alternate_email, user['username'], cs),
-                    const SizedBox(height: 6),
-                    // Email & Phone
-                    _buildIconLabel(Icons.mail_outline, user['email'], cs),
+                    // ID + Role Chip
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.tag_rounded, size: 16, color: cs.onSurfaceVariant.withOpacity(0.6)),
+                            const SizedBox(width: 4),
+                            Text(user['id'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: roleColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: roleColor.withOpacity(0.2)),
+                          ),
+                          child: Text(
+                            role.toUpperCase(), 
+                            style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+                          ),
+                        ),
+                      ],
+                    ),
+                    Divider(color: cs.outline.withOpacity(0.12), height: 20),
+                    // Username & Contact Chips
+                    _buildIconLabel(Icons.alternate_email, user['username'], cs, isPill: false),
+                    const SizedBox(height: 10),
+                    _buildIconLabel(Icons.mail_outline, user['email'], cs, isPill: true),
                     if (phone.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _buildIconLabel(Icons.phone_outlined, phone, cs),
+                      const SizedBox(height: 10),
+                      _buildIconLabel(Icons.phone_outlined, phone, cs, isPill: true),
                     ],
                   ],
                 ),
@@ -1207,14 +1295,24 @@ class _UserGridCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(
-                  child: Text('Joined at ${formatDate(user['createdAt'] as DateTime)}', style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant), overflow: TextOverflow.ellipsis),
+                Text(
+                  'Joined: ${formatDate(user['createdAt'] as DateTime).toUpperCase()}', 
+                  style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant.withOpacity(0.6), fontWeight: FontWeight.bold, letterSpacing: 0.3)
                 ),
-                const SizedBox(width: 8),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text('View details', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: cs.onSurface)),
-                  Icon(Icons.chevron_right, size: 16, color: cs.onSurface),
-                ]),
+                InkWell(
+                  onTap: () {}, 
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min, 
+                    children: [
+                      Text(
+                        'View details', 
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: cs.onSurface, decoration: TextDecoration.underline)
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.chevron_right_rounded, size: 14, color: cs.onSurface),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -1232,13 +1330,40 @@ class _UserGridCard extends StatelessWidget {
     );
   }
 
-  Widget _buildIconLabel(IconData icon, String text, ColorScheme cs) {
+  Widget _buildIconLabel(IconData icon, String text, ColorScheme cs, {bool isPill = false}) {
+    final iconWidget = Icon(icon, size: 14, color: cs.onSurfaceVariant.withOpacity(0.7));
+    
+    if (!isPill) {
+      return Row(
+        children: [
+          iconWidget,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      );
+    }
+
+    final pillDecoration = BoxDecoration(
+      color: isDark ? cs.surface : Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: cs.outline.withOpacity(0.12)),
+      boxShadow: [
+        if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+      ],
+    );
+
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: cs.onSurfaceVariant),
+        iconWidget, // Plain gray icon outside the pill
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(text, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
+        // Text Pill (The "Blue Modalthing")
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Tighter horizontal fit
+          decoration: pillDecoration,
+          child: Text(text, style: TextStyle(fontSize: 12, color: cs.primary, fontWeight: FontWeight.bold)),
         ),
       ],
     );

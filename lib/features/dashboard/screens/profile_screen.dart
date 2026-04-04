@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
 import '../../../../core/widgets/custom_notification_modal.dart';
+import '../../../../core/utils/phone_formatter.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -71,12 +72,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameCtrl = TextEditingController(text: _origName)..addListener(_onChange);
     _usernameCtrl = TextEditingController(text: _origUsername)..addListener(_onChange);
     _emailCtrl = TextEditingController(text: _origEmail)..addListener(_onChange);
-    _phoneCtrl = TextEditingController(text: _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '' : _origPhone)..addListener(_onChange);
+    _phoneCtrl = TextEditingController(text: _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '+63 ' : _origPhone)..addListener(_onChange);
     _designationCtrl = TextEditingController(text: _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation)..addListener(_onChange);
   }
 
   void _onChange() {
-    final currentPhone = _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim();
+    final currentPhoneRaw = _phoneCtrl.text.trim();
+    final currentPhone = (currentPhoneRaw.isEmpty || currentPhoneRaw == '+63') ? 'N/A' : currentPhoneRaw;
     final currentDesignation = _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim();
     
     final origP = _origPhone == '+63 900 000 0000' ? 'N/A' : _origPhone;
@@ -351,7 +353,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
                     accentColor: _accentBlue,
-                    hint: 'N/A',
+                    hint: '+63 XXX XXX XXXX',
+                    inputFormatters: [PhilippinePhoneFormatter()],
                   )
                 : _StaticRow(icon: Icons.phone_outlined, label: 'Emergency Contact Number', value: _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim(), colorScheme: cs),
             const _Divider(),
@@ -636,12 +639,15 @@ class _EditField extends StatelessWidget {
   final Color accentColor;
   final String? hint;
 
+  final List<TextInputFormatter>? inputFormatters;
+
   const _EditField({
     required this.label,
     required this.controller,
     this.keyboardType,
     required this.accentColor,
     this.hint,
+    this.inputFormatters,
   });
 
   @override
@@ -668,6 +674,7 @@ class _EditField extends StatelessWidget {
           hintText: hint,
           hintStyle: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withOpacity(0.6)),
         ),
+        inputFormatters: inputFormatters,
       ),
     ]);
   }
