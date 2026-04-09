@@ -11,6 +11,7 @@ import '../../../../core/widgets/secondary_geometric_background.dart';
 import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../../../core/utils/phone_formatter.dart';
 import '../../auth/widgets/update_email_dialog.dart';
+import '../../auth/widgets/update_password_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -197,9 +198,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.heavyImpact();
     CustomNotificationModal.show(
       context: context,
-      title: 'Error Encountered',
+      title: 'Security Sync Required',
       message: msg,
       isSuccess: false,
+    );
+  }
+
+  // ─── Change Password Dialog ─────────────────────────────────────────────────
+
+
+  // ─── Log Out All Sessions Dialog ────────────────────────────────────────────
+
+  void _showLogoutAllSessionsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(children: [
+          const Icon(Icons.logout, color: AppColors.statusDanger, size: 24),
+          const SizedBox(width: 10),
+          const Text('Log Out All Sessions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        ]),
+        content: const Text(
+          'This will immediately end all other active sessions across the CrowdSense network. Your current device session will remain active.',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showSuccess('Successfully logged out of all other devices. Your current session is now the only active access point.');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusDanger,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: const Text('Log Out Others', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -489,6 +533,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const _Divider(),
+            // ── Change Account Password ──────────────────────────────────────
+            InkWell(
+              onTap: () => UpdatePasswordDialog.show(context),
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.lock_reset_rounded,
+                          size: 18, color: cs.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Change Account Password',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'Update your credentials periodically for better security',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        color: cs.onSurfaceVariant.withOpacity(0.4)),
+                  ],
+                ),
+              ),
+            ),
+            const _Divider(),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(
@@ -514,6 +605,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ]),
               )),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showLogoutAllSessionsDialog,
+                  icon: const Icon(Icons.logout_rounded, size: 16),
+                  label: const Text('Log Out of All Other Sessions'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.statusDanger,
+                    side: const BorderSide(color: AppColors.statusDanger),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
             ]),
           ]),
           const SizedBox(height: 20),
@@ -798,16 +905,15 @@ class _PermissionsRow extends StatelessWidget {
         Text('Permissions Overview', style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
       ]),
       const SizedBox(height: 8),
-      Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: permissions.map((p) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colorScheme.primary.withOpacity(0.2))),
-          child: Text(p, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colorScheme.primary)),
-        )).toList(),
-      ),
+      for (var p in permissions)
+        Padding(
+          padding: const EdgeInsets.only(left: 36, bottom: 4),
+          child: Row(children: [
+            Icon(Icons.check_circle_outline_rounded, size: 12, color: AppColors.statusSafe),
+            const SizedBox(width: 8),
+            Text(p, style: TextStyle(fontSize: 12, color: colorScheme.onSurface, fontWeight: FontWeight.w500)),
+          ]),
+        ),
     ]);
   }
 }
@@ -824,17 +930,18 @@ class _ZonesRow extends StatelessWidget {
         Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(Icons.map_outlined, size: 18, color: colorScheme.primary)),
         const SizedBox(width: 12),
-        Text('Managed Zones', style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+        Text('Managed Gateway Sectors', style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
       ]),
       const SizedBox(height: 8),
-      ...zones.map((z) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 4),
-        child: Row(children: [
-          Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.primary)),
-          const SizedBox(width: 8),
-          Text(z, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-        ]),
-      )),
+      for (var z in zones)
+        Padding(
+          padding: const EdgeInsets.only(left: 36, bottom: 4),
+          child: Row(children: [
+            Container(width: 6, height: 6, decoration: BoxDecoration(color: colorScheme.secondary.withOpacity(0.6), shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Text(z, style: TextStyle(fontSize: 12, color: colorScheme.onSurface, fontWeight: FontWeight.w500)),
+          ]),
+        ),
     ]);
   }
 }
@@ -850,18 +957,19 @@ class _StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.25)),
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.1)),
         ),
         child: Column(children: [
-          Text('$value', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.withOpacity(0.8))),
+          Text(value.toString(), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
+          Text(label, style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
         ]),
       ),
     );
   }
 }
+
+

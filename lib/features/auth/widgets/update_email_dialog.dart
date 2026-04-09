@@ -396,87 +396,87 @@ class _UpdateEmailDialogWidgetState extends State<_UpdateEmailDialogWidget>
     if (_step == _Step.finalized) currentIndex = 3;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 24, left: 4, right: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(labels.length, (i) {
-          final active = i == currentIndex;
-          final done = i < currentIndex;
-          final color  = done || active
-              ? AppColors.primaryBlue
-              : cs.onSurfaceVariant.withOpacity(0.25);
+        children: List.generate(labels.length * 2 - 1, (index) {
+          // Even indices are steps, odd indices are dividers
+          if (index.isEven) {
+            final i = index ~/ 2;
+            final active = i == currentIndex;
+            final done = i < currentIndex;
+            final color = done || active
+                ? AppColors.primaryBlue
+                : cs.onSurfaceVariant.withOpacity(0.25);
 
-          return Expanded(
-            child: Row(
+            return Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: done
-                            ? AppColors.primaryBlue
-                            : active
-                                ? AppColors.primaryBlue.withOpacity(0.15)
-                                : cs.onSurfaceVariant.withOpacity(0.1),
-                        border: Border.all(
-                          color: color,
-                          width: active ? 2 : 1.5,
-                        ),
-                      ),
-                      child: Center(
-                        child: done
-                            ? const Icon(Icons.check_rounded,
-                                size: 13, color: Colors.white)
-                            : Text(
-                                '${i + 1}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: active
-                                      ? AppColors.primaryBlue
-                                      : cs.onSurfaceVariant.withOpacity(0.4),
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      labels[i],
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight:
-                            active ? FontWeight.bold : FontWeight.normal,
-                        color: active
-                            ? AppColors.primaryBlue
-                            : cs.onSurfaceVariant.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-                if (i < labels.length - 1)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        height: 2,
-                        decoration: BoxDecoration(
-                          color: done
-                              ? AppColors.primaryBlue
-                              : cs.onSurfaceVariant.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: done
+                        ? AppColors.primaryBlue
+                        : active
+                            ? AppColors.primaryBlue.withOpacity(0.15)
+                            : cs.onSurfaceVariant.withOpacity(0.1),
+                    border: Border.all(
+                      color: color,
+                      width: active ? 2 : 1.5,
                     ),
                   ),
+                  child: Center(
+                    child: done
+                        ? const Icon(Icons.check_rounded,
+                            size: 13, color: Colors.white)
+                        : Text(
+                            '${i + 1}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: active
+                                  ? AppColors.primaryBlue
+                                  : cs.onSurfaceVariant.withOpacity(0.4),
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  labels[i],
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                    color: active
+                        ? AppColors.primaryBlue
+                        : cs.onSurfaceVariant.withOpacity(0.5),
+                  ),
+                ),
               ],
-            ),
-          );
+            );
+          } else {
+            // Divider
+            final i = index ~/ 2;
+            final done = i < currentIndex;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: done
+                        ? AppColors.primaryBlue
+                        : cs.onSurfaceVariant.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+            );
+          }
         }),
       ),
     );
