@@ -35,6 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // --- Log State ---
   late List<DeviceLog> _deviceLogs;
+  int _hazardLevel = 0; // 0 = Nominal, 1 = Caution, 2 = Critical (Mock ESP32 data)
 
   @override
   void initState() {
@@ -504,7 +505,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     children: [
                       const PageTitle(title: "Dashboard"),
                       const SizedBox(height: 12),
-                      _buildTotalTallyCard(),
+                      _buildStatsRow(),
                       const SizedBox(height: 12),
                       Builder(builder: (context) {
                         final int realIndex = _deviceData.indexWhere(
@@ -769,93 +770,255 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildTotalTallyCard() {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildStatsRow() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final total = _totalPeopleInside;
-    const liveColor = Color(0xFF00C853);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.07)
-              : Colors.black.withOpacity(0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Left: icon + label
-          Icon(Icons.groups_rounded, color: colorScheme.primary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Total Inside Building',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
+    Color hazardColor;
+    IconData hazardIcon;
+    String hazardLabel;
+    bool isPulsing = false;
+
+    // Simulated dynamic hazard logic dependent on ESP32 Firebase inputs
+    switch (_hazardLevel) {
+      case 2:
+        hazardColor = const Color(0xFFFF5252);
+        hazardIcon = Icons.error_outline;
+        hazardLabel = "CRITICAL ALERT";
+        isPulsing = true;
+        break;
+      case 1:
+        hazardColor = Colors.amber;
+        hazardIcon = Icons.warning_amber;
+        hazardLabel = "CAUTION";
+        break;
+      case 0:
+      default:
+        hazardColor = const Color(0xFF00B0FF);
+        hazardIcon = Icons.health_and_safety;
+        hazardLabel = "SYSTEM NORMAL";
+        break;
+    }
+
+    // Styled system-notification badge for the Hazard card
+    final hazardBadge = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 12),
+          decoration: BoxDecoration(
+            color: hazardColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: hazardColor.withOpacity(0.45),
+              width: 1,
             ),
           ),
-          // Center: entries
-          _buildCompactStat(
-            icon: Icons.login_rounded,
-            value: _totalEntries,
-            color: const Color(0xFF00C853),
-          ),
-          const SizedBox(width: 12),
-          // Center: exits
-          _buildCompactStat(
-            icon: Icons.logout_rounded,
-            value: _totalExits,
-            color: const Color(0xFFFF5252),
-          ),
-          const SizedBox(width: 16),
-          // Right: big count
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
             children: [
-              Text(
-                '$total',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: colorScheme.primary,
-                  height: 1.0,
+              _PulsingDot(color: hazardColor),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  hazardLabel,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: hazardColor,
+                    letterSpacing: 0.3,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const _PulsingDot(color: liveColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Live',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
             ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "SYS ALERT",
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: hazardColor.withOpacity(0.55),
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+
+    // ── Card 1: Headcount value widget ──────────────────────────────────────
+    const headcountColor = Color(0xFF00C853);
+    final headcountBadge = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _totalPeopleInside.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Theme.of(context).colorScheme.onSurface,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'REAL-TIME SYNC',
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: headcountColor,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+
+    // ── Card 2: Exits value widget ────────────────────────────────────────
+    const exitsColor = Color(0xFFFF5252);
+    final exitsBadge = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _totalExits.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Theme.of(context).colorScheme.onSurface,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'RESETS HOURLY',
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: exitsColor,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _buildGlassStatCard(
+              title: "Live Total\nHeadcount",
+              value: '',
+              icon: Icons.groups,
+              color: headcountColor,
+              isDark: isDark,
+              valueWidget: headcountBadge,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGlassStatCard(
+              title: "Current Hour\nExits",
+              value: '',
+              icon: Icons.directions_run,
+              color: exitsColor,
+              isDark: isDark,
+              valueWidget: exitsBadge,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGlassStatCard(
+              title: "Hazard Status",
+              value: '',
+              icon: hazardIcon,
+              color: hazardColor,
+              isDark: isDark,
+              isPulsing: isPulsing,
+              valueWidget: hazardBadge,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildGlassStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+    bool isPulsing = false,
+    bool isTextSmall = false,
+    Widget? valueWidget,
+  }) {
+    Widget cardChild = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.15 : 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(isDark ? 0.3 : 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.2,
+            ),
+          ),
+          const Spacer(),
+          // Use the custom valueWidget (e.g. badge) if provided, else plain text
+          valueWidget ?? Text(
+            value,
+            style: TextStyle(
+              fontSize: isTextSmall ? 13 : 24,
+              fontWeight: FontWeight.w900,
+              color: Theme.of(context).colorScheme.onSurface,
+              height: 1.1,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+
+    final glassWrapper = ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: cardChild,
+      ),
+    );
+
+    if (isPulsing) {
+      return _PulsingWrapper(color: color, child: glassWrapper);
+    }
+    return glassWrapper;
   }
 
   Widget _buildCompactStat({required IconData icon, required int value, required Color color}) {
@@ -1522,5 +1685,59 @@ class _NavBarPainter extends CustomPainter {
     } catch (_) {
       return true;
     }
+  }
+}
+
+class _PulsingWrapper extends StatefulWidget {
+  final Widget child;
+  final Color color;
+  const _PulsingWrapper({required this.child, required this.color});
+
+  @override
+  State<_PulsingWrapper> createState() => _PulsingWrapperState();
+}
+
+class _PulsingWrapperState extends State<_PulsingWrapper>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(_anim.value * 0.4),
+                blurRadius: 16 * _anim.value,
+                spreadRadius: 2 * _anim.value,
+              ),
+            ],
+          ),
+          child: widget.child,
+        );
+      },
+    );
   }
 }

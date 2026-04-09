@@ -22,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   
   bool _isPasswordVisible = false;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -31,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
   
-  Future<void> _handleLogin() async {
+  void _handleLogin() {
     final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
 
@@ -47,60 +46,42 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Dismiss keyboard
     FocusScope.of(context).unfocus();
-    if (!mounted) return;
 
-    // Show loading state on button
-    setState(() => _isLoading = true);
-
-    try {
-      // Capture provider reference before async gap
-      final userProvider = context.read<UserProvider>();
-
-      // Perform the authentication handshake BEFORE leaving the screen.
-      // This ensures errors (like wrong password) stay on the login page.
+    // ── Smart Auth Future ────────────────────────────────────────────────────
+    // We define the future here but DON'T await it. We pass it to the Splash 
+    // screen, which will handle the pulse-and-sync loop.
+    final authFuture = () async {
+      // 1. Perform the authentication handshake
       final payload = await _authService.login(identifier, password);
       
-      if (!mounted) return;
+      // 2. Set the global UserProvider state
+      // (Important: perform this on the main task queue)
+      if (mounted) {
+        context.read<UserProvider>().setUser(payload['user'], payload['userData']);
+      }
 
-      // SUCCESS PATH: Prepare the transitions and user state
-      userProvider.setUser(payload['user'], payload['userData']);
-      
       final userData = payload['userData'] as Map<String, dynamic>;
       final bool requiresPasswordChange = userData['requiresPasswordChange'] == true;
 
-      // Determine where the splash screen should go when its animation finishes
-      Future<Map<String, dynamic>> resolvedFuture;
+      // 3. Return the target destination for the Splash screen to navigate to
       if (requiresPasswordChange) {
-        resolvedFuture = Future.value({
+        return {
           'route': '/force-password-change',
           'args': {'email': payload['user'].email ?? '', 'userData': userData},
-        });
+        };
       } else {
-        resolvedFuture = Future.value({'route': '/dashboard'});
+        return {'route': '/dashboard'};
       }
+    }();
 
-      // Transition to splash for the "Loading Data" / "Syncing" vibe
-      Navigator.pushReplacementNamed(
-        context,
-        '/splash',
-        arguments: {
-          'authFuture': resolvedFuture, 
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
-      
-      // Stop loading so user can try again
-      setState(() => _isLoading = false);
-
-      final errorMsg = e.toString().replaceFirst('Exception: ', '');
-      CustomNotificationModal.show(
-        context: context,
-        title: "Login Error",
-        message: errorMsg,
-        isSuccess: false,
-      );
-    }
+    // Transition to splash for the "Loading Data" / "Syncing" vibe
+    Navigator.pushReplacementNamed(
+      context,
+      '/splash',
+      arguments: {
+        'authFuture': authFuture, 
+      },
+    );
   }
 
   @override
@@ -156,14 +137,32 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          const Text(
-                            "CrowdSense",
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textLight,
-                              letterSpacing: 1.2,
-                            ),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Text(
+                                "CrowdSense",
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textLight,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              Positioned(
+                                right: 6,
+                                top: 6,
+                                child: Text(
+                                  '©2026',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.textLight.withOpacity(0.8),
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           RichText(
@@ -271,17 +270,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 24),
                           
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text("Log In"),
+                            onPressed: _handleLogin,
+                            child: const Text("Log In"),
                           ),
                           
                           const SizedBox(height: 16),

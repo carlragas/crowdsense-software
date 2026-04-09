@@ -178,7 +178,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       // Auth mode: minimum 2 loops must complete AND auth must be done.
       // This guarantees the splash always shows for at least 2 beats,
       // even if the server responds instantly.
-      return _loopCount >= 2 && _authCompleted;
+      return _loopCount >= 1 && _authCompleted;
     } else {
       // Standard app-launch mode: always runs exactly 3 loops
       return _loopCount >= _maxLoops;
@@ -348,14 +348,32 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
                     // ── App name + tagline — always visible once intro fades in ─
                     const SizedBox(height: 20),
-                    const Text(
-                      'CrowdSense',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFE8EAF6),
-                        letterSpacing: 1.2,
-                      ),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Text(
+                          'CrowdSense',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFE8EAF6),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Text(
+                            '©2026',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFFE8EAF6).withOpacity(0.8),
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     RichText(
