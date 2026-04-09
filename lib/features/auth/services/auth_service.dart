@@ -52,7 +52,9 @@ class AuthService {
       
       // 3. Verify they actually exist in the DB and pull their FULL data profile securely using pure REST HTTP
       final uid = userCredential.user!.uid;
-      final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json');
+      // Get a fresh ID token to authenticate the RTDB read (required by security rules: auth != null)
+      final idToken = await userCredential.user!.getIdToken(true);
+      final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
 
       // TRACK SECURITY DATA: Capture actual login time and public IP
       String publicIp = 'Unknown';

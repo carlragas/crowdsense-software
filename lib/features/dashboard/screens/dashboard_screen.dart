@@ -29,7 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 0;
+  int _currentIndex = 2;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
@@ -804,10 +804,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 6),
+        const SizedBox(height: 2),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
           decoration: BoxDecoration(
             color: hazardColor.withOpacity(0.15),
             borderRadius: BorderRadius.circular(8),
@@ -838,7 +838,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
           "SYS ALERT",
           style: TextStyle(
@@ -1312,7 +1312,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         ],
       ),
     );
-  }  Widget _buildCrowdCountList() {
+  }
+  Widget _buildCrowdCountList() {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(

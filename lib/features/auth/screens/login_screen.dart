@@ -44,8 +44,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Dismiss keyboard
-    FocusScope.of(context).unfocus();
+    // Capture provider ref BEFORE navigating away — once pushReplacement runs,
+    // this widget is destroyed and `mounted` returns false, which would silently
+    // skip the setUser call and leave the profile with all fallback values.
+    final userProvider = context.read<UserProvider>();
 
     // ── Smart Auth Future ────────────────────────────────────────────────────
     // We define the future here but DON'T await it. We pass it to the Splash 
@@ -54,11 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // 1. Perform the authentication handshake
       final payload = await _authService.login(identifier, password);
       
-      // 2. Set the global UserProvider state
-      // (Important: perform this on the main task queue)
-      if (mounted) {
-        context.read<UserProvider>().setUser(payload['user'], payload['userData']);
-      }
+      // 2. Set the global UserProvider state using the captured reference
+      // (Safe even after widget is gone — we use the variable, not context)
+      userProvider.setUser(payload['user'], payload['userData']);
 
       final userData = payload['userData'] as Map<String, dynamic>;
       final bool requiresPasswordChange = userData['requiresPasswordChange'] == true;
