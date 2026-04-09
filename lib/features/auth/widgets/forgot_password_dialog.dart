@@ -89,7 +89,7 @@ class _ForgotPasswordDialogWidgetState
         _isLoading = false;
         _errorText = _mapFirebaseError(e.code);
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -367,7 +367,7 @@ class _ForgotPasswordDialogWidgetState
           ),
           const SizedBox(height: 12),
 
-          // Info banner
+          // Info banner - Spam check
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -395,6 +395,43 @@ class _ForgotPasswordDialogWidgetState
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // NEW: Password Requirements Prep
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primaryBlue.withOpacity(0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_user_outlined, size: 16, color: AppColors.primaryBlue),
+                    const SizedBox(width: 8),
+                    Text(
+                      'NEW PASSWORD REQUIREMENTS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBlue.withOpacity(0.8),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildRequirementRow('Min 8 characters'),
+                _buildRequirementRow('Upper & Lowercase'),
+                _buildRequirementRow('Number & Special character'),
+              ],
+            ),
+          ),
           const SizedBox(height: 28),
 
           SizedBox(
@@ -413,6 +450,25 @@ class _ForgotPasswordDialogWidgetState
                 'Got it, Back to Login',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequirementRow(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline_rounded, size: 12, color: AppColors.primaryBlue),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: AppColors.textLight.withOpacity(0.7),
             ),
           ),
         ],
