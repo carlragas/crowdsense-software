@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset CrowdSense Password</title>
+  <title>CrowdSense Secure Authentication</title>
   <link rel="icon" type="image/png" href="logo.png">
   <style>
     :root {
@@ -410,8 +410,8 @@
             <polyline points="22 4 12 14.01 9 11.01" />
           </svg>
         </div>
-        <h1>Password Changed</h1>
-        <p class="subtitle">Your password has been successfully updated. You can now close this window and log in to the
+        <h1 id="success-title">Password Changed</h1>
+        <p class="subtitle" id="success-desc">Your password has been successfully updated. You can now close this window and log in to the
           CrowdSense app with your new credentials.</p>
       </div>
 
@@ -620,10 +620,37 @@
           showState('state-form');
         })
         .catch((error) => {
+          document.getElementById('error-desc').innerText = "This password reset link is invalid or has already been used. Please request a new link from the app.";
           showState('state-error');
         });
+    } else if (mode === 'recoverEmail' && actionCode) {
+      // Handles reverting an email change if the user didn't authorize it
+      import("https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js").then((authModule) => {
+        authModule.checkActionCode(auth, actionCode).then((info) => {
+          return authModule.applyActionCode(auth, actionCode).then(() => info);
+        }).then((info) => {
+          document.getElementById('success-title').innerText = "Email Restored";
+          document.getElementById('success-desc').innerText = `Your account's email address has been successfully restored to ${info.data.email}.`;
+          showState('state-success');
+        }).catch((error) => {
+          document.getElementById('error-desc').innerText = "This restoration link is invalid or has expired.";
+          showState('state-error');
+        });
+      });
+    } else if ((mode === 'verifyEmail' || mode === 'verifyAndChangeEmail') && actionCode) {
+      // Handles verifying a new email address
+      import("https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js").then((authModule) => {
+        authModule.applyActionCode(auth, actionCode).then(() => {
+          document.getElementById('success-title').innerText = "Email Verified!";
+          document.getElementById('success-desc').innerText = "Your new email address has been successfully verified and updated on your profile. You may now close this window.";
+          showState('state-success');
+        }).catch((error) => {
+          document.getElementById('error-desc').innerText = "This verification link is invalid or has already been used. Please try updating your email again from the app.";
+          showState('state-error');
+        });
+      });
     } else {
-      document.getElementById('error-desc').innerText = "Missing parameters. Ensure you clicked the full link from your email.";
+      document.getElementById('error-desc').innerText = "Missing or invalid parameters. Ensure you clicked the full link from your email.";
       showState('state-error');
     }
 

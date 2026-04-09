@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
@@ -33,9 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // static display data
   final List<String> _permissions = ['Read/Write – Sensor Thresholds', 'Device Decommissioning', 'Trend Reporting'];
   final List<String> _managedZones = ['Sector 7 – North CEA Wing', 'Main Access Gateway – PUP-CEA'];
-  final String _lastLogin = 'Mar 26, 2026  •  17:34 PHT';
-  final String _lastIp = '192.168.1.42 (PUP-CEA LAN)';
-  bool _twoFactorEnabled = true;
+  
   final List<Map<String, String>> _activeSessions = [
     {'device': 'This Device', 'status': 'Active'},
   ];
@@ -75,7 +75,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _emailCtrl = TextEditingController(text: _origEmail)..addListener(_onChange);
     _phoneCtrl = TextEditingController(text: _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '+63 ' : _origPhone)..addListener(_onChange);
     _designationCtrl = TextEditingController(text: _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation)..addListener(_onChange);
+
+    // Email fields are now refreshed reactively via UserProvider (context.watch)
+    // The UpdateEmailDialog handles its own RTDB sync upon verification.
   }
+
 
   void _onChange() {
     final currentPhoneRaw = _phoneCtrl.text.trim();
@@ -197,6 +201,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       message: msg,
       isSuccess: false,
     );
+  }
+
+  String _formatLastLogin(String isoString) {
+    if (isoString.isEmpty) return 'Never';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      // Format: Mar 26, 2026  •  17:34 PHT
+      return DateFormat('MMM dd, yyyy  •  HH:mm').format(dt) + ' PHT';
+    } catch (e) {
+      return 'Unknown';
+    }
   }
 
   @override
@@ -326,12 +341,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 10),
           _ProfileCard(colorScheme: cs, isDark: isDark, children: [
             _StaticRow(
-              icon: Icons.shield_rounded, 
-              label: 'Access Level', 
-              value: _accessLevel, 
-              colorScheme: cs, 
-              badge: _accessLevel,
-              badgeColor: _accessLevel.toLowerCase() == 'admin' ? AppColors.statusDanger : AppColors.statusWarning,
+              icon: Icons.shield_rounded,
+              label: 'Access Level',
+              value: '', // Hiding text value because the badge already displays the role
+              colorScheme: cs,
+              badge: _accessLevel.toUpperCase(),
+              badgeColor: _accessLevel.toLowerCase() == 'admin'
+                  ? AppColors.statusDanger
+                  : AppColors.statusWarning,
             ),
             const _Divider(),
             _PermissionsRow(permissions: _permissions, colorScheme: cs),
@@ -344,9 +361,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _SectionLabel(label: '3. Communication & Emergency Contact'),
           const SizedBox(height: 10),
           _ProfileCard(colorScheme: cs, isDark: isDark, children: [
-            _isEditing
-                ? _EditField(label: 'Secure Work Email', controller: _emailCtrl, keyboardType: TextInputType.emailAddress, accentColor: _accentBlue)
-                : _StaticRow(icon: Icons.email_outlined, label: 'Secure Work Email', value: _emailCtrl.text, colorScheme: cs),
+            _StaticRow(
+              icon: Icons.email_outlined,
+              label: 'Secure Work Email',
+              value: context.watch<UserProvider>().email,
+              colorScheme: cs,
+              locked: true, // Email is now always locked in the Profile UI
+              badge: 'SECURE',
+              badgeColor: AppColors.statusSafe,
+            ),
             const _Divider(),
             _isEditing
                 ? _EditField(
@@ -390,32 +413,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _SectionLabel(label: '4. Security & Authentication'),
           const SizedBox(height: 10),
           _ProfileCard(colorScheme: cs, isDark: isDark, children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.verified_user_rounded, size: 18, color: cs.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Two-Factor Authentication', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-                Text(_twoFactorEnabled ? 'Enabled – Account is secure' : 'Disabled – Highly Recommended',
-                    style: TextStyle(fontSize: 11, color: _twoFactorEnabled ? const Color(0xFF2E7D32) : AppColors.statusWarning, fontWeight: FontWeight.w600)),
-              ])),
-              Switch(
-                value: _twoFactorEnabled,
-                onChanged: (val) => setState(() => _twoFactorEnabled = val),
-                activeColor: cs.primary,
-              ),
-            ]),
+            _StaticRow(
+              icon: Icons.access_time_rounded,
+              label: 'Last Login',
+              value: _formatLastLogin(context.watch<UserProvider>().lastLogin),
+              colorScheme: cs,
+            ),
             const _Divider(),
-            _StaticRow(icon: Icons.access_time_rounded, label: 'Last Login', value: _lastLogin, colorScheme: cs),
-            const _Divider(),
-            _StaticRow(icon: Icons.language_rounded, label: 'Last IP Address', value: _lastIp, colorScheme: cs),
+            _StaticRow(
+              icon: Icons.language_rounded,
+              label: 'Last IP Address',
+              value: context.watch<UserProvider>().lastIp == 'Unknown'
+                  ? 'Determining...'
+                  : '${context.watch<UserProvider>().lastIp} (PUP-CEA LAN)',
+              colorScheme: cs,
+            ),
             const _Divider(),
             // ── Change Email Address ──────────────────────────────────────
             InkWell(
-              onTap: () => UpdateEmailDialog.show(context),
+              onTap: () async {
+                await UpdateEmailDialog.show(context);
+                // The dialog handles all syncing internally.
+                // Just refresh the displayed email from the provider.
+                if (mounted) {
+                  final newEmail = context.read<UserProvider>().email;
+                  if (newEmail.isNotEmpty && newEmail != _emailCtrl.text) {
+                    setState(() {
+                      _origEmail = newEmail;
+                      _emailCtrl.text = newEmail;
+                    });
+                  }
+                }
+              },
               borderRadius: BorderRadius.circular(10),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -661,18 +690,44 @@ class _StaticRow extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 3),
-          if (badge != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: (badgeColor ?? colorScheme.primary).withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-              child: Text(badge!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: badgeColor ?? colorScheme.primary)),
-            )
-          else
-            Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+          Row(
+            children: [
+              if (badge != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: (badgeColor ?? colorScheme.primary).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      badge!,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: badgeColor ?? colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
           if (locked)
             Padding(
               padding: const EdgeInsets.only(top: 3),
-              child: Text('Assigned by System Architect · cannot be changed', style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+              child: Text('Assigned by System Architect - cannot be changed', style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
             ),
         ]),
       ),

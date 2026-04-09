@@ -52,21 +52,48 @@ class AuthService {
       
       // 3. Verify they actually exist in the DB and pull their FULL data profile securely using pure REST HTTP
       final uid = userCredential.user!.uid;
-      
-      // Because your Firebase Rules allow `.read: true` for the `users` node, 
-      // we can fetch the user profile without asking for an active `idToken`.
-      // This completely sidesteps the Windows background-thread crash bug!
       final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json');
+
+      // TRACK SECURITY DATA: Capture actual login time and public IP
+      String publicIp = 'Unknown';
+      try {
+        final ipResponse = await http.get(Uri.parse('https://api.ipify.org')).timeout(const Duration(seconds: 3));
+        if (ipResponse.statusCode == 200) publicIp = ipResponse.body;
+      } catch (_) {}
+
+      final now = DateTime.now().toIso8601String();
+      await http.patch(profileUrl, body: json.encode({
+        'lastLogin': now,
+        'lastIp': publicIp,
+      }));
       
       final profileResponse = await http.get(profileUrl);
       
-      if (profileResponse.statusCode != 200 || profileResponse.body == 'null' || profileResponse.body.isEmpty) {
-        await _auth.signOut();
-        throw Exception('Account exists in Auth but is missing from Database records.');
+      final rawUserData = Map<String, dynamic>.from(json.decode(profileResponse.body) as Map<String, dynamic>);
+      
+      // EMAIL SYNCHRONIZATION (Free Tier Fallback)
+      // Check if the Auth email (verified) has changed compared to the DB record.
+      final authEmail = userCredential.user!.email;
+      if (authEmail != null && authEmail != rawUserData['email']) {
+        print('[AuthService] Email mismatch detected! Auth: $authEmail, DB: ${rawUserData['email']}');
+        try {
+          // Perform a sync patch to RTDB using the authenticated UID and a fresh token
+          final idToken = await userCredential.user!.getIdToken(true);
+          final syncUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
+          final syncResponse = await http.patch(syncUrl, body: json.encode({'email': authEmail}));
+          
+          if (syncResponse.statusCode == 200) {
+            print('[AuthService] RTDB successfully synchronized with new email.');
+            // Update the local data map so the UI reflects it immediately
+            rawUserData['email'] = authEmail;
+          } else {
+            print('[AuthService] RTDB sync failed with status: ${syncResponse.statusCode}');
+          }
+        } catch (e) {
+          print('[AuthService] Email synchronization failure: $e');
+        }
       }
-      
-      final rawUserData = json.decode(profileResponse.body) as Map<String, dynamic>;
-      
+
       // Return a convenient bundle containing both the secure auth reference and UI data 
       return {
         'user': userCredential.user,
