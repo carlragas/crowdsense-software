@@ -134,6 +134,15 @@ class _UpdateEmailDialogWidgetState extends State<_UpdateEmailDialogWidget>
           final uid = tokenBody['localId'] as String?;
 
           if (idToken != null && uid != null) {
+            // 1. Force the SDK to update its local state to the new email.
+            // This is critical so that future actions (like another email change)
+            // use the correct 'Original' email for security notifications.
+            await FirebaseAuth.instance.signInWithEmailAndPassword(
+              email: _newEmailSent,
+              password: _passwordCtrl.text,
+            ).catchError((e) => debugPrint('[Polling] SDK Sync warning: $e'));
+
+            // 2. Patch the RTDB and finalize UI
             _patchRTDB(idToken, uid);
           }
         } else {
@@ -190,14 +199,21 @@ class _UpdateEmailDialogWidgetState extends State<_UpdateEmailDialogWidget>
         throw Exception('No authenticated user found. Please log in again.');
       }
 
-      // PROACTIVE RELOAD: Ensure we are using the absolute latest email registered with Auth
-      // before attempting re-authentication.
+      // PROACTIVE RELOAD & SYNC:
+      // We check our UserProvider email against the SDK email.
+      // If they differ, the SDK is stale (common on Windows).
+      final providerEmail = context.read<UserProvider>().email;
       await user.reload();
       final freshUser = FirebaseAuth.instance.currentUser;
-      if (freshUser == null) throw Exception('Session lost after reload');
+      
+      // FIX: Prioritize the Database-synced providerEmail over the buggy local SDK cache.
+      // If the SDK says 'A' but the DB says 'B', we trust the DB and log in as 'B'.
+      String targetLoginEmail = (providerEmail.isNotEmpty) ? providerEmail : (freshUser?.email ?? '');
+      
+      debugPrint('[Reauth] Attempting login for: $targetLoginEmail (Provider: $providerEmail, SDK: ${freshUser?.email})');
 
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: freshUser.email!,
+        email: targetLoginEmail,
         password: _passwordCtrl.text,
       );
 
@@ -243,10 +259,8 @@ class _UpdateEmailDialogWidgetState extends State<_UpdateEmailDialogWidget>
 
     try {
       // 1. Force Dispatch Verification Email via Google Identity Toolkit REST API
-      // Since Firebase strictly enforces `OPERATION_NOT_ALLOWED` for instant email changes,
-      // we must use the VERIFY_AND_CHANGE_EMAIL protocol. We use the REST API directly
-      // to bypass any silent-failure bugs in the Flutter Windows desktop plugin.
-      final idToken = await user.getIdToken();
+      // We use getIdToken(true) to force the SDK to pull a fresh identity from the server.
+      final idToken = await user.getIdToken(true);
       final apiKey = DefaultFirebaseOptions.currentPlatform.apiKey;
       final verifyUrl = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=$apiKey');
       

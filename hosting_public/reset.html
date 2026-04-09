@@ -613,46 +613,53 @@
     };
 
     // Firebase Link Verification
-    if (mode === 'resetPassword' && actionCode) {
-      verifyPasswordResetCode(auth, actionCode)
-        .then((email) => {
-          document.getElementById('user-email').innerText = email;
-          showState('state-form');
-        })
-        .catch((error) => {
-          document.getElementById('error-desc').innerText = "This password reset link is invalid or has already been used. Please request a new link from the app.";
-          showState('state-error');
-        });
-    } else if (mode === 'recoverEmail' && actionCode) {
-      // Handles reverting an email change if the user didn't authorize it
-      import("https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js").then((authModule) => {
-        authModule.checkActionCode(auth, actionCode).then((info) => {
-          return authModule.applyActionCode(auth, actionCode).then(() => info);
-        }).then((info) => {
-          document.getElementById('success-title').innerText = "Email Restored";
-          document.getElementById('success-desc').innerText = `Your account's email address has been successfully restored to ${info.data.email}.`;
-          showState('state-success');
-        }).catch((error) => {
-          document.getElementById('error-desc').innerText = "This restoration link is invalid or has expired.";
-          showState('state-error');
-        });
-      });
-    } else if ((mode === 'verifyEmail' || mode === 'verifyAndChangeEmail') && actionCode) {
-      // Handles verifying a new email address
-      import("https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js").then((authModule) => {
-        authModule.applyActionCode(auth, actionCode).then(() => {
-          document.getElementById('success-title').innerText = "Email Verified!";
-          document.getElementById('success-desc').innerText = "Your new email address has been successfully verified and updated on your profile. You may now close this window.";
-          showState('state-success');
-        }).catch((error) => {
-          document.getElementById('error-desc').innerText = "This verification link is invalid or has already been used. Please try updating your email again from the app.";
-          showState('state-error');
-        });
-      });
-    } else {
-      document.getElementById('error-desc').innerText = "Missing or invalid parameters. Ensure you clicked the full link from your email.";
-      showState('state-error');
-    }
+    // A robust handler that supports standard modes and the custom 'mode=action' format
+    const handleAction = async () => {
+      try {
+        if (!actionCode) throw new Error("Missing action code.");
+
+        // If mode is 'action' or generic, we check the code with Firebase to see what it does
+        const requestInfo = await import("https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js")
+          .then(m => m.checkActionCode(auth, actionCode));
+        
+        const trueMode = requestInfo.operation; // PASSWORD_RESET, VERIFY_EMAIL, RECOVER_EMAIL, etc.
+        console.log("Detected Firebase Action:", trueMode);
+
+        switch (trueMode) {
+          case 'PASSWORD_RESET':
+            document.getElementById('user-email').innerText = requestInfo.data.email;
+            showState('state-form');
+            break;
+
+          case 'VERIFY_EMAIL':
+          case 'VERIFY_AND_CHANGE_EMAIL':
+            await import("https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js")
+              .then(m => m.applyActionCode(auth, actionCode));
+            document.getElementById('success-title').innerText = "Email Verified!";
+            document.getElementById('success-desc').innerText = "Your new email address has been successfully verified and updated. You may now close this window.";
+            showState('state-success');
+            break;
+
+          case 'RECOVER_EMAIL':
+            await import("https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js")
+              .then(m => m.applyActionCode(auth, actionCode));
+            document.getElementById('success-title').innerText = "Email Restored";
+            document.getElementById('success-desc').innerText = `Your account's email address has been successfully restored to ${requestInfo.data.email}.`;
+            showState('state-success');
+            break;
+
+          default:
+            throw new Error("Unsupported or unrecognized action mode.");
+        }
+      } catch (error) {
+        console.error("Action error:", error);
+        document.getElementById('error-desc').innerText = "This link is invalid, expired, or has already been used. Please try again from the app.";
+        showState('state-error');
+      }
+    };
+
+    // Execute the action handler
+    handleAction();
 
     // Submission
     btn.addEventListener('click', () => {
