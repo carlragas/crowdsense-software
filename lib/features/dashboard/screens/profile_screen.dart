@@ -469,7 +469,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label: 'Last IP Address',
               value: context.watch<UserProvider>().lastIp == 'Unknown'
                   ? 'Determining...'
-                  : '${context.watch<UserProvider>().lastIp} (PUP-CEA LAN)',
+                  : context.watch<UserProvider>().lastIp,
               colorScheme: cs,
             ),
             const _Divider(),
