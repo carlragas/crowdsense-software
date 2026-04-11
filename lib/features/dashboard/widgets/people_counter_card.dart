@@ -23,8 +23,16 @@ class PeopleCounterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentData = deviceData[currentIndex];
-    final bool isOnline = currentData['isOnline'] ?? true;
-    Color statusColor = AppColors.statusSafe;
+    final String connectionState = currentData['connectionState'] ?? 'NEVER SEEN';
+    
+    Color statusColor;
+    if (connectionState == 'CONNECTED') {
+      statusColor = AppColors.statusSafe;
+    } else if (connectionState == 'DISCONNECTED') {
+      statusColor = AppColors.statusDanger;
+    } else {
+      statusColor = Theme.of(context).colorScheme.onSurfaceVariant; // Gray color for never seen
+    }
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -67,19 +75,19 @@ class PeopleCounterCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: (isOnline ? statusColor : Colors.redAccent).withOpacity(0.1),
+                      color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: (isOnline ? statusColor : Colors.redAccent).withOpacity(0.3)),
+                      border: Border.all(color: statusColor.withOpacity(0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.circle, size: 6, color: isOnline ? statusColor : Colors.redAccent),
+                        Icon(Icons.circle, size: 6, color: statusColor),
                         const SizedBox(width: 6),
                         Text(
-                          isOnline ? "ONLINE" : "OFFLINE",
+                          connectionState,
                           style: TextStyle(
-                            color: isOnline ? statusColor : Colors.redAccent,
+                            color: statusColor,
                             fontWeight: FontWeight.w900,
                             fontSize: 9,
                             letterSpacing: 0.8,
@@ -110,7 +118,9 @@ class PeopleCounterCard extends StatelessWidget {
                           final data = deviceData[index % deviceData.length];
                           final String pageLocation = data['location'];
                           final int pageEntries = data['entries'] ?? 0;
-                          final bool isNotClear = pageEntries > 0;
+                          final int pageExits = data['exits'] ?? 0;
+                          final int currentInside = (pageEntries - pageExits).clamp(0, 99999);
+                          final bool isNotClear = currentInside > 0;
                           final badgeColor = isNotClear ? AppColors.statusWarning : AppColors.statusSafe;
     
                           return Padding(
@@ -181,7 +191,7 @@ class PeopleCounterCard extends StatelessWidget {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      _buildMetricCard("Entries", pageEntries, AppColors.primaryBlue, isDark),
+                                      _buildMetricCard("Entries", currentInside, AppColors.primaryBlue, isDark),
                                       const SizedBox(width: 12),
                                       _buildMetricCard("Exits", data['exits'] ?? 0, AppColors.statusDanger, isDark),
                                     ],

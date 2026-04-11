@@ -38,6 +38,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   // --- Log State ---
   late List<DeviceLog> _deviceLogs;
   int _hazardLevel = 0; // 0 = Nominal, 1 = Caution, 2 = Critical (Mock ESP32 data)
+  Timer? _heartbeatTimer;
+
+  int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
+  int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
 
   @override
   void initState() {
@@ -162,10 +166,19 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (!_isBottomNavVisible) setState(() => _isBottomNavVisible = true);
       }
     });
+
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        setState(() {
+          _syncDeviceDataList();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _heartbeatTimer?.cancel();
     _prototypeUnitsSubscription?.cancel();
     _sensorDataSubscription?.cancel();
     _pageController?.dispose();
@@ -274,7 +287,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                final data = val as Map;
                _deviceDataMap.putIfAbsent(mac, () => {});
                _deviceDataMap[mac]!['location'] = data['name']?.toString() ?? 'Unknown';
-               _deviceDataMap[mac]!['isOnline'] = (data['status']?.toString() ?? 'offline') == 'online';
+               
+               if (data.containsKey('heartbeat') && data['heartbeat'] is Map) {
+                   final hbMap = data['heartbeat'] as Map;
+                   _deviceDataMap[mac]!['last_seen'] = hbMap['last_seen'];
+               } else {
+                   _deviceDataMap[mac]!['last_seen'] = null;
+               }
             });
             _syncDeviceDataList();
          });
@@ -306,12 +325,30 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _syncDeviceDataList() {
     _deviceData = _deviceDataMap.values.map((v) {
+        String connState = v['connection_state']?.toString() ?? "NEVER SEEN";
+        bool isLive = false;
+
+        if (connState == "CONNECTED") {
+            isLive = true;
+        } else if (connState == "DISCONNECTED") {
+            isLive = false;
+        } else {
+            // Fallback for older firmware without explicit connection_state
+            final lastSeen = v['last_seen'];
+            if (lastSeen != null) {
+                final ts = DateTime.fromMillisecondsSinceEpoch((lastSeen is int) ? lastSeen : (lastSeen as num).toInt());
+                isLive = DateTime.now().difference(ts).inSeconds < 60;
+                connState = isLive ? "CONNECTED" : "DISCONNECTED";
+            }
+        }
+
         return {
            'location': v['location'] ?? 'Unknown Node',
            'count': v['count'] ?? 0,
            'entries': v['entries'] ?? 0,
            'exits': v['exits'] ?? 0,
-           'isOnline': v['isOnline'] ?? false,
+           'isOnline': isLive,
+           'connectionState': connState,
         };
     }).toList();
     if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
@@ -682,6 +719,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     highlightedLogId: _highlightedLogId,
                     highlightedItemKey: _highlightedItemKey,
                     parentScrollController: _scrollController,
+                    onlineCount: _onlineCount,
+                    offlineCount: _offlineCount,
                   ),
                   // Index 4: Settings
                   const SettingsScreen(),
@@ -1464,6 +1503,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurfaceVariant))),
+              Expanded(
+                  child: Text("Inside",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurfaceVariant))),
             ],
           ),
           Divider(
@@ -1477,6 +1522,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Divider(color: isDark ? Colors.white10 : Colors.black12, height: 16),
             itemBuilder: (context, index) {
               final data = _deviceData[index];
+              final int currentInside = ((data['entries'] ?? 0) as num).toInt() - ((data['exits'] ?? 0) as num).toInt();
+              final displayInside = currentInside; // clamped below if desired, but clamping inside calculation is identical
               return Row(
                 children: [
                   Expanded(
@@ -1487,7 +1534,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.w500)),
                   ),
                   Expanded(
-                    child: Text(data['entries'].toString(),
+                    child: Text(currentInside.clamp(0, 99999).toString(),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: colorScheme.onSurface)),
                   ),
@@ -1495,6 +1542,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Text(data['exits'].toString(),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: colorScheme.onSurface)),
+                  ),
+                  Expanded(
+                    child: Text(displayInside.clamp(0, 99999).toString(),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
                   ),
                 ],
               );

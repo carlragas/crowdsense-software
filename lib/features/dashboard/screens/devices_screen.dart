@@ -55,6 +55,8 @@ class DevicesScreen extends StatefulWidget {
   final String? highlightedLogId;
   final GlobalKey? highlightedItemKey;
   final ScrollController? parentScrollController;
+  final int onlineCount;
+  final int offlineCount;
 
   const DevicesScreen({
     super.key,
@@ -62,6 +64,8 @@ class DevicesScreen extends StatefulWidget {
     this.highlightedLogId,
     this.highlightedItemKey,
     this.parentScrollController,
+    this.onlineCount = 0,
+    this.offlineCount = 0,
   });
 
   @override
@@ -90,11 +94,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
         Row(
           children: [
             Expanded(
-              child: _GlowingStatusCard(title: "Online Devices", count: 10, color: AppColors.statusSafe),
+              child: _GlowingStatusCard(title: "Online Devices", count: widget.onlineCount, color: AppColors.statusSafe),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _GlowingStatusCard(title: "Offline Devices", count: 2, color: AppColors.statusDanger),
+              child: _GlowingStatusCard(title: "Offline Devices", count: widget.offlineCount, color: AppColors.statusDanger),
             ),
           ],
         ),
