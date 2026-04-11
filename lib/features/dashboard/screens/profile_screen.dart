@@ -1,11 +1,17 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
+import '../../../../core/widgets/custom_notification_modal.dart';
+import '../../../../core/utils/phone_formatter.dart';
+import '../../auth/widgets/update_email_dialog.dart';
+import '../../auth/widgets/update_password_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -30,9 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // static display data
   final List<String> _permissions = ['Read/Write – Sensor Thresholds', 'Device Decommissioning', 'Trend Reporting'];
   final List<String> _managedZones = ['Sector 7 – North CEA Wing', 'Main Access Gateway – PUP-CEA'];
-  final String _lastLogin = 'Mar 26, 2026  •  17:34 PHT';
-  final String _lastIp = '192.168.1.42 (PUP-CEA LAN)';
-  bool _twoFactorEnabled = true;
+  
   final List<Map<String, String>> _activeSessions = [
     {'device': 'This Device', 'status': 'Active'},
   ];
@@ -62,24 +66,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _origName = userProv.name;
     _origUsername = userProv.username;
     _origEmail = userProv.email;
-    _origPhone = userProv.phone.isEmpty ? '+63 900 000 0000' : userProv.phone;
-    _origDesignation = userProv.designation;
+    _origPhone = userProv.phone.isEmpty ? 'N/A' : userProv.phone;
+    _origDesignation = userProv.designation.isEmpty ? 'N/A' : userProv.designation;
     _adminId = userProv.id;
     _accessLevel = userProv.role.toUpperCase();
 
     _nameCtrl = TextEditingController(text: _origName)..addListener(_onChange);
     _usernameCtrl = TextEditingController(text: _origUsername)..addListener(_onChange);
     _emailCtrl = TextEditingController(text: _origEmail)..addListener(_onChange);
-    _phoneCtrl = TextEditingController(text: _origPhone)..addListener(_onChange);
-    _designationCtrl = TextEditingController(text: _origDesignation)..addListener(_onChange);
+    _phoneCtrl = TextEditingController(text: _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '+63 ' : _origPhone)..addListener(_onChange);
+    _designationCtrl = TextEditingController(text: _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation)..addListener(_onChange);
+
+    // Email fields are now refreshed reactively via UserProvider (context.watch)
+    // The UpdateEmailDialog handles its own RTDB sync upon verification.
   }
 
+
   void _onChange() {
-    final changed = _nameCtrl.text != _origName ||
-        _usernameCtrl.text != _origUsername ||
-        _emailCtrl.text != _origEmail ||
-        _phoneCtrl.text != _origPhone ||
-        _designationCtrl.text != _origDesignation;
+    final currentPhoneRaw = _phoneCtrl.text.trim();
+    final currentPhone = (currentPhoneRaw.isEmpty || currentPhoneRaw == '+63') ? 'N/A' : currentPhoneRaw;
+    final currentDesignation = _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim();
+    
+    final origP = _origPhone == '+63 900 000 0000' ? 'N/A' : _origPhone;
+    final origD = _origDesignation == 'Official Administrator' ? 'N/A' : _origDesignation;
+
+    final changed = _nameCtrl.text.trim() != _origName.trim() ||
+        _usernameCtrl.text.trim() != _origUsername.trim() ||
+        _emailCtrl.text.trim() != _origEmail.trim() ||
+        currentPhone != origP ||
+        currentDesignation != origD;
+
     if (_hasChanges != changed) setState(() => _hasChanges = changed);
   }
 
@@ -96,9 +112,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _cancel() {
     setState(() {
       _nameCtrl.text = _origName;
+      _usernameCtrl.text = _origUsername;
       _emailCtrl.text = _origEmail;
-      _phoneCtrl.text = _origPhone;
-      _designationCtrl.text = _origDesignation;
+      _phoneCtrl.text = _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '' : _origPhone;
+      _designationCtrl.text = _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation;
       _isEditing = false;
       _hasChanges = false;
     });
@@ -107,9 +124,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _save() async {
     if (_nameCtrl.text.trim().isEmpty ||
         _usernameCtrl.text.trim().isEmpty ||
-        _emailCtrl.text.trim().isEmpty ||
-        _designationCtrl.text.trim().isEmpty) {
-      _showError('Update incomplete. Please provide a valid Designation to proceed.');
+        _emailCtrl.text.trim().isEmpty) {
+      _showError('Update incomplete. Full Name, Username, and Email are required.');
       return;
     }
     
@@ -126,12 +142,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final dbBaseUrl = 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
         final updateUrl = Uri.parse('$dbBaseUrl/users/$uid.json?auth=$idToken');
         
+        final finalPhone = _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim();
+        final finalDesignation = _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim();
+
         final payload = json.encode({
           'name': _nameCtrl.text.trim(),
           'username': _usernameCtrl.text.trim(),
           'email': _emailCtrl.text.trim(),
-          'phone': _phoneCtrl.text.trim(),
-          'designation': _designationCtrl.text.trim(),
+          'phone': finalPhone,
+          'designation': finalDesignation,
         });
 
         final response = await http.patch(updateUrl, body: payload);
@@ -144,16 +163,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'name': _nameCtrl.text.trim(),
           'username': _usernameCtrl.text.trim(),
           'email': _emailCtrl.text.trim(),
-          'phone': _phoneCtrl.text.trim(),
-          'designation': _designationCtrl.text.trim(),
+          'phone': finalPhone,
+          'designation': finalDesignation,
         });
         
         setState(() {
-          _origName = _nameCtrl.text;
-          _origUsername = _usernameCtrl.text;
-          _origEmail = _emailCtrl.text;
-          _origPhone = _phoneCtrl.text;
-          _origDesignation = _designationCtrl.text;
+          _origName = _nameCtrl.text.trim();
+          _origUsername = _usernameCtrl.text.trim();
+          _origEmail = _emailCtrl.text.trim();
+          _origPhone = finalPhone;
+          _origDesignation = finalDesignation;
           _hasChanges = false;
         });
         
@@ -167,33 +186,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showSuccess(String msg) {
     HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [
-        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-        const SizedBox(width: 10),
-        Expanded(child: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600))),
-      ]),
-      backgroundColor: const Color(0xFF2E7D32),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      duration: const Duration(seconds: 3),
-    ));
+    CustomNotificationModal.show(
+      context: context,
+      title: 'Success!',
+      message: msg,
+      isSuccess: true,
+    );
   }
 
   void _showError(String msg) {
     HapticFeedback.heavyImpact();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [
-        const Icon(Icons.error_rounded, color: Colors.white, size: 20),
-        const SizedBox(width: 10),
-        Expanded(child: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600))),
-      ]),
-      backgroundColor: AppColors.statusDanger,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      duration: const Duration(seconds: 6),
-      action: SnackBarAction(label: 'Dismiss', textColor: Colors.white, onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar()),
-    ));
+    CustomNotificationModal.show(
+      context: context,
+      title: 'Security Sync Required',
+      message: msg,
+      isSuccess: false,
+    );
+  }
+
+  // ─── Change Password Dialog ─────────────────────────────────────────────────
+
+
+  // ─── Log Out All Sessions Dialog ────────────────────────────────────────────
+
+  void _showLogoutAllSessionsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(children: [
+          const Icon(Icons.logout, color: AppColors.statusDanger, size: 24),
+          const SizedBox(width: 10),
+          const Text('Log Out All Sessions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        ]),
+        content: const Text(
+          'This will immediately end all other active sessions across the CrowdSense network. Your current device session will remain active.',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showSuccess('Successfully logged out of all other devices. Your current session is now the only active access point.');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusDanger,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: const Text('Log Out Others', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatLastLogin(String isoString) {
+    if (isoString.isEmpty) return 'Never';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      // Format: Mar 26, 2026  •  17:34 PHT
+      return DateFormat('MMM dd, yyyy  •  HH:mm').format(dt) + ' PHT';
+    } catch (e) {
+      return 'Unknown';
+    }
   }
 
   @override
@@ -275,7 +337,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(color: _accentBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text(_designationCtrl.text, style: TextStyle(color: _accentBlue, fontSize: 12, fontWeight: FontWeight.bold)),
+              child: Text(_designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim(), style: TextStyle(color: _accentBlue, fontSize: 12, fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(height: 24),
@@ -311,8 +373,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _StaticRow(icon: Icons.tag_rounded, label: 'Admin ID', value: _adminId, colorScheme: cs, locked: true),
             const _Divider(),
             _isEditing
-                ? _EditField(label: 'Official Designation', controller: _designationCtrl, accentColor: _accentBlue)
-                : _StaticRow(icon: Icons.work_outline_rounded, label: 'Official Designation', value: _designationCtrl.text, colorScheme: cs),
+                ? _EditField(label: 'Official Designation', controller: _designationCtrl, accentColor: _accentBlue, hint: 'N/A')
+                : _StaticRow(icon: Icons.work_outline_rounded, label: 'Official Designation', value: _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim(), colorScheme: cs),
             const _Divider(),
             _StaticRow(icon: Icons.corporate_fare_rounded, label: 'Department / Unit', value: 'Disaster Response Team – CEA', colorScheme: cs),
           ]),
@@ -323,12 +385,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 10),
           _ProfileCard(colorScheme: cs, isDark: isDark, children: [
             _StaticRow(
-              icon: Icons.shield_rounded, 
-              label: 'Access Level', 
-              value: _accessLevel, 
-              colorScheme: cs, 
-              badge: _accessLevel,
-              badgeColor: _accessLevel.toLowerCase() == 'admin' ? AppColors.statusDanger : AppColors.statusWarning,
+              icon: Icons.shield_rounded,
+              label: 'Access Level',
+              value: '', // Hiding text value because the badge already displays the role
+              colorScheme: cs,
+              badge: _accessLevel.toUpperCase(),
+              badgeColor: _accessLevel.toLowerCase() == 'admin'
+                  ? AppColors.statusDanger
+                  : AppColors.statusWarning,
             ),
             const _Divider(),
             _PermissionsRow(permissions: _permissions, colorScheme: cs),
@@ -341,9 +405,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _SectionLabel(label: '3. Communication & Emergency Contact'),
           const SizedBox(height: 10),
           _ProfileCard(colorScheme: cs, isDark: isDark, children: [
-            _isEditing
-                ? _EditField(label: 'Secure Work Email', controller: _emailCtrl, keyboardType: TextInputType.emailAddress, accentColor: _accentBlue)
-                : _StaticRow(icon: Icons.email_outlined, label: 'Secure Work Email', value: _emailCtrl.text, colorScheme: cs),
+            _StaticRow(
+              icon: Icons.email_outlined,
+              label: 'Secure Work Email',
+              value: context.watch<UserProvider>().email,
+              colorScheme: cs,
+              locked: true, // Email is now always locked in the Profile UI
+              badge: 'SECURE',
+              badgeColor: AppColors.statusSafe,
+            ),
             const _Divider(),
             _isEditing
                 ? _EditField(
@@ -351,9 +421,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
                     accentColor: _accentBlue,
-                    hint: 'This number is used for critical SMS sensor alerts.',
+                    hint: '+63 XXX XXX XXXX',
+                    inputFormatters: [PhilippinePhoneFormatter()],
                   )
-                : _StaticRow(icon: Icons.phone_outlined, label: 'Emergency Contact Number', value: _phoneCtrl.text, colorScheme: cs),
+                : _StaticRow(icon: Icons.phone_outlined, label: 'Emergency Contact Number', value: _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim(), colorScheme: cs),
             const _Divider(),
             _StaticRow(icon: Icons.person_pin_outlined, label: 'Emergency Escalation Path', value: 'Backup: Shift Lead B – H. Llarinas', colorScheme: cs),
             const _Divider(),
@@ -386,28 +457,128 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _SectionLabel(label: '4. Security & Authentication'),
           const SizedBox(height: 10),
           _ProfileCard(colorScheme: cs, isDark: isDark, children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.verified_user_rounded, size: 18, color: cs.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Two-Factor Authentication', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-                Text(_twoFactorEnabled ? 'Enabled – Account is secure' : 'Disabled – Highly Recommended',
-                    style: TextStyle(fontSize: 11, color: _twoFactorEnabled ? const Color(0xFF2E7D32) : AppColors.statusWarning, fontWeight: FontWeight.w600)),
-              ])),
-              Switch(
-                value: _twoFactorEnabled,
-                onChanged: (val) => setState(() => _twoFactorEnabled = val),
-                activeColor: cs.primary,
-              ),
-            ]),
+            _StaticRow(
+              icon: Icons.access_time_rounded,
+              label: 'Last Login',
+              value: _formatLastLogin(context.watch<UserProvider>().lastLogin),
+              colorScheme: cs,
+            ),
             const _Divider(),
-            _StaticRow(icon: Icons.access_time_rounded, label: 'Last Login', value: _lastLogin, colorScheme: cs),
+            _StaticRow(
+              icon: Icons.language_rounded,
+              label: 'Last IP Address',
+              value: context.watch<UserProvider>().lastIp == 'Unknown'
+                  ? 'Determining...'
+                  : context.watch<UserProvider>().lastIp,
+              colorScheme: cs,
+            ),
             const _Divider(),
-            _StaticRow(icon: Icons.language_rounded, label: 'Last IP Address', value: _lastIp, colorScheme: cs),
+            // ── Change Email Address ──────────────────────────────────────
+            InkWell(
+              onTap: () async {
+                await UpdateEmailDialog.show(context);
+                // The dialog handles all syncing internally.
+                // Just refresh the displayed email from the provider.
+                if (mounted) {
+                  final newEmail = context.read<UserProvider>().email;
+                  if (newEmail.isNotEmpty && newEmail != _emailCtrl.text) {
+                    setState(() {
+                      _origEmail = newEmail;
+                      _emailCtrl.text = newEmail;
+                    });
+                  }
+                }
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.alternate_email_rounded,
+                          size: 18, color: cs.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Change Email Address',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'A verification link will be sent to your new email',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        color: cs.onSurfaceVariant.withOpacity(0.4)),
+                  ],
+                ),
+              ),
+            ),
+            const _Divider(),
+            // ── Change Account Password ──────────────────────────────────────
+            InkWell(
+              onTap: () => UpdatePasswordDialog.show(context),
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.lock_reset_rounded,
+                          size: 18, color: cs.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Change Account Password',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'Update your credentials periodically for better security',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        color: cs.onSurfaceVariant.withOpacity(0.4)),
+                  ],
+                ),
+              ),
+            ),
             const _Divider(),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -434,6 +605,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ]),
               )),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showLogoutAllSessionsDialog,
+                  icon: const Icon(Icons.logout_rounded, size: 16),
+                  label: const Text('Log Out of All Other Sessions'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.statusDanger,
+                    side: const BorderSide(color: AppColors.statusDanger),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
             ]),
           ]),
           const SizedBox(height: 20),
@@ -610,18 +797,44 @@ class _StaticRow extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
           const SizedBox(height: 3),
-          if (badge != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: (badgeColor ?? colorScheme.primary).withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-              child: Text(badge!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: badgeColor ?? colorScheme.primary)),
-            )
-          else
-            Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+          Row(
+            children: [
+              if (badge != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: (badgeColor ?? colorScheme.primary).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      badge!,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: badgeColor ?? colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
           if (locked)
             Padding(
               padding: const EdgeInsets.only(top: 3),
-              child: Text('Assigned by System Architect · cannot be changed', style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+              child: Text('Assigned by System Architect - cannot be changed', style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
             ),
         ]),
       ),
@@ -636,12 +849,15 @@ class _EditField extends StatelessWidget {
   final Color accentColor;
   final String? hint;
 
+  final List<TextInputFormatter>? inputFormatters;
+
   const _EditField({
     required this.label,
     required this.controller,
     this.keyboardType,
     required this.accentColor,
     this.hint,
+    this.inputFormatters,
   });
 
   @override
@@ -668,6 +884,7 @@ class _EditField extends StatelessWidget {
           hintText: hint,
           hintStyle: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withOpacity(0.6)),
         ),
+        inputFormatters: inputFormatters,
       ),
     ]);
   }
@@ -688,16 +905,15 @@ class _PermissionsRow extends StatelessWidget {
         Text('Permissions Overview', style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
       ]),
       const SizedBox(height: 8),
-      Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: permissions.map((p) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colorScheme.primary.withOpacity(0.2))),
-          child: Text(p, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colorScheme.primary)),
-        )).toList(),
-      ),
+      for (var p in permissions)
+        Padding(
+          padding: const EdgeInsets.only(left: 36, bottom: 4),
+          child: Row(children: [
+            Icon(Icons.check_circle_outline_rounded, size: 12, color: AppColors.statusSafe),
+            const SizedBox(width: 8),
+            Text(p, style: TextStyle(fontSize: 12, color: colorScheme.onSurface, fontWeight: FontWeight.w500)),
+          ]),
+        ),
     ]);
   }
 }
@@ -714,17 +930,18 @@ class _ZonesRow extends StatelessWidget {
         Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(Icons.map_outlined, size: 18, color: colorScheme.primary)),
         const SizedBox(width: 12),
-        Text('Managed Zones', style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
+        Text('Managed Gateway Sectors', style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant)),
       ]),
       const SizedBox(height: 8),
-      ...zones.map((z) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 4),
-        child: Row(children: [
-          Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.primary)),
-          const SizedBox(width: 8),
-          Text(z, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-        ]),
-      )),
+      for (var z in zones)
+        Padding(
+          padding: const EdgeInsets.only(left: 36, bottom: 4),
+          child: Row(children: [
+            Container(width: 6, height: 6, decoration: BoxDecoration(color: colorScheme.secondary.withOpacity(0.6), shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Text(z, style: TextStyle(fontSize: 12, color: colorScheme.onSurface, fontWeight: FontWeight.w500)),
+          ]),
+        ),
     ]);
   }
 }
@@ -740,18 +957,19 @@ class _StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.25)),
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.1)),
         ),
         child: Column(children: [
-          Text('$value', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.withOpacity(0.8))),
+          Text(value.toString(), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
+          Text(label, style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
         ]),
       ),
     );
   }
 }
+
+

@@ -1,10 +1,12 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/geometric_background.dart';
-import '../../../../core/providers/user_provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/geometric_background.dart';
+import '../../../core/widgets/custom_notification_modal.dart';
+import '../../../core/providers/user_provider.dart';
 import '../services/auth_service.dart';
+import '../widgets/forgot_password_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool animate;
@@ -20,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   
   bool _isPasswordVisible = false;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,62 +30,58 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
   
-  Future<void> _handleLogin() async {
+  void _handleLogin() {
     final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
 
     if (identifier.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter both Email/Username and Password.'), 
-          backgroundColor: Color(0xFFEF4C33), // Red error color
-          behavior: SnackBarBehavior.floating,
-        ),
+      CustomNotificationModal.show(
+        context: context,
+        title: "Login Failed",
+        message: "Please enter both Email/Username and Password.",
+        isSuccess: false,
       );
       return;
     }
 
-    // Dismiss keyboard
-    FocusScope.of(context).unfocus();
+    // Capture provider ref BEFORE navigating away — once pushReplacement runs,
+    // this widget is destroyed and `mounted` returns false, which would silently
+    // skip the setUser call and leave the profile with all fallback values.
+    final userProvider = context.read<UserProvider>();
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Securely wait for the auth task to complete locally
+    // ── Smart Auth Future ────────────────────────────────────────────────────
+    // We define the future here but DON'T await it. We pass it to the Splash 
+    // screen, which will handle the pulse-and-sync loop.
+    final authFuture = () async {
+      // 1. Perform the authentication handshake
       final payload = await _authService.login(identifier, password);
       
-      if (!mounted) return;
-      
-      // Inject global user state so all screens have live access to the profile
-      context.read<UserProvider>().setUser(payload['user'], payload['userData']);
-      
-      // If successful, boot to splash screen with a dummy complete future so it animates cleanly
-      Navigator.pushReplacementNamed(
-        context, 
-        '/splash', 
-        arguments: {
-          'nextRoute': '/dashboard',
-          'authFuture': Future.value(true),
-        }
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-      
-      // Show the explicit error thrown by AuthService or missing plugin
-      String errorMsg = e.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMsg), 
-          backgroundColor: const Color(0xFFEF4C33), // Red error color
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+      // 2. Set the global UserProvider state using the captured reference
+      // (Safe even after widget is gone — we use the variable, not context)
+      userProvider.setUser(payload['user'], payload['userData']);
+
+      final userData = payload['userData'] as Map<String, dynamic>;
+      final bool requiresPasswordChange = userData['requiresPasswordChange'] == true;
+
+      // 3. Return the target destination for the Splash screen to navigate to
+      if (requiresPasswordChange) {
+        return {
+          'route': '/force-password-change',
+          'args': {'email': payload['user'].email ?? '', 'userData': userData},
+        };
+      } else {
+        return {'route': '/dashboard'};
+      }
+    }();
+
+    // Transition to splash for the "Loading Data" / "Syncing" vibe
+    Navigator.pushReplacementNamed(
+      context,
+      '/splash',
+      arguments: {
+        'authFuture': authFuture, 
+      },
+    );
   }
 
   @override
@@ -140,14 +137,32 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          const Text(
-                            "CrowdSense",
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textLight,
-                              letterSpacing: 1.2,
-                            ),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Text(
+                                "CrowdSense",
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textLight,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              Positioned(
+                                right: 6,
+                                top: 6,
+                                child: Text(
+                                  '©2026',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.textLight.withOpacity(0.8),
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           RichText(
@@ -255,22 +270,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 24),
                           
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            child: _isLoading 
-                                ? const SizedBox(
-                                    height: 20, 
-                                    width: 20, 
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                                  )
-                                : const Text("Log In"),
+                            onPressed: _handleLogin,
+                            child: const Text("Log In"),
                           ),
                           
                           const SizedBox(height: 16),
                           
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () => ForgotPasswordDialog.show(context),
                             child: Text(
-                              "Having Trouble?",
+                              "Forgot Password?",
                               style: TextStyle(color: AppColors.textGrey.withOpacity(0.8)),
                             ),
                           ),

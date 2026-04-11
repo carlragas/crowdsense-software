@@ -116,18 +116,7 @@ class AnalyticsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         
-        // Battery Curve Line Chart
-        _buildHardwareCard(
-           context: context,
-           title: "Battery Discharge Curve",
-           subtitle: "UPS percentage during simulated outage",
-           icon: Icons.battery_charging_full,
-           color: AppColors.primaryBlue,
-           child: SizedBox(
-             height: 220,
-             child: _buildBatteryChart(),
-           )
-        ),
+        const SizedBox(height: 16),
         
         const SizedBox(height: 40), // Bottom padding
       ],
@@ -527,69 +516,7 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBatteryChart() {
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 25,
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: 10,
-              getTitlesWidget: (value, meta) {
-                return SideTitleWidget(
-                  meta: meta,
-                  child: Text('${value.toInt()}m', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                );
-              },
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 25,
-              reservedSize: 35,
-              getTitlesWidget: (value, meta) {
-                 if(value == 0) return const SizedBox.shrink();
-                return SideTitleWidget(
-                  meta: meta,
-                  child: Text('${value.toInt()}%', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                );
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: 60,
-        minY: 0,
-        maxY: 100,
-        lineBarsData: [
-          LineChartBarData(
-            spots: _getMockBatteryData(),
-            isCurved: true,
-            color: AppColors.statusSafe,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              color: AppColors.statusSafe.withOpacity(0.15),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
 
   // --- MOCK DATA GENERATORS ---
@@ -609,17 +536,7 @@ class AnalyticsScreen extends StatelessWidget {
 
 
   
-  List<FlSpot> _getMockBatteryData() {
-    return const [
-      FlSpot(0, 100),
-      FlSpot(10, 100), // Power lost at 10m
-      FlSpot(20, 85),
-      FlSpot(30, 70),
-      FlSpot(40, 52),
-      FlSpot(50, 35),
-      FlSpot(60, 18), // 60 mins later
-    ];
-  }
+
 }
 
 // ---------------------------------------------------------------------------

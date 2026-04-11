@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'email_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -50,20 +52,50 @@ class AuthService {
       
       // 3. Verify they actually exist in the DB and pull their FULL data profile securely using pure REST HTTP
       final uid = userCredential.user!.uid;
-      
-      // Grab Firebase Auth Token mathematically linked to this user's sign-in context for secure RTDB read
-      final idToken = await userCredential.user!.getIdToken();
+      // Get a fresh ID token to authenticate the RTDB read (required by security rules: auth != null)
+      final idToken = await userCredential.user!.getIdToken(true);
       final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
+
+      // TRACK SECURITY DATA: Capture actual login time and public IP
+      String publicIp = 'Unknown';
+      try {
+        final ipResponse = await http.get(Uri.parse('https://api.ipify.org')).timeout(const Duration(seconds: 3));
+        if (ipResponse.statusCode == 200) publicIp = ipResponse.body;
+      } catch (_) {}
+
+      final now = DateTime.now().toIso8601String();
+      await http.patch(profileUrl, body: json.encode({
+        'lastLogin': now,
+        'lastIp': publicIp,
+      }));
       
       final profileResponse = await http.get(profileUrl);
       
-      if (profileResponse.statusCode != 200 || profileResponse.body == 'null' || profileResponse.body.isEmpty) {
-        await _auth.signOut();
-        throw Exception('Account exists in Auth but is missing from Database records.');
+      final rawUserData = Map<String, dynamic>.from(json.decode(profileResponse.body) as Map<String, dynamic>);
+      
+      // EMAIL SYNCHRONIZATION (Free Tier Fallback)
+      // Check if the Auth email (verified) has changed compared to the DB record.
+      final authEmail = userCredential.user!.email;
+      if (authEmail != null && authEmail != rawUserData['email']) {
+        print('[AuthService] Email mismatch detected! Auth: $authEmail, DB: ${rawUserData['email']}');
+        try {
+          // Perform a sync patch to RTDB using the authenticated UID and a fresh token
+          final idToken = await userCredential.user!.getIdToken(true);
+          final syncUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
+          final syncResponse = await http.patch(syncUrl, body: json.encode({'email': authEmail}));
+          
+          if (syncResponse.statusCode == 200) {
+            print('[AuthService] RTDB successfully synchronized with new email.');
+            // Update the local data map so the UI reflects it immediately
+            rawUserData['email'] = authEmail;
+          } else {
+            print('[AuthService] RTDB sync failed with status: ${syncResponse.statusCode}');
+          }
+        } catch (e) {
+          print('[AuthService] Email synchronization failure: $e');
+        }
       }
-      
-      final rawUserData = json.decode(profileResponse.body) as Map<String, dynamic>;
-      
+
       // Return a convenient bundle containing both the secure auth reference and UI data 
       return {
         'user': userCredential.user,
@@ -87,4 +119,109 @@ class AuthService {
   Future<void> logout() async {
     await _auth.signOut();
   }
+
+  /// Creates a persistent user profile in the database via REST and Auth via Secondary App.
+  Future<String> createUserRecord(Map<String, dynamic> userData, String tempPassword) async {
+    final email = userData['email'] as String;
+    
+    // Inject the flag that forces the new user to reset their password on first login
+    userData['requiresPasswordChange'] = true;
+    
+    // 1. Get the current admin's auth token for the secure RTDB write.
+    // We do this before creating the secondary app just to be safe.
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Must be logged in to create a user.');
+    }
+    final adminToken = await currentUser.getIdToken(true);
+
+    FirebaseApp? secondaryApp;
+    String newUid = '';
+    try {
+      // 2. Initialize a secondary Firebase App to create the user without logging out the Admin
+      secondaryApp = await Firebase.initializeApp(
+        name: 'SecondaryAppRegistration',
+        options: Firebase.app().options,
+      );
+
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+      // 3. Create the user in Auth
+      final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: tempPassword,
+      );
+
+      newUid = userCredential.user!.uid;
+
+      // 4. Securely write the data to RTDB using PUT on the specific $uid node, authenticated by the Admin
+      final url = Uri.parse('$_dbBaseUrl/users/$newUid.json?auth=$adminToken');
+      final response = await http.put(
+        url,
+        body: json.encode(userData),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Database Write Error: Status Code ${response.statusCode} - ${response.body}');
+      }
+
+      // 5. Send custom HTML welcome email via SMTP directly from app
+      try {
+        await EmailService.sendWelcomeEmail(
+          targetEmail: email,
+          name: userData['name']?.toString() ?? '',
+          username: userData['username']?.toString() ?? '',
+          tempPassword: tempPassword,
+          role: userData['role']?.toString() ?? '',
+        );
+      } catch (e) {
+        // Re-throw and surface the real error so we can see WHY it failed
+        throw Exception('User created successfully, but email failed: $e');
+      }
+
+      return newUid;
+
+    } finally {
+      // 6. Gracefully clean up the temporary app instance
+      if (secondaryApp != null) {
+        await secondaryApp.delete();
+      }
+    }
+  }
+
+  /// Deletes a user profile from the database and attempts to trigger the auth wipe.
+  Future<void> deleteUser(String targetUid) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Authorization Error: Must be logged in as Admin to perform deletions.');
+    }
+
+    // 1. Get Admin Token for RTDB REST authentication
+    final adminToken = await currentUser.getIdToken(true);
+
+    // 2. Perform the Database Wipe (Soft Delete - Immediate ban)
+    final profileUrl = Uri.parse('$_dbBaseUrl/users/$targetUid.json?auth=$adminToken');
+    final response = await http.delete(profileUrl);
+
+    if (response.statusCode != 200) {
+      throw Exception('Database Deletion Failed: ${response.statusCode} - ${response.body}');
+    }
+
+    // 3. Attempt the Cloud Function (Hard Delete - Auth account wipe)
+    // This will gracefully fail with a log if the user hasn't upgraded to Blaze yet.
+    try {
+      final cloudUrl = Uri.parse('https://us-central1-crowdsense-db.cloudfunctions.net/deleteUserAccount');
+      await http.post(
+        cloudUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $adminToken', // Cloud functions require Bearer auth for onCall
+        },
+        body: json.encode({'data': {'targetUid': targetUid}}),
+      ).timeout(const Duration(seconds: 8));
+    } catch (e) {
+      print('Cloud Function trigger skipped/failed (Blaze Plan required): $e');
+    }
+  }
 }
+

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/force_password_change_screen.dart';
 import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/dashboard/screens/analytics_screen.dart';
 import 'features/dashboard/screens/devices_screen.dart';
@@ -17,14 +19,27 @@ import 'core/providers/settings_provider.dart';
 import 'core/providers/user_provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await dotenv.load(fileName: ".env");
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Catch the firebase_auth Windows threading bug at the zone level
+  // so it doesn't hard-crash the "Lost connection to device"
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (error.toString().contains('firebase_auth_plugin') ||
+        error.toString().contains('non-platform thread')) {
+      return true; // silently handle the plugin's false-alarm bug
+    }
+    return false; // let all other real errors crash normally
+  };
 
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     await windowManager.ensureInitialized();
@@ -34,6 +49,7 @@ void main() async {
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
+      title: 'CrowdSense App',
       titleBarStyle: TitleBarStyle.normal,
     );
 
@@ -68,10 +84,26 @@ class CrowdSenseApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.themeMode,
+          scrollBehavior: const MaterialScrollBehavior().copyWith(
+            dragDevices: {
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.touch,
+              PointerDeviceKind.stylus,
+              PointerDeviceKind.trackpad,
+            },
+            scrollbars: false,
+          ),
           initialRoute: '/splash',
           routes: {
             '/splash': (context) => const SplashScreen(),
             '/login': (context) => const LoginScreen(),
+            '/force-password-change': (context) {
+              final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+              return ForcePasswordChangeScreen(
+                email: args['email'] as String,
+                userData: args['userData'] as Map<String, dynamic>,
+              );
+            },
             '/dashboard': (context) => const DashboardScreen(),
           },
         );

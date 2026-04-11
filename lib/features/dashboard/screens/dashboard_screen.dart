@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'dart:ui';
+import 'dart:async';
 import 'package:provider/provider.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../auth/services/auth_service.dart';
 import '../widgets/people_counter_card.dart';
 import 'users_management_screen.dart';
 
+import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../../../core/widgets/geometric_background.dart';
 import '../../../../core/widgets/page_title.dart';
 import 'analytics_screen.dart';
@@ -28,16 +31,22 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 0;
+  int _currentIndex = 2;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
   // --- Log State ---
   late List<DeviceLog> _deviceLogs;
+  int _hazardLevel = 0; // 0 = Nominal, 1 = Caution, 2 = Critical (Mock ESP32 data)
+  Timer? _heartbeatTimer;
+
+  int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
+  int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
 
   @override
   void initState() {
     super.initState();
+    _listenToDeviceStreams();
 
     final now = DateTime.now();
     _deviceLogs = [
@@ -157,10 +166,21 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (!_isBottomNavVisible) setState(() => _isBottomNavVisible = true);
       }
     });
+
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        setState(() {
+          _syncDeviceDataList();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _heartbeatTimer?.cancel();
+    _prototypeUnitsSubscription?.cancel();
+    _sensorDataSubscription?.cancel();
     _pageController?.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -249,17 +269,96 @@ class _DashboardScreenState extends State<DashboardScreen>
   GlobalKey? _highlightedItemKey;
 
   // --- Device data ---
-  final List<Map<String, dynamic>> _deviceData = [
-    {"location": "Main Entrance", "count": 101, "entries": 101, "exits": 0, "isOnline": true},
-    {"location": "Central Stairs", "count": 45, "entries": 0, "exits": 87, "isOnline": true},
-    {"location": "Parking Entrance", "count": 15, "entries": 35, "exits": 69, "isOnline": false},
-    {"location": "Parking Side", "count": 60, "entries": 64, "exits": 140, "isOnline": true},
-  ];
-  String _selectedLocation = "Main Entrance";
+  final Map<String, Map<String, dynamic>> _deviceDataMap = {};
+  List<Map<String, dynamic>> _deviceData = [];
+  String _selectedLocation = "";
+  StreamSubscription? _prototypeUnitsSubscription;
+  StreamSubscription? _sensorDataSubscription;
+
+  void _listenToDeviceStreams() {
+    final dbRef = FirebaseDatabase.instance.ref();
+    
+    _prototypeUnitsSubscription = dbRef.child('prototype_units').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+         final map = event.snapshot.value as Map;
+         setState(() {
+            map.forEach((key, val) {
+               final mac = key.toString();
+               final data = val as Map;
+               _deviceDataMap.putIfAbsent(mac, () => {});
+               _deviceDataMap[mac]!['location'] = data['name']?.toString() ?? 'Unknown';
+               
+               if (data.containsKey('heartbeat') && data['heartbeat'] is Map) {
+                   final hbMap = data['heartbeat'] as Map;
+                   _deviceDataMap[mac]!['last_seen'] = hbMap['last_seen'];
+               } else {
+                   _deviceDataMap[mac]!['last_seen'] = null;
+               }
+            });
+            _syncDeviceDataList();
+         });
+      } else {
+        setState(() {
+          _deviceDataMap.clear();
+          _syncDeviceDataList();
+        });
+      }
+    });
+
+    _sensorDataSubscription = dbRef.child('sensor_data').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+         final map = event.snapshot.value as Map;
+         setState(() {
+            map.forEach((key, val) {
+               final mac = key.toString();
+               final data = val as Map;
+               _deviceDataMap.putIfAbsent(mac, () => {});
+               _deviceDataMap[mac]!['count'] = data['people_inside'] ?? 0;
+               _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
+               _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
+            });
+            _syncDeviceDataList();
+         });
+      }
+    });
+  }
+
+  void _syncDeviceDataList() {
+    _deviceData = _deviceDataMap.values.map((v) {
+        String connState = v['connection_state']?.toString() ?? "NEVER SEEN";
+        bool isLive = false;
+
+        if (connState == "CONNECTED") {
+            isLive = true;
+        } else if (connState == "DISCONNECTED") {
+            isLive = false;
+        } else {
+            // Fallback for older firmware without explicit connection_state
+            final lastSeen = v['last_seen'];
+            if (lastSeen != null) {
+                final ts = DateTime.fromMillisecondsSinceEpoch((lastSeen is int) ? lastSeen : (lastSeen as num).toInt());
+                isLive = DateTime.now().difference(ts).inSeconds < 60;
+                connState = isLive ? "CONNECTED" : "DISCONNECTED";
+            }
+        }
+
+        return {
+           'location': v['location'] ?? 'Unknown Node',
+           'count': v['count'] ?? 0,
+           'entries': v['entries'] ?? 0,
+           'exits': v['exits'] ?? 0,
+           'isOnline': isLive,
+           'connectionState': connState,
+        };
+    }).toList();
+    if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
+       _selectedLocation = _deviceData.first['location'];
+    }
+  }
 
   // Computed total across all sensors
-  int get _totalEntries => _deviceData.fold(0, (sum, d) => sum + (d['entries'] as int));
-  int get _totalExits => _deviceData.fold(0, (sum, d) => sum + (d['exits'] as int));
+  int get _totalEntries => _deviceData.fold(0, (sum, d) => sum + ((d['entries'] as num?)?.toInt() ?? 0));
+  int get _totalExits => _deviceData.fold(0, (sum, d) => sum + ((d['exits'] as num?)?.toInt() ?? 0));
   int get _totalPeopleInside => (_totalEntries - _totalExits).clamp(0, 99999);
 
   @override
@@ -503,9 +602,30 @@ class _DashboardScreenState extends State<DashboardScreen>
                     children: [
                       const PageTitle(title: "Dashboard"),
                       const SizedBox(height: 12),
-                      _buildTotalTallyCard(),
+                      _buildStatsRow(),
                       const SizedBox(height: 12),
-                      Builder(builder: (context) {
+                      _deviceData.isEmpty 
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.white.withOpacity(0.05) 
+                                  : Colors.black.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                  Icon(Icons.sensors_off_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                  const SizedBox(height: 16),
+                                  Text("No Devices Connected", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                                  const SizedBox(height: 8),
+                                  Text("Add your ESP32 prototype units\nin the Device Management tab to see live data.", textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                              ]
+                            ),
+                          )
+                        : Builder(builder: (context) {
                         final int realIndex = _deviceData.indexWhere(
                             (data) => data['location'] == _selectedLocation);
                         _pageController ??= PageController(
@@ -599,6 +719,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     highlightedLogId: _highlightedLogId,
                     highlightedItemKey: _highlightedItemKey,
                     parentScrollController: _scrollController,
+                    onlineCount: _onlineCount,
+                    offlineCount: _offlineCount,
                   ),
                   // Index 4: Settings
                   const SettingsScreen(),
@@ -641,7 +763,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               CustomPaint(
                 size: Size(MediaQuery.of(context).size.width - 32, 90),
-                painter: _NavBarPainter(context),
+                painter: _NavBarPainter(context, _currentIndex),
               ),
               Positioned.fill(
                 child: Row(
@@ -679,36 +801,49 @@ class _DashboardScreenState extends State<DashboardScreen>
                   onTap: () {
                     setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
                   },
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const RadialGradient(
-                        colors: [AppColors.accentBlue, AppColors.primaryBlue],
-                        center: Alignment(0, -0.3),
-                        radius: 1.0,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primaryBlue.withOpacity(0.45),
-                          blurRadius: 14,
-                          offset: const Offset(0, 5),
+                    child: AnimatedScale(
+                      scale: _currentIndex == 2 ? 1.12 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const RadialGradient(
+                            colors: [AppColors.accentBlue, AppColors.primaryBlue],
+                            center: Alignment(0, -0.3),
+                            radius: 1.0,
+                          ),
+                          boxShadow: [
+                            // Main shadow
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withOpacity(0.45),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
+                            ),
+                            // Optional glow when selected
+                            if (_currentIndex == 2)
+                              BoxShadow(
+                                color: AppColors.primaryBlue.withOpacity(0.6),
+                                blurRadius: 20,
+                                spreadRadius: 4,
+                              ),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
                         ),
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.notifications_active_rounded,
-                      color: Colors.white,
-                      size: 32,
+                        child: const Icon(
+                          Icons.notifications_active_rounded,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
                     ),
                   ),
-                ),
               ),
             ],
           ),
@@ -755,93 +890,255 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildTotalTallyCard() {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildStatsRow() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final total = _totalPeopleInside;
-    const liveColor = Color(0xFF00C853);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.07)
-              : Colors.black.withOpacity(0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Left: icon + label
-          Icon(Icons.groups_rounded, color: colorScheme.primary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Total Inside Building',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
+    Color hazardColor;
+    IconData hazardIcon;
+    String hazardLabel;
+    bool isPulsing = false;
+
+    // Simulated dynamic hazard logic dependent on ESP32 Firebase inputs
+    switch (_hazardLevel) {
+      case 2:
+        hazardColor = const Color(0xFFFF5252);
+        hazardIcon = Icons.error_outline;
+        hazardLabel = "CRITICAL ALERT";
+        isPulsing = true;
+        break;
+      case 1:
+        hazardColor = Colors.amber;
+        hazardIcon = Icons.warning_amber;
+        hazardLabel = "CAUTION";
+        break;
+      case 0:
+      default:
+        hazardColor = const Color(0xFF00B0FF);
+        hazardIcon = Icons.health_and_safety;
+        hazardLabel = "SYSTEM NORMAL";
+        break;
+    }
+
+    // Styled system-notification badge for the Hazard card
+    final hazardBadge = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 2),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+          decoration: BoxDecoration(
+            color: hazardColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: hazardColor.withOpacity(0.45),
+              width: 1,
             ),
           ),
-          // Center: entries
-          _buildCompactStat(
-            icon: Icons.login_rounded,
-            value: _totalEntries,
-            color: const Color(0xFF00C853),
-          ),
-          const SizedBox(width: 12),
-          // Center: exits
-          _buildCompactStat(
-            icon: Icons.logout_rounded,
-            value: _totalExits,
-            color: const Color(0xFFFF5252),
-          ),
-          const SizedBox(width: 16),
-          // Right: big count
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
             children: [
-              Text(
-                '$total',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: colorScheme.primary,
-                  height: 1.0,
+              _PulsingDot(color: hazardColor),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  hazardLabel,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: hazardColor,
+                    letterSpacing: 0.3,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const _PulsingDot(color: liveColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Live',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
             ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "SYS ALERT",
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: hazardColor.withOpacity(0.55),
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+
+    // ── Card 1: Headcount value widget ──────────────────────────────────────
+    const headcountColor = Color(0xFF00C853);
+    final headcountBadge = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _totalPeopleInside.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Theme.of(context).colorScheme.onSurface,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'REAL-TIME SYNC',
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: headcountColor,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+
+    // ── Card 2: Exits value widget ────────────────────────────────────────
+    const exitsColor = Color(0xFFFF5252);
+    final exitsBadge = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _totalExits.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Theme.of(context).colorScheme.onSurface,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'RESETS HOURLY',
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: exitsColor,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _buildGlassStatCard(
+              title: "Live Total\nHeadcount",
+              value: '',
+              icon: Icons.groups,
+              color: headcountColor,
+              isDark: isDark,
+              valueWidget: headcountBadge,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGlassStatCard(
+              title: "Current Hour\nExits",
+              value: '',
+              icon: Icons.directions_run,
+              color: exitsColor,
+              isDark: isDark,
+              valueWidget: exitsBadge,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGlassStatCard(
+              title: "Hazard Status",
+              value: '',
+              icon: hazardIcon,
+              color: hazardColor,
+              isDark: isDark,
+              isPulsing: isPulsing,
+              valueWidget: hazardBadge,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildGlassStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+    bool isPulsing = false,
+    bool isTextSmall = false,
+    Widget? valueWidget,
+  }) {
+    Widget cardChild = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.15 : 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(isDark ? 0.3 : 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.2,
+            ),
+          ),
+          const Spacer(),
+          // Use the custom valueWidget (e.g. badge) if provided, else plain text
+          valueWidget ?? Text(
+            value,
+            style: TextStyle(
+              fontSize: isTextSmall ? 13 : 24,
+              fontWeight: FontWeight.w900,
+              color: Theme.of(context).colorScheme.onSurface,
+              height: 1.1,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+
+    final glassWrapper = ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: cardChild,
+      ),
+    );
+
+    if (isPulsing) {
+      return _PulsingWrapper(color: color, child: glassWrapper);
+    }
+    return glassWrapper;
   }
 
   Widget _buildCompactStat({required IconData icon, required int value, required Color color}) {
@@ -1072,12 +1369,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       child: ElevatedButton.icon(
                                         onPressed: () {
                                           Navigator.pop(context);
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text("$title DEACTIVATED successfully.", style: const TextStyle(fontWeight: FontWeight.bold)),
-                                              backgroundColor: AppColors.primaryBlue,
-                                              behavior: SnackBarBehavior.floating,
-                                            ),
+                                          CustomNotificationModal.show(
+                                            context: context,
+                                            title: "Alarm Deactivated",
+                                            message: "$title DEACTIVATED successfully.",
+                                            isSuccess: true,
+                                            customColor: AppColors.primaryBlue,
+                                            customIcon: Icons.volume_off_rounded,
                                           );
                                         },
                                         icon: const Icon(Icons.stop_circle_rounded, size: 28),
@@ -1099,11 +1397,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                               },
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Action Executed: $title $actionText" + "TED"),
-                                backgroundColor: color,
-                              ),
+                            CustomNotificationModal.show(
+                              context: context,
+                              title: "System Update",
+                              message: "$title has been ${isReset ? 'RESET' : 'ACTIVATED'}.",
+                              isSuccess: true,
+                              customColor: color,
+                              customIcon: icon,
                             );
                           }
                         },
@@ -1133,8 +1433,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
-
   Widget _buildCrowdCountList() {
+    if (_deviceData.isEmpty) return const SizedBox.shrink();
+
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -1202,6 +1503,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurfaceVariant))),
+              Expanded(
+                  child: Text("Inside",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurfaceVariant))),
             ],
           ),
           Divider(
@@ -1215,6 +1522,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Divider(color: isDark ? Colors.white10 : Colors.black12, height: 16),
             itemBuilder: (context, index) {
               final data = _deviceData[index];
+              final int currentInside = ((data['entries'] ?? 0) as num).toInt() - ((data['exits'] ?? 0) as num).toInt();
+              final displayInside = currentInside; // clamped below if desired, but clamping inside calculation is identical
               return Row(
                 children: [
                   Expanded(
@@ -1225,7 +1534,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.w500)),
                   ),
                   Expanded(
-                    child: Text(data['entries'].toString(),
+                    child: Text(currentInside.clamp(0, 99999).toString(),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: colorScheme.onSurface)),
                   ),
@@ -1233,6 +1542,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Text(data['exits'].toString(),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: colorScheme.onSurface)),
+                  ),
+                  Expanded(
+                    child: Text(displayInside.clamp(0, 99999).toString(),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
                   ),
                 ],
               );
@@ -1420,11 +1734,18 @@ class _PulsingDotState extends State<_PulsingDot>
 
 class _NavBarPainter extends CustomPainter {
   final BuildContext context;
-  _NavBarPainter(this.context);
+  final int currentIndex;
+  _NavBarPainter(this.context, this.currentIndex);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Safely get properties to avoid Null type errors during hot reload transitions
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Safety check: sometimes hot reload can leave fields uninitialized
+    // although they are non-nullable in code. We use a fallback to prevent crashes.
+    final int safeIndex = currentIndex;
+    
     final paint = Paint()
       ..color = isDark ? AppColors.surfaceDark : Colors.white
       ..style = PaintingStyle.fill;
@@ -1437,10 +1758,12 @@ class _NavBarPainter extends CustomPainter {
     final double w = size.width;
     final double h = size.height;
     
-    // Notch dimensions
-    final double notchRadius = 38.0;
-    final double notchDepth = 30.0;
     final double center = w / 2;
+    
+    // Notch dimensions - expands when Alerts (index 2) is active
+    final bool isAlerts = safeIndex == 2;
+    final double notchRadius = isAlerts ? 44.0 : 38.0;
+    final double notchDepth = isAlerts ? 36.0 : 30.0;
 
     path.moveTo(0, 24); // Top left radius
     path.quadraticBezierTo(0, 0, 24, 0);
@@ -1490,5 +1813,67 @@ class _NavBarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    if (oldDelegate is! _NavBarPainter) return true;
+    // Standard safety check for hot reload transitions
+    try {
+      return oldDelegate.currentIndex != currentIndex;
+    } catch (_) {
+      return true;
+    }
+  }
+}
+
+class _PulsingWrapper extends StatefulWidget {
+  final Widget child;
+  final Color color;
+  const _PulsingWrapper({required this.child, required this.color});
+
+  @override
+  State<_PulsingWrapper> createState() => _PulsingWrapperState();
+}
+
+class _PulsingWrapperState extends State<_PulsingWrapper>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(_anim.value * 0.4),
+                blurRadius: 16 * _anim.value,
+                spreadRadius: 2 * _anim.value,
+              ),
+            ],
+          ),
+          child: widget.child,
+        );
+      },
+    );
+  }
 }
