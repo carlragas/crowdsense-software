@@ -31,7 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
-  int _currentIndex = 2;
+  int _currentIndex = 0;
   PageController? _pageController;
   bool _showNotificationsPanel = false;
 
@@ -313,9 +313,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                final mac = key.toString();
                final data = val as Map;
                _deviceDataMap.putIfAbsent(mac, () => {});
+               _deviceDataMap[mac]!['mac'] = mac;
                _deviceDataMap[mac]!['count'] = data['people_inside'] ?? 0;
                _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
                _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
+               _deviceDataMap[mac]!['last_updated'] = data['last_updated'];
             });
             _syncDeviceDataList();
          });
@@ -344,11 +346,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         return {
            'location': v['location'] ?? 'Unknown Node',
+           'mac': v['mac'] ?? '',
            'count': v['count'] ?? 0,
            'entries': v['entries'] ?? 0,
            'exits': v['exits'] ?? 0,
            'isOnline': isLive,
            'connectionState': connState,
+           'last_updated': v['last_updated'],
         };
     }).toList();
     if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
@@ -1469,16 +1473,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                   color: colorScheme.onSurface,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.1)
-                      : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(8),
+              GestureDetector(
+                onTap: () => _showCrowdCountDetail(),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.black.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.arrow_outward,
+                      color: colorScheme.onSurfaceVariant, size: 20),
                 ),
-                child: Icon(Icons.arrow_outward,
-                    color: colorScheme.onSurfaceVariant, size: 20),
               ),
             ],
           ),
@@ -1503,12 +1510,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurfaceVariant))),
-              Expanded(
-                  child: Text("Inside",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurfaceVariant))),
             ],
           ),
           Divider(
@@ -1523,7 +1524,6 @@ class _DashboardScreenState extends State<DashboardScreen>
             itemBuilder: (context, index) {
               final data = _deviceData[index];
               final int currentInside = ((data['entries'] ?? 0) as num).toInt() - ((data['exits'] ?? 0) as num).toInt();
-              final displayInside = currentInside; // clamped below if desired, but clamping inside calculation is identical
               return Row(
                 children: [
                   Expanded(
@@ -1543,17 +1543,252 @@ class _DashboardScreenState extends State<DashboardScreen>
                         textAlign: TextAlign.center,
                         style: TextStyle(color: colorScheme.onSurface)),
                   ),
-                  Expanded(
-                    child: Text(displayInside.clamp(0, 99999).toString(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-                  ),
                 ],
               );
             },
           ),
         ],
       ),
+    );
+  }
+
+  void _showCrowdCountDetail() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final now = DateTime.now();
+    // Next hourly reset: top of the next hour
+    final nextReset = DateTime(now.year, now.month, now.day, now.hour + 1);
+    final minsUntilReset = nextReset.difference(now).inMinutes;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+              maxWidth: 500,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.groups_rounded, color: AppColors.primaryBlue, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "Crowd Count Details",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                // Next reset banner
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusWarning.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.statusWarning.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.timer_outlined, color: AppColors.statusWarning, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Next auto-reset in ${minsUntilReset}m",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.statusWarning,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          "Exits reset hourly",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Table header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                      ),
+                      Expanded(
+                        child: Text("Entry", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                      ),
+                      Expanded(
+                        child: Text("Exit", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text("Last Updated", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(color: isDark ? Colors.white10 : Colors.black12, indent: 20, endIndent: 20),
+                // Table rows
+                Flexible(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shrinkWrap: true,
+                    itemCount: _deviceData.length,
+                    separatorBuilder: (_, __) => Divider(color: isDark ? Colors.white10 : Colors.black12, height: 16),
+                    itemBuilder: (context, index) {
+                      final data = _deviceData[index];
+                      final int rawEntries = ((data['entries'] ?? 0) as num).toInt();
+                      final int rawExits = ((data['exits'] ?? 0) as num).toInt();
+                      final int inside = (rawEntries - rawExits).clamp(0, 99999);
+
+                      String updatedText = "\u2014";
+                      final lu = data['last_updated'];
+                      if (lu != null) {
+                        final ts = DateTime.fromMillisecondsSinceEpoch((lu is int) ? lu : (lu as num).toInt());
+                        final diff = now.difference(ts);
+                        if (diff.inSeconds < 60) {
+                          updatedText = "Just now";
+                        } else if (diff.inMinutes < 60) {
+                          updatedText = "${diff.inMinutes}m ago";
+                        } else if (diff.inHours < 24) {
+                          updatedText = "${diff.inHours}h ago";
+                        } else {
+                          updatedText = "${diff.inDays}d ago";
+                        }
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Text(data['location'], style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: 13)),
+                          ),
+                          Expanded(
+                            child: Text(inside.toString(), textAlign: TextAlign.center, style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                          Expanded(
+                            child: Text(rawExits.toString(), textAlign: TextAlign.center, style: TextStyle(color: colorScheme.onSurface, fontSize: 13)),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(updatedText, textAlign: TextAlign.center, style: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.6), fontSize: 11)),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                // Reset button
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        showDialog(
+                          context: dialogContext,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: colorScheme.surface,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: AppColors.statusDanger, size: 28),
+                                const SizedBox(width: 12),
+                                const Text("Reset All Counts", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            content: const Text(
+                              "This will reset entries, exits, and people_inside to 0 for ALL devices.\n\nThis action cannot be undone.",
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: Text("Cancel", style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  Navigator.pop(dialogContext);
+                                  final dbRef = FirebaseDatabase.instance.ref();
+                                  for (final device in _deviceData) {
+                                    final mac = device['mac']?.toString() ?? '';
+                                    if (mac.isNotEmpty) {
+                                      await dbRef.child('sensor_data').child(mac).update({
+                                        'total_entries': 0,
+                                        'total_exits': 0,
+                                        'people_inside': 0,
+                                      });
+                                    }
+                                  }
+                                  if (mounted) {
+                                    CustomNotificationModal.show(
+                                      context: this.context,
+                                      title: "Counts Reset",
+                                      message: "All ToF counts have been reset to 0.",
+                                      isSuccess: true,
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.statusDanger,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                child: const Text("RESET ALL", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.restart_alt_rounded),
+                      label: const Text("Reset All ToF Counts", style: TextStyle(fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.statusDanger.withOpacity(0.1),
+                        foregroundColor: AppColors.statusDanger,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: AppColors.statusDanger.withOpacity(0.3)),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -199,16 +199,6 @@ class PeopleCounterCard extends StatelessWidget {
                                 ),
                               ),
                               const Spacer(),
-                              Center(
-                                child: Text(
-                                  "Updated just now",
-                                  style: TextStyle(
-                                    fontSize: 11, 
-                                    fontWeight: FontWeight.w500,
-                                    color: colorScheme.onSurfaceVariant.withOpacity(0.5)
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         );
