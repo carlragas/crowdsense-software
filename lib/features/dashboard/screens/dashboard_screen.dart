@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'dart:ui';
+import 'dart:async';
 import 'package:provider/provider.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../auth/services/auth_service.dart';
@@ -40,6 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void initState() {
     super.initState();
+    _listenToDeviceStreams();
 
     final now = DateTime.now();
     _deviceLogs = [
@@ -163,6 +166,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    _prototypeUnitsSubscription?.cancel();
+    _sensorDataSubscription?.cancel();
     _pageController?.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -251,17 +256,72 @@ class _DashboardScreenState extends State<DashboardScreen>
   GlobalKey? _highlightedItemKey;
 
   // --- Device data ---
-  final List<Map<String, dynamic>> _deviceData = [
-    {"location": "Main Entrance", "count": 101, "entries": 101, "exits": 0, "isOnline": true},
-    {"location": "Central Stairs", "count": 45, "entries": 0, "exits": 87, "isOnline": true},
-    {"location": "Parking Entrance", "count": 15, "entries": 35, "exits": 69, "isOnline": false},
-    {"location": "Parking Side", "count": 60, "entries": 64, "exits": 140, "isOnline": true},
-  ];
-  String _selectedLocation = "Main Entrance";
+  final Map<String, Map<String, dynamic>> _deviceDataMap = {};
+  List<Map<String, dynamic>> _deviceData = [];
+  String _selectedLocation = "";
+  StreamSubscription? _prototypeUnitsSubscription;
+  StreamSubscription? _sensorDataSubscription;
+
+  void _listenToDeviceStreams() {
+    final dbRef = FirebaseDatabase.instance.ref();
+    
+    _prototypeUnitsSubscription = dbRef.child('prototype_units').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+         final map = event.snapshot.value as Map;
+         setState(() {
+            map.forEach((key, val) {
+               final mac = key.toString();
+               final data = val as Map;
+               _deviceDataMap.putIfAbsent(mac, () => {});
+               _deviceDataMap[mac]!['location'] = data['name']?.toString() ?? 'Unknown';
+               _deviceDataMap[mac]!['isOnline'] = (data['status']?.toString() ?? 'offline') == 'online';
+            });
+            _syncDeviceDataList();
+         });
+      } else {
+        setState(() {
+          _deviceDataMap.clear();
+          _syncDeviceDataList();
+        });
+      }
+    });
+
+    _sensorDataSubscription = dbRef.child('sensor_data').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+         final map = event.snapshot.value as Map;
+         setState(() {
+            map.forEach((key, val) {
+               final mac = key.toString();
+               final data = val as Map;
+               _deviceDataMap.putIfAbsent(mac, () => {});
+               _deviceDataMap[mac]!['count'] = data['people_inside'] ?? 0;
+               _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
+               _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
+            });
+            _syncDeviceDataList();
+         });
+      }
+    });
+  }
+
+  void _syncDeviceDataList() {
+    _deviceData = _deviceDataMap.values.map((v) {
+        return {
+           'location': v['location'] ?? 'Unknown Node',
+           'count': v['count'] ?? 0,
+           'entries': v['entries'] ?? 0,
+           'exits': v['exits'] ?? 0,
+           'isOnline': v['isOnline'] ?? false,
+        };
+    }).toList();
+    if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
+       _selectedLocation = _deviceData.first['location'];
+    }
+  }
 
   // Computed total across all sensors
-  int get _totalEntries => _deviceData.fold(0, (sum, d) => sum + (d['entries'] as int));
-  int get _totalExits => _deviceData.fold(0, (sum, d) => sum + (d['exits'] as int));
+  int get _totalEntries => _deviceData.fold(0, (sum, d) => sum + ((d['entries'] as num?)?.toInt() ?? 0));
+  int get _totalExits => _deviceData.fold(0, (sum, d) => sum + ((d['exits'] as num?)?.toInt() ?? 0));
   int get _totalPeopleInside => (_totalEntries - _totalExits).clamp(0, 99999);
 
   @override
@@ -507,7 +567,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const SizedBox(height: 12),
                       _buildStatsRow(),
                       const SizedBox(height: 12),
-                      Builder(builder: (context) {
+                      _deviceData.isEmpty 
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.white.withOpacity(0.05) 
+                                  : Colors.black.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                  Icon(Icons.sensors_off_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                  const SizedBox(height: 16),
+                                  Text("No Devices Connected", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                                  const SizedBox(height: 8),
+                                  Text("Add your ESP32 prototype units\nin the Device Management tab to see live data.", textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                              ]
+                            ),
+                          )
+                        : Builder(builder: (context) {
                         final int realIndex = _deviceData.indexWhere(
                             (data) => data['location'] == _selectedLocation);
                         _pageController ??= PageController(
@@ -1314,6 +1395,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
   Widget _buildCrowdCountList() {
+    if (_deviceData.isEmpty) return const SizedBox.shrink();
+
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(

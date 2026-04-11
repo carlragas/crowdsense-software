@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/widgets/custom_notification_modal.dart';
@@ -13,55 +15,121 @@ class DeviceManagementModal extends StatefulWidget {
 }
 
 class _DeviceManagementModalState extends State<DeviceManagementModal> {
-  // Mock Data
-  final List<Map<String, dynamic>> _mockDevices = [
-    {
-      "macAddress": "00:1B:44:11:3A:B7",
-      "name": "CEA 3rd Floor",
-      "status": "online",
-      "sensors": {
-        "temp_threshold": 35.0,
-      }
-    },
-    {
-      "macAddress": "00:1B:44:88:9C:A1",
-      "name": "CEA 2nd Floor Landing",
-      "status": "online",
-      "sensors": {
-        "temp_threshold": 40.0,
-      }
-    },
-    {
-      "macAddress": "00:1B:44:22:1F:D3",
-      "name": "Main Entrance",
-      "status": "offline",
-      "sensors": {
-        "temp_threshold": 30.0,
-      }
-    },
-  ];
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+  StreamSubscription? _devicesSubscription;
+  List<Map<String, dynamic>> _devices = [];
 
   final TextEditingController _macController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
 
-  void _addDeviceToFirebase(String mac, String name) {
-    // TODO: Implement Firebase connection
-    debugPrint("Adding Device to Firebase - MAC: $mac, Name: $name");
+  @override
+  void initState() {
+    super.initState();
+    _listenToDevices();
   }
 
-  void _updateDeviceConfig(String mac, Map<String, dynamic> newSensors) {
-    // TODO: Implement Firebase connection
-    debugPrint("Updating Device Config in Firebase - MAC: $mac, Sensors: $newSensors");
+  void _listenToDevices() {
+    _devicesSubscription = _dbRef.child('prototype_units').onValue.listen((event) {
+      if (event.snapshot.value != null && event.snapshot.value is Map) {
+        final Map<dynamic, dynamic> devicesMap = event.snapshot.value as Map<dynamic, dynamic>;
+        final List<Map<String, dynamic>> loadedDevices = [];
+        
+        devicesMap.forEach((key, value) {
+          if (value is Map) {
+            final device = <String, dynamic>{};
+            value.forEach((k, v) => device[k.toString()] = v);
+            device['macAddress'] = key.toString();
+            
+            if (!device.containsKey('sensors') && device.containsKey('config') && device['config'] is Map) {
+               final configMap = device['config'] as Map;
+               final sensorsStrMap = <String, dynamic>{};
+               configMap.forEach((k, v) => sensorsStrMap[k.toString()] = v);
+               device['sensors'] = sensorsStrMap;
+            } else if (!device.containsKey('sensors')) {
+               device['sensors'] = <String, dynamic>{
+                  "temp_threshold": 35.0,
+                  "smoke_threshold": 300.0,
+                  "flame_threshold": 200.0
+               };
+            }
+
+            // Ensure status has a string representation
+            if (!device.containsKey('status') || device['status'] == null) {
+              device['status'] = 'offline';
+            } else {
+              device['status'] = device['status'].toString();
+            }
+
+            loadedDevices.add(device);
+          }
+        });
+
+        if (mounted) {
+          setState(() {
+            _devices = loadedDevices;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _devices = [];
+          });
+        }
+      }
+    }, onError: (error) {
+      debugPrint("Error listening to devices stream: $error");
+    });
   }
 
-  void _updateDeviceStatus(String mac, String newStatus) {
-    // TODO: Implement Firebase connection
-    debugPrint("Updating Device Status in Firebase - MAC: $mac, Status: $newStatus");
+  void _addDeviceToFirebase(String mac, String name) async {
+    try {
+      await _dbRef.child('prototype_units').child(mac).set({
+        "name": name,
+        "status": "online",
+        "config": {
+          "temp_threshold": 35.0,
+          "smoke_threshold": 300.0,
+          "flame_threshold": 200.0
+        }
+      });
+      // Pre-initialize sensor data logic
+      await _dbRef.child('sensor_data').child(mac).set({
+        "people_inside": 0,
+        "total_entries": 0,
+        "total_exits": 0,
+        "temperature": 0.0,
+        "gas": 0,
+        "flame": 0,
+        "last_updated": DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      debugPrint("Error adding device: $e");
+    }
   }
 
-  void _removeDeviceFromFirebase(String mac) {
-    // TODO: Implement Firebase connection
-    debugPrint("Removing Device from Firebase - MAC: $mac");
+  void _updateDeviceConfig(String mac, Map<String, dynamic> newSensors) async {
+    try {
+      await _dbRef.child('prototype_units').child(mac).child('config').set(newSensors);
+    } catch (e) {
+      debugPrint("Error updating config: $e");
+    }
+  }
+
+  void _updateDeviceStatus(String mac, String newStatus) async {
+    try {
+      await _dbRef.child('prototype_units').child(mac).update({"status": newStatus});
+    } catch (e) {
+      debugPrint("Error updating status: $e");
+    }
+  }
+
+  void _removeDeviceFromFirebase(String mac) async {
+    try {
+      await _dbRef.child('prototype_units').child(mac).remove();
+      await _dbRef.child('sensor_data').child(mac).remove();
+    } catch (e) {
+      debugPrint("Error removing device: $e");
+    }
   }
 
   void _handleAddDevice() {
@@ -75,20 +143,10 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       return;
     }
 
-    final newDevice = {
-      "macAddress": _macController.text.trim(),
-      "name": _nameController.text.trim(),
-      "status": "online", // Mock default state
-      "sensors": {
-        "temp_threshold": 35.0,
-      }
-    };
+    final String mac = _macController.text.trim();
+    final String name = _nameController.text.trim();
 
-    setState(() {
-      _mockDevices.insert(0, newDevice);
-    });
-
-    _addDeviceToFirebase(newDevice["macAddress"] as String, newDevice["name"] as String);
+    _addDeviceToFirebase(mac, name);
 
     _macController.clear();
     _nameController.clear();
@@ -98,7 +156,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     CustomNotificationModal.show(
       context: context,
       title: "Device Added",
-      message: "Device '${newDevice["name"]}' has been added successfully.",
+      message: "Device '$name' has been added successfully.",
       isSuccess: true,
     );
   }
@@ -143,9 +201,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   }
 
   void _executeRemoveDevice(String mac, String name) {
-    setState(() {
-      _mockDevices.removeWhere((device) => device["macAddress"] == mac);
-    });
     _removeDeviceFromFirebase(mac);
     
     CustomNotificationModal.show(
@@ -159,6 +214,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
 
   @override
   void dispose() {
+    _devicesSubscription?.cancel();
     _macController.dispose();
     _nameController.dispose();
     super.dispose();
@@ -318,7 +374,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   }
 
   Widget _buildDeviceList(bool isDark) {
-    if (_mockDevices.isEmpty) {
+    if (_devices.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -339,10 +395,10 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _mockDevices.length,
+      itemCount: _devices.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final device = _mockDevices[index];
+        final device = _devices[index];
         return _buildDeviceTile(device, isDark);
       },
     );

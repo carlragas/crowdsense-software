@@ -158,8 +158,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
 
         // Device Management Button
         InkWell(
