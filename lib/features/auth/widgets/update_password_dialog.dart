@@ -186,16 +186,16 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
               color: isDark ? const Color(0xFF1A1F2E) : cs.surface,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: AppColors.primaryBlue.withOpacity(0.15),
+                color: AppColors.primaryBlue.withValues(alpha: 0.15),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   blurRadius: 40,
                   offset: const Offset(0, 16),
                 ),
                 BoxShadow(
-                  color: AppColors.primaryBlue.withOpacity(0.06),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.06),
                   blurRadius: 20,
                 ),
               ],
@@ -228,7 +228,7 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
             final done = i < currentIndex;
             final color = done || active
                 ? AppColors.primaryBlue
-                : cs.onSurfaceVariant.withOpacity(0.25);
+                : cs.onSurfaceVariant.withValues(alpha: 0.25);
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -242,8 +242,8 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
                     color: done
                         ? AppColors.primaryBlue
                         : active
-                            ? AppColors.primaryBlue.withOpacity(0.15)
-                            : cs.onSurfaceVariant.withOpacity(0.1),
+                            ? AppColors.primaryBlue.withValues(alpha: 0.15)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.1),
                     border: Border.all(
                       color: color,
                       width: active ? 2 : 1.5,
@@ -260,7 +260,7 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
                               fontWeight: FontWeight.bold,
                               color: active
                                   ? AppColors.primaryBlue
-                                  : cs.onSurfaceVariant.withOpacity(0.4),
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.4),
                             ),
                           ),
                   ),
@@ -273,7 +273,7 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
                     fontWeight: active ? FontWeight.bold : FontWeight.normal,
                     color: active
                         ? AppColors.primaryBlue
-                        : cs.onSurfaceVariant.withOpacity(0.5),
+                        : cs.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -291,7 +291,7 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
                   decoration: BoxDecoration(
                     color: done
                         ? AppColors.primaryBlue
-                        : cs.onSurfaceVariant.withOpacity(0.15),
+                        : cs.onSurfaceVariant.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -319,10 +319,10 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppColors.primaryBlue.withOpacity(0.25),
+                    color: AppColors.primaryBlue.withValues(alpha: 0.25),
                     width: 1.5,
                   ),
                 ),
@@ -407,10 +407,10 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.1),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppColors.primaryBlue.withOpacity(0.25),
+                    color: AppColors.primaryBlue.withValues(alpha: 0.25),
                     width: 1.5,
                   ),
                 ),
@@ -521,7 +521,7 @@ class _UpdatePasswordDialogWidgetState extends State<_UpdatePasswordDialogWidget
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: AppColors.statusSafe.withOpacity(0.15),
+              color: AppColors.statusSafe.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -598,7 +598,7 @@ class _ActionButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryBlue,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.primaryBlue.withOpacity(0.4),
+          disabledBackgroundColor: AppColors.primaryBlue.withValues(alpha: 0.4),
           elevation: 0,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

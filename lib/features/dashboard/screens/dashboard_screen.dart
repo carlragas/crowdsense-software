@@ -9,8 +9,10 @@ import '../../../../core/providers/user_provider.dart';
 import '../../auth/services/auth_service.dart';
 import '../widgets/people_counter_card.dart';
 import 'users_management_screen.dart';
+import '../../../../core/providers/siren_provider.dart';
 
 import '../../../../core/widgets/custom_notification_modal.dart';
+import '../../../../core/widgets/siren_active_dialog.dart';
 import '../../../../core/widgets/geometric_background.dart';
 import '../../../../core/widgets/page_title.dart';
 import 'analytics_screen.dart';
@@ -33,8 +35,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isBottomNavVisible = true;
   int _currentIndex = 0;
   PageController? _pageController;
+  PageController? _overridePageController;
+  int _currentOverrideIndex = 0;
   bool _showNotificationsPanel = false;
-
+  
   // --- Log State ---
   late List<DeviceLog> _deviceLogs;
   int _hazardLevel = 0; // 0 = Nominal, 1 = Caution, 2 = Critical (Mock ESP32 data)
@@ -47,6 +51,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     _listenToDeviceStreams();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<SirenProvider>().setBottomNavVisibility(true);
+      }
+    });
 
     final now = DateTime.now();
     _deviceLogs = [
@@ -161,11 +171,19 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
-        if (_isBottomNavVisible) setState(() => _isBottomNavVisible = false);
+        if (_isBottomNavVisible) {
+          setState(() => _isBottomNavVisible = false);
+          context.read<SirenProvider>().setBottomNavVisibility(false);
+        }
       } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
-        if (!_isBottomNavVisible) setState(() => _isBottomNavVisible = true);
+        if (!_isBottomNavVisible) {
+          setState(() => _isBottomNavVisible = true);
+          context.read<SirenProvider>().setBottomNavVisibility(true);
+        }
       }
     });
+
+    _overridePageController = PageController(viewportFraction: 0.68);
 
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (mounted) {
@@ -183,6 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _prototypeUnitsSubscription?.cancel();
     _sensorDataSubscription?.cancel();
     _pageController?.dispose();
+    _overridePageController?.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -459,7 +478,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ],
         ),
         backgroundColor: _isScrolled
-            ? Theme.of(context).colorScheme.surface.withOpacity(0.8)
+            ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.8)
             : Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -484,11 +503,11 @@ class _DashboardScreenState extends State<DashboardScreen>
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark 
-                    ? Colors.white.withOpacity(0.05) 
-                    : Colors.black.withOpacity(0.03),
+                    ? Colors.white.withValues(alpha: 0.05) 
+                    : Colors.black.withValues(alpha: 0.03),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
                 ),
               ),
               child: Row(
@@ -530,7 +549,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               color: Theme.of(context).colorScheme.surface,
               icon: CircleAvatar(
                 backgroundColor:
-                    Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                 child: Icon(Icons.person,
                     color: Theme.of(context).colorScheme.primary),
               ),
@@ -589,7 +608,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       CircleAvatar(
                         radius: 22,
                         backgroundColor:
-                            Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                         child: Icon(Icons.person,
                             size: 26,
                             color: Theme.of(context).colorScheme.primary),
@@ -609,7 +628,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           color: Theme.of(context)
                               .colorScheme
                               .onSurfaceVariant
-                              .withOpacity(0.2)),
+                              .withValues(alpha: 0.2)),
                       const SizedBox(height: 4),
                     ],
                   ),
@@ -659,135 +678,160 @@ class _DashboardScreenState extends State<DashboardScreen>
           GeometricBackground(
             child: SingleChildScrollView(
               controller: _scrollController,
+              physics: const ClampingScrollPhysics(), // Prevents bouncy overscroll that adds artificial length
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
                     20,
                     MediaQuery.of(context).padding.top + kToolbarHeight + 10,
                     20,
-                    100),
-                child: [
-                  // Index 0: Dashboard Content
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const PageTitle(title: "Dashboard"),
-                      const SizedBox(height: 12),
-                      _buildStatsRow(),
-                      const SizedBox(height: 12),
-                      _deviceData.isEmpty 
-                        ? Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).brightness == Brightness.dark 
-                                  ? Colors.white.withOpacity(0.05) 
-                                  : Colors.black.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(24),
+                    _currentIndex == 2 ? 0 : 100), // Significantly shortened bottom space for Siren Override tab
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: [
+                    // Index 0: Dashboard Content
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const PageTitle(title: "Dashboard"),
+                        const SizedBox(height: 12),
+                        _buildStatsRow(),
+                        const SizedBox(height: 12),
+                        _deviceData.isEmpty 
+                          ? Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness == Brightness.dark 
+                                    ? Colors.white.withValues(alpha: 0.05) 
+                                    : Colors.black.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                    Icon(Icons.sensors_off_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                    const SizedBox(height: 16),
+                                    Text("No Devices Connected", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                                    const SizedBox(height: 8),
+                                    Text("Add your ESP32 prototype units\nin the Device Management tab to see live data.", textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                                ]
+                              ),
+                            )
+                          : Builder(builder: (context) {
+                          final int realIndex = _deviceData.indexWhere(
+                              (data) => data['location'] == _selectedLocation);
+                          _pageController ??= PageController(
+                            initialPage: 1000 * _deviceData.length +
+                                (realIndex != -1 ? realIndex : 0),
+                          );
+                          return PeopleCounterCard(
+                            deviceData: _deviceData,
+                            currentIndex: realIndex != -1 ? realIndex : 0,
+                            pageController: _pageController!,
+                            onPageChanged: (index) {
+                              setState(() {
+                                _selectedLocation =
+                                    _deviceData[index % _deviceData.length]['location'];
+                              });
+                            },
+                            onPrevious: () {
+                              _pageController!.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            onNext: () {
+                              _pageController!.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                          );
+                        }),
+                        const SizedBox(height: 12),
+                        _buildCrowdCountList(),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(child: _buildRoleCard(context, "Admins Online", 1, Icons.admin_panel_settings, AppColors.statusDanger)), // Red
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildRoleCard(context, "Facilitators Online", 0, Icons.support_agent, AppColors.statusWarning)), // Orange
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildShowUsersButton(context),
+                      ],
+                    ),
+                    // Index 1: Analytics
+                    const AnalyticsScreen(),
+                    // Index 2 (Center): Alerts & Manual Siren Control
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const PageTitle(title: "Override Siren"),
+                        const SizedBox(height: 16),
+                        // Tactical command strip console
+                        _buildSirenCommandStrip(),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Container(
+                              width: 3,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryBlue,
+                                borderRadius: BorderRadius.circular(2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primaryBlue.withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                  Icon(Icons.sensors_off_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                  const SizedBox(height: 16),
-                                  Text("No Devices Connected", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                                  const SizedBox(height: 8),
-                                  Text("Add your ESP32 prototype units\nin the Device Management tab to see live data.", textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                              ]
+                                Text(
+                                  "EMERGENCY OVERRIDES",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.5,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                                Text(
+                                  "MANUAL SIREN CONTROL CONSOLE",
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.2,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                        : Builder(builder: (context) {
-                        final int realIndex = _deviceData.indexWhere(
-                            (data) => data['location'] == _selectedLocation);
-                        _pageController ??= PageController(
-                          initialPage: 1000 * _deviceData.length +
-                              (realIndex != -1 ? realIndex : 0),
-                        );
-                        return PeopleCounterCard(
-                          deviceData: _deviceData,
-                          currentIndex: realIndex != -1 ? realIndex : 0,
-                          pageController: _pageController!,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _selectedLocation =
-                                  _deviceData[index % _deviceData.length]['location'];
-                            });
-                          },
-                          onPrevious: () {
-                            _pageController!.previousPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          },
-                          onNext: () {
-                            _pageController!.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          },
-                        );
-                      }),
-                      const SizedBox(height: 12),
-                      _buildCrowdCountList(),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(child: _buildRoleCard(context, "Admins Online", 1, Icons.admin_panel_settings, AppColors.statusDanger)), // Red
-                          const SizedBox(width: 12),
-                          Expanded(child: _buildRoleCard(context, "Facilitators Online", 0, Icons.support_agent, AppColors.statusWarning)), // Orange
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildShowUsersButton(context),
-                    ],
-                  ),
-                  // Index 1: Analytics
-                  const AnalyticsScreen(),
-                  // Index 2 (Center): Alerts & Manual Siren Control
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const PageTitle(title: "Override Siren"),
-                      const SizedBox(height: 16),
-                      // Tactical command strip console
-                      _buildSirenCommandStrip(),
-                      const SizedBox(height: 20),
-                      Text(
-                        "Emergency Overrides",
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        "Tap an action to trigger a building-wide alert.",
-                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6)),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildAlarmControlCard(
-                        title: "Fire / Evacuation Siren",
-                        subtitle: "Trigger all building sirens immediately",
-                        icon: Icons.campaign_rounded,
-                        color: AppColors.statusDanger,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildAlarmControlCard(
-                        title: "Reset All Alarms",
-                        subtitle: "Cancel all active sirens and visual alerts",
-                        icon: Icons.refresh_rounded,
-                        color: AppColors.statusSafe,
-                      ),
-                    ],
-                  ),
-                  // Index 3: Devices
-                  DevicesScreen(
-                    logs: _deviceLogs,
-                    highlightedLogId: _highlightedLogId,
-                    highlightedItemKey: _highlightedItemKey,
-                    parentScrollController: _scrollController,
-                    onlineCount: _onlineCount,
-                    offlineCount: _offlineCount,
-                  ),
-                  // Index 4: Settings
-                  const SettingsScreen(),
-                ][_currentIndex],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        _buildCircularOverrideCarousel(),
+                      ],
+                    ),
+                    // Index 3: Devices
+                    DevicesScreen(
+                      logs: _deviceLogs,
+                      highlightedLogId: _highlightedLogId,
+                      highlightedItemKey: _highlightedItemKey,
+                      parentScrollController: _scrollController,
+                      onlineCount: _onlineCount,
+                      offlineCount: _offlineCount,
+                    ),
+                    // Index 4: Settings
+                    const SettingsScreen(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -815,15 +859,20 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
         ],
       ),
-      bottomNavigationBar: AnimatedSlide(
-        duration: const Duration(milliseconds: 300),
-        offset: _isBottomNavVisible ? Offset.zero : const Offset(0, 1.5),
-        child: Container(
-          height: 90,
-          margin: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
+      bottomNavigationBar: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          // The actual Navigation Bar
+          AnimatedSlide(
+            duration: const Duration(milliseconds: 300),
+            offset: _isBottomNavVisible ? Offset.zero : const Offset(0, 1.5),
+            child: Container(
+              height: 90,
+              margin: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
               CustomPaint(
                 size: Size(MediaQuery.of(context).size.width - 32, 90),
                 painter: _NavBarPainter(context, _currentIndex),
@@ -841,14 +890,39 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [
                           const SizedBox(height: 50),
                           Text(
-                            "Alerts", 
+                            "ALERTS", 
                             style: TextStyle(
-                              fontSize: 11, 
-                              fontWeight: FontWeight.w800, 
-                              color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey,
+                              fontSize: 9, 
+                              fontWeight: FontWeight.w900, 
+                              letterSpacing: 1.2,
+                              color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.6),
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 6),
+                          // Integrated Active Indicator for Alerts
+                          AnimatedOpacity(
+                            duration: const Duration(milliseconds: 300),
+                            opacity: _currentIndex == 2 ? 1.0 : 0.0,
+                            child: AnimatedScale(
+                              scale: _currentIndex == 2 ? 1.0 : 0.5,
+                              duration: const Duration(milliseconds: 300),
+                              child: Container(
+                                width: 20,
+                                height: 2.5,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  color: AppColors.primaryBlue,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primaryBlue.withValues(alpha: 0.6),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -869,55 +943,75 @@ class _DashboardScreenState extends State<DashboardScreen>
                       duration: const Duration(milliseconds: 200),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        width: 64,
-                        height: 64,
+                        width: 70, // Slightly larger
+                        height: 70,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: const RadialGradient(
-                            colors: [AppColors.accentBlue, AppColors.primaryBlue],
-                            center: Alignment(0, -0.3),
+                          gradient: RadialGradient(
+                            colors: [
+                              AppColors.accentBlue.withValues(alpha: 0.9),
+                              AppColors.primaryBlue,
+                              const Color(0xFF2563EB), // Darker shade of primaryBlue
+                            ],
+                            center: const Alignment(0, -0.2),
                             radius: 1.0,
                           ),
                           boxShadow: [
                             // Main shadow
                             BoxShadow(
-                              color: AppColors.primaryBlue.withOpacity(0.45),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
+                              color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.6 : 0.4),
+                              blurRadius: _currentIndex == 2 ? 24 : 14,
+                              offset: const Offset(0, 6),
+                              spreadRadius: _currentIndex == 2 ? 2 : 0,
                             ),
-                            // Optional glow when selected
+                            // Bloom glow
                             if (_currentIndex == 2)
                               BoxShadow(
-                                color: AppColors.primaryBlue.withOpacity(0.6),
-                                blurRadius: 20,
-                                spreadRadius: 4,
+                                color: AppColors.primaryBlue.withValues(alpha: 0.35),
+                                blurRadius: 40,
+                                spreadRadius: 8,
                               ),
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             )
                           ],
                         ),
-                        child: const Icon(
-                          Icons.notifications_active_rounded,
-                          color: Colors.white,
-                          size: 32,
+                        child: Center(
+                          child: Container(
+                            width: 58,
+                            height: 58,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.25),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.notifications_active_rounded,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-              ),
-            ],
+                ),
+              ],
+            ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildNavItem({required IconData icon, required String label, required int index}) {
     final isSelected = _currentIndex == index;
-    final color = isSelected ? AppColors.primaryBlue : Colors.grey.withOpacity(0.9);
+    final color = isSelected ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.9);
 
     return GestureDetector(
       onTap: () {
@@ -928,23 +1022,52 @@ class _DashboardScreenState extends State<DashboardScreen>
       },
       behavior: HitTestBehavior.translucent,
       child: SizedBox(
-        width: 65,
+        width: 75, // Increased from 65 to prevent text wrapping
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             AnimatedScale(
               scale: isSelected ? 1.15 : 1.0,
               duration: const Duration(milliseconds: 200),
-              child: Icon(icon, color: color, size: 26),
+              child: Icon(icon, color: color, size: 24), // Slightly smaller icons for better balance
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6), // Increased spacing
             Text(
-              label,
+              label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.visible,
+              softWrap: false,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 9, 
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                letterSpacing: 1.1, 
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Integrated Active Indicator
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: isSelected ? 1.0 : 0.0,
+              child: AnimatedScale(
+                scale: isSelected ? 1.0 : 0.5,
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  width: 20,
+                  height: 2.5,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.primaryBlue,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryBlue.withValues(alpha: 0.6),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -992,10 +1115,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
           decoration: BoxDecoration(
-            color: hazardColor.withOpacity(0.15),
+            color: hazardColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: hazardColor.withOpacity(0.45),
+              color: hazardColor.withValues(alpha: 0.45),
               width: 1,
             ),
           ),
@@ -1027,7 +1150,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           style: TextStyle(
             fontSize: 8,
             fontWeight: FontWeight.w700,
-            color: hazardColor.withOpacity(0.55),
+            color: hazardColor.withValues(alpha: 0.55),
             letterSpacing: 0.8,
           ),
         ),
@@ -1163,10 +1286,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           width: double.infinity,
           height: 90,
           decoration: BoxDecoration(
-            color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+              color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
               width: 1.0,
             ),
           ),
@@ -1192,7 +1315,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.2,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1230,7 +1353,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           fontSize: 8,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.0,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1250,13 +1373,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: color.withOpacity(0.3), width: 1.2),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.2),
         boxShadow: [
           if (pulsing)
             BoxShadow(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               blurRadius: 8,
               spreadRadius: 1,
             ),
@@ -1296,10 +1419,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     Widget cardChild = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.15 : 0.08),
+        color: color.withValues(alpha: isDark ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: color.withOpacity(isDark ? 0.3 : 0.2),
+          color: color.withValues(alpha: isDark ? 0.3 : 0.2),
           width: 1.5,
         ),
       ),
@@ -1309,7 +1432,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -1383,9 +1506,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -1406,7 +1529,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 label,
                 style: TextStyle(
                   fontSize: 10,
-                  color: color.withOpacity(0.8),
+                  color: color.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1417,171 +1540,244 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Widget _buildCircularOverrideCarousel() {
+    final List<Map<String, dynamic>> overrides = [
+      {
+        'title': "EVACUATION SIREN",
+        'subtitle': "Trigger all building sirens immediately",
+        'icon': Icons.campaign_rounded,
+        'color': AppColors.statusDanger,
+        'isReset': false,
+      },
+      {
+        'title': "RESET ALL ALARMS",
+        'subtitle': "Cancel all active sirens and visual alerts",
+        'icon': Icons.refresh_rounded,
+        'color': AppColors.statusSafe,
+        'isReset': true,
+      },
+    ];
 
+    return Column(
+      children: [
+        SizedBox(
+          height: 450,
+          child: PageView.builder(
+            controller: _overridePageController,
+            onPageChanged: (index) => setState(() => _currentOverrideIndex = index),
+            itemCount: overrides.length,
+            clipBehavior: Clip.none,
+            itemBuilder: (context, index) {
+              final item = overrides[index];
+              final isSelected = _currentOverrideIndex == index;
+              
+              return AnimatedScale(
+                scale: isSelected ? 1.0 : 0.85,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                child: _TacticalDialButton(
+                  title: item['title'],
+                  subtitle: item['subtitle'],
+                  icon: item['icon'],
+                  color: item['color'],
+                  isReset: item['isReset'],
+                  isSelected: isSelected,
+                  onTapNavigate: () {
+                    _overridePageController?.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                  onTrigger: () {
+                    if (!mounted) return;
+                    
+                    // If this siren is already active, skip confirmation and show control dialog
+                    final sirenProvider = context.read<SirenProvider>();
+                    if (sirenProvider.activeSirenTitle == item['title'] && !item['isReset']) {
+                      SirenActiveDialog.show(context, sirenProvider);
+                      return;
+                    }
 
-
-  Widget _buildAlarmControlCard({required String title, required String subtitle, required IconData icon, required Color color}) {
-    final bool isReset = title.contains("Reset");
-    final String actionText = isReset ? "RESET" : "ACTIVATE";
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 32),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    title: Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: color, size: 28),
-                        const SizedBox(width: 12),
-                        const Text("Confirm Action", style: TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    content: Text(
-                      "Are you sure you want to $actionText the '$title'?\n\nThis will execute the command immediately across the active zones.",
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text("Cancel", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context); // Close the confirmation dialog
-                          
-                          if (!isReset) {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false, // Prevent dismissing by tapping outside
-                              builder: (context) {
-                                return AlertDialog(
-                                  backgroundColor: Theme.of(context).colorScheme.surface,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                    side: BorderSide(color: color.withOpacity(0.5), width: 2),
-                                  ),
-                                  title: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(icon, color: color, size: 64),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        "$title\nis Active & Ringing!",
-                                        style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 22, height: 1.2),
-                                        textAlign: TextAlign.center,
+                    const actionText = "ACTIVATE";
+                    showDialog(
+                      context: context,
+                      barrierDismissible: true,
+                      builder: (context) {
+                        final isDark = Theme.of(context).brightness == Brightness.dark;
+                        return AlertDialog(
+                          backgroundColor: isDark ? const Color(0xFF1E2433) : Colors.white,
+                          elevation: 20,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            side: BorderSide(
+                              color: item['color'].withValues(alpha: 0.2),
+                              width: 1.5,
+                            ),
+                          ),
+                          title: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: item['color'].withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.security_rounded, color: item['color'], size: 32),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                "COMMAND AUTHORIZATION",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900, 
+                                  fontSize: 18, 
+                                  letterSpacing: 2.0,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "SECURITY PROTOCOL REQUIRED",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.2,
+                                  color: item['color'],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                "Are you sure you want to $actionText the\n'${item['title']}'?\n\nThis command will be logged and executed immediately across all active zones.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14, 
+                                  height: 1.5,
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                          actionsAlignment: MainAxisAlignment.center,
+                          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          actions: [
+                            (() {
+                              bool isHovered = false;
+                              return StatefulBuilder(
+                                builder: (context, setState) {
+                                  return MouseRegion(
+                                    onEnter: (_) => setState(() => isHovered = true),
+                                    onExit: (_) => setState(() => isHovered = false),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        color: isHovered 
+                                            ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03)) 
+                                            : Colors.transparent,
+                                        border: Border.all(
+                                          color: isHovered 
+                                              ? (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.2))
+                                              : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
+                                          width: 1,
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                  content: Text(
-                                    "General alarms are currently sounding across the facility. Ensure proper emergency protocols are being followed.",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                  ),
-                                  contentPadding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
-                                  actionsAlignment: MainAxisAlignment.center,
-                                  actionsPadding: const EdgeInsets.only(bottom: 24),
-                                  actions: [
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                                      child: ElevatedButton.icon(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          CustomNotificationModal.show(
-                                            context: context,
-                                            title: "Alarm Deactivated",
-                                            message: "$title DEACTIVATED successfully.",
-                                            isSuccess: true,
-                                            customColor: AppColors.primaryBlue,
-                                            customIcon: Icons.volume_off_rounded,
-                                          );
-                                        },
-                                        icon: const Icon(Icons.stop_circle_rounded, size: 28),
-                                        label: const Text("DEACTIVATE ALARM", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 1.0)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: color.withOpacity(0.1),
-                                          foregroundColor: color,
-                                          padding: const EdgeInsets.symmetric(vertical: 18),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(16),
-                                            side: BorderSide(color: color.withOpacity(0.5), width: 2),
+                                      child: TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                          overlayColor: isDark ? Colors.white10 : Colors.black12,
+                                        ),
+                                        child: Text(
+                                          "ABORT", 
+                                          style: TextStyle(
+                                            color: isHovered 
+                                                ? (isDark ? Colors.white70 : Colors.black87)
+                                                : (isDark ? Colors.white38 : Colors.grey[600]), 
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.5,
+                                            fontSize: 12,
                                           ),
-                                          elevation: 0,
                                         ),
                                       ),
                                     ),
-                                  ],
-                                );
+                                  );
+                                },
+                              );
+                            })(),
+                            const SizedBox(width: 12),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                if (!item['isReset']) {
+                                  context.read<SirenProvider>().activateSiren(item['title'], item['icon'], item['color']);
+                                  SirenActiveDialog.show(context, context.read<SirenProvider>());
+                                } else {
+                                  context.read<SirenProvider>().terminateSiren();
+                                  CustomNotificationModal.show(
+                                    context: context,
+                                    title: "SYSTEM RESET",
+                                    message: "${item['title']} has been successfully DEACTIVATED.",
+                                    isSuccess: true,
+                                    customColor: item['color'],
+                                    customIcon: item['icon'],
+                                  );
+                                }
                               },
-                            );
-                          } else {
-                            CustomNotificationModal.show(
-                              context: context,
-                              title: "System Update",
-                              message: "$title has been ${isReset ? 'RESET' : 'ACTIVATED'}.",
-                              isSuccess: true,
-                              customColor: color,
-                              customIcon: icon,
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: color,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: Text("CONFIRM $actionText", style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  );
-                },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: item['color'],
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                                elevation: 8,
+                                shadowColor: item['color'].withValues(alpha: 0.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: Text(
+                                actionText, 
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900, 
+                                  letterSpacing: 1.5,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              elevation: 0,
-            ),
-            child: Text(actionText, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(overrides.length, (index) {
+            final isSelected = _currentOverrideIndex == index;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              height: 4,
+              width: isSelected ? 20 : 8,
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? overrides[index]['color'] 
+                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
+
   Widget _buildCrowdCountList() {
     if (_deviceData.isEmpty) return const SizedBox.shrink();
 
@@ -1596,10 +1792,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+              color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
               width: 1.0,
             ),
           ),
@@ -1616,7 +1812,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2,
-                        color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -1626,9 +1822,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
                         shape: BoxShape.circle,
-                        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.1)),
+                        border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1)),
                       ),
                       child: Icon(Icons.north_east_rounded,
                           color: colorScheme.onSurfaceVariant, size: 16),
@@ -1646,7 +1842,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.w800,
                             fontSize: 10,
                             letterSpacing: 0.8,
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5))),
                   ),
                   Expanded(
                     child: Text("ENTRY",
@@ -1655,7 +1851,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.w800,
                             fontSize: 10,
                             letterSpacing: 0.8,
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5))),
                   ),
                   Expanded(
                     child: Text("EXIT",
@@ -1664,13 +1860,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.w800,
                             fontSize: 10,
                             letterSpacing: 0.8,
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5))),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               Divider(
-                  color: (isDark ? Colors.white : Colors.black).withOpacity(0.06), height: 1),
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06), height: 1),
               const SizedBox(height: 12),
               ListView.separated(
                 padding: EdgeInsets.zero,
@@ -1706,7 +1902,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         child: Text(exits.toString(),
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: colorScheme.onSurface.withOpacity(0.7),
+                              color: colorScheme.onSurface.withValues(alpha: 0.7),
                               fontWeight: FontWeight.w800,
                               fontSize: 14,
                             )),
@@ -1735,6 +1931,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     showDialog(
       context: context,
       barrierColor: Colors.black54,
+      barrierDismissible: true,
       builder: (dialogContext) {
         return TweenAnimationBuilder(
           duration: const Duration(milliseconds: 350),
@@ -1756,14 +1953,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                         maxWidth: 500,
                       ),
                       decoration: BoxDecoration(
-                        color: colorScheme.surface.withOpacity(isDark ? 0.92 : 0.97),
+                        color: colorScheme.surface.withValues(alpha: isDark ? 0.92 : 0.97),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
-                          color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+                            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
                             blurRadius: 30,
                             offset: const Offset(0, 12),
                           ),
@@ -1780,7 +1977,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primaryBlue.withOpacity(0.12),
+                                    color: AppColors.primaryBlue.withValues(alpha: 0.12),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(Icons.groups_rounded, color: AppColors.primaryBlue, size: 22),
@@ -1803,7 +2000,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         "${_deviceData.length} sensor${_deviceData.length == 1 ? '' : 's'} registered",
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -1814,7 +2011,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   onPressed: () => Navigator.pop(dialogContext),
                                   icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant, size: 22),
                                   style: IconButton.styleFrom(
-                                    backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+                                    backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                 ),
@@ -1832,16 +2029,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: anyOnline
-                                      ? [AppColors.statusWarning.withOpacity(0.10), AppColors.statusWarning.withOpacity(0.04)]
-                                      : [colorScheme.onSurfaceVariant.withOpacity(0.06), colorScheme.onSurfaceVariant.withOpacity(0.02)],
+                                      ? [AppColors.statusWarning.withValues(alpha: 0.10), AppColors.statusWarning.withValues(alpha: 0.04)]
+                                      : [colorScheme.onSurfaceVariant.withValues(alpha: 0.06), colorScheme.onSurfaceVariant.withValues(alpha: 0.02)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: anyOnline
-                                      ? AppColors.statusWarning.withOpacity(0.25)
-                                      : colorScheme.onSurfaceVariant.withOpacity(0.1),
+                                      ? AppColors.statusWarning.withValues(alpha: 0.25)
+                                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
                                 ),
                               ),
                               child: Row(
@@ -1849,7 +2046,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   Container(
                                     padding: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(
-                                      color: (anyOnline ? AppColors.statusWarning : colorScheme.onSurfaceVariant).withOpacity(0.12),
+                                      color: (anyOnline ? AppColors.statusWarning : colorScheme.onSurfaceVariant).withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Icon(
@@ -1880,7 +2077,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                               : "No devices online — reset will resume on connection",
                                           style: TextStyle(
                                             fontSize: 10,
-                                            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -1892,7 +2089,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                           ),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 8),
 
                           // ── Column Headers ──────────────────────
                           Padding(
@@ -1901,15 +2098,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                               children: [
                                 Expanded(
                                   flex: 5,
-                                  child: Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                                  child: Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5))),
                                 ),
                                 Expanded(
                                   flex: 2,
-                                  child: Text("ENTRY", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                                  child: Text("ENTRY", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5))),
                                 ),
                                 Expanded(
                                   flex: 2,
-                                  child: Text("EXIT", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                                  child: Text("EXIT", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5))),
                                 ),
                                 const SizedBox(width: 36), // Space for reset button
                               ],
@@ -1918,7 +2115,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Divider(color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06), height: 20),
+                            child: Divider(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06), height: 20),
                           ),
 
                           // ── Device Rows ─────────────────────────
@@ -1956,10 +2153,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   child: Container(
                                     padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
-                                      color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+                                      color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+                                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
                                       ),
                                     ),
                                     child: Column(
@@ -1992,7 +2189,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                           color: isOnline ? AppColors.statusSafe : AppColors.statusDanger,
                                                           boxShadow: [
                                                             BoxShadow(
-                                                              color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withOpacity(0.5),
+                                                              color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withValues(alpha: 0.5),
                                                               blurRadius: 4,
                                                             ),
                                                           ],
@@ -2012,7 +2209,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                         "· $updatedText",
                                                         style: TextStyle(
                                                           fontSize: 10,
-                                                          color: colorScheme.onSurfaceVariant.withOpacity(0.45),
+                                                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                                                           fontWeight: FontWeight.w500,
                                                         ),
                                                       ),
@@ -2062,6 +2259,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                 onPressed: mac.isEmpty ? null : () {
                                                   showDialog(
                                                     context: dialogContext,
+                                                    barrierDismissible: true,
                                                     builder: (ctx) => AlertDialog(
                                                       backgroundColor: colorScheme.surface,
                                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -2129,6 +2327,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 onPressed: () {
                                   showDialog(
                                     context: dialogContext,
+                                    barrierDismissible: true,
                                     builder: (ctx) => AlertDialog(
                                       backgroundColor: colorScheme.surface,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -2189,12 +2388,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 icon: const Icon(Icons.restart_alt_rounded, size: 18),
                                 label: const Text("Reset All ToF Counts", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.statusDanger.withOpacity(0.08),
+                                  backgroundColor: AppColors.statusDanger.withValues(alpha: 0.08),
                                   foregroundColor: AppColors.statusDanger,
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
-                                    side: BorderSide(color: AppColors.statusDanger.withOpacity(0.2)),
+                                    side: BorderSide(color: AppColors.statusDanger.withValues(alpha: 0.2)),
                                   ),
                                   elevation: 0,
                                 ),
@@ -2224,10 +2423,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
           decoration: BoxDecoration(
-            color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               width: 1.0,
             ),
           ),
@@ -2239,7 +2438,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
+                      color: color.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, color: color, size: 14),
@@ -2252,7 +2451,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -2274,7 +2473,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 style: TextStyle(
                   fontSize: 8,
                   fontWeight: FontWeight.w800,
-                  color: color.withOpacity(0.7),
+                  color: color.withValues(alpha: 0.7),
                   letterSpacing: 1.0,
                 ),
               ),
@@ -2304,10 +2503,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withOpacity(isDark ? 0.08 : 0.05),
+              color: AppColors.primaryBlue.withValues(alpha: isDark ? 0.08 : 0.05),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: AppColors.primaryBlue.withOpacity(0.25),
+                color: AppColors.primaryBlue.withValues(alpha: 0.25),
                 width: 1.2,
               ),
             ),
@@ -2316,11 +2515,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.15),
+                    color: AppColors.primaryBlue.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primaryBlue.withOpacity(0.2),
+                        color: AppColors.primaryBlue.withValues(alpha: 0.2),
                         blurRadius: 10,
                         spreadRadius: -2,
                       ),
@@ -2339,7 +2538,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.2,
-                          color: AppColors.primaryBlue.withOpacity(0.8),
+                          color: AppColors.primaryBlue.withValues(alpha: 0.8),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -2357,7 +2556,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.1),
+                    color: AppColors.primaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.primaryBlue),
@@ -2371,6 +2570,207 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
+class _TacticalDialButton extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final bool isReset;
+  final bool isSelected;
+  final VoidCallback onTrigger;
+  final VoidCallback onTapNavigate;
+
+  const _TacticalDialButton({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.isReset,
+    required this.isSelected,
+    required this.onTrigger,
+    required this.onTapNavigate,
+  });
+
+  @override
+  State<_TacticalDialButton> createState() => _TacticalDialButtonState();
+}
+
+class _TacticalDialButtonState extends State<_TacticalDialButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) => setState(() => _isPressed = false),
+          onTapCancel: () => setState(() => _isPressed = false),
+          onTap: () async {
+            if (widget.isSelected) {
+              // Forced 'long-press' animation sequence on tap
+              setState(() => _isPressed = true);
+              await Future.delayed(const Duration(milliseconds: 150));
+              if (mounted) setState(() => _isPressed = false);
+              widget.onTrigger();
+            } else {
+              widget.onTapNavigate();
+            }
+          },
+          child: AnimatedScale(
+            scale: _isPressed ? 0.94 : (widget.isSelected ? 1.0 : 0.8),
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutBack,
+            child: Container(
+              width: 330,
+              height: 330,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: widget.isSelected ? (0.3 + (_isPressed ? 0.2 : 0)) : 0.05),
+                    blurRadius: _isPressed ? 70 : 50,
+                    spreadRadius: _isPressed ? 12 : 8,
+                  ),
+                  BoxShadow(
+                    color: isDark ? Colors.black.withValues(alpha: 0.5) : widget.color.withValues(alpha: 0.1),
+                    offset: Offset(_isPressed ? 6 : 14, _isPressed ? 6 : 14),
+                    blurRadius: _isPressed ? 15 : 28,
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer Ring
+                  Container(
+                    width: 330,
+                    height: 330,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15),
+                          (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
+                          (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: widget.isSelected 
+                            ? widget.color.withValues(alpha: 0.6) 
+                            : (isDark ? Colors.white10 : Colors.black12),
+                        width: 3.5,
+                      ),
+                      boxShadow: [
+                        if (widget.isSelected)
+                          BoxShadow(
+                            color: widget.color.withValues(alpha: 0.3),
+                            blurRadius: 25,
+                            spreadRadius: 2,
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Machined Inner Border / Rim
+                  Container(
+                    width: 298,
+                    height: 298,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: (isDark ? Colors.white24 : Colors.black12),
+                        width: 1.0,
+                      ),
+                    ),
+                  ),
+                  // Inner Button Surface
+                  Container(
+                    width: 290,
+                    height: 290,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDark ? const Color(0xFF1E2433) : Colors.white,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isDark 
+                          ? [
+                              _isPressed ? const Color(0xFF161B26) : const Color(0xFF242C3D), 
+                              _isPressed ? const Color(0xFF0F121A) : const Color(0xFF161B26)
+                            ]
+                          : [Colors.white, const Color(0xFFE2E8F0)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: _isPressed ? 0.4 : 0.3),
+                          offset: Offset(_isPressed ? 2 : 6, _isPressed ? 2 : 6),
+                          blurRadius: _isPressed ? 5 : 15,
+                        ),
+                        if (widget.isSelected)
+                          BoxShadow(
+                            color: widget.color.withValues(alpha: _isPressed ? 0.7 : 0.5),
+                            blurRadius: _isPressed ? 50 : 40,
+                            spreadRadius: _isPressed ? 10 : 5,
+                          ),
+                        // Subtle inner glow
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: isDark ? 0.05 : 0.4),
+                          offset: const Offset(-2, -2),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          widget.icon,
+                          size: 84,
+                          color: widget.isSelected ? widget.color : (isDark ? Colors.white24 : Colors.grey[400]),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          widget.title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: widget.isSelected ? widget.color : (isDark ? Colors.white24 : Colors.grey[400]),
+                            letterSpacing: 1.0,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.subtitle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: widget.isSelected 
+                                ? (isDark ? Colors.white.withValues(alpha: 0.75) : widget.color.withValues(alpha: 0.9))
+                                : (isDark ? Colors.white10 : Colors.grey[300]),
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _PulsingDot extends StatefulWidget {
   final Color color;
@@ -2411,10 +2811,10 @@ class _PulsingDotState extends State<_PulsingDot>
         height: 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: widget.color.withOpacity(_anim.value),
+          color: widget.color.withValues(alpha: _anim.value),
           boxShadow: [
             BoxShadow(
-              color: widget.color.withOpacity(_anim.value * 0.6),
+              color: widget.color.withValues(alpha: _anim.value * 0.6),
               blurRadius: 6,
               spreadRadius: 1,
             ),
@@ -2444,12 +2844,25 @@ class _NavBarPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(isDark ? 0.3 : 0.08)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      ..color = Colors.black.withValues(alpha: isDark ? 0.35 : 0.12)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
 
     final path = Path();
     final double w = size.width;
     final double h = size.height;
+
+    // Rim Light Paint
+    final rimLightPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, 20))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
     
     final double center = w / 2;
     
@@ -2493,15 +2906,25 @@ class _NavBarPainter extends CustomPainter {
     canvas.drawPath(path, shadowPaint);
     canvas.drawPath(path, paint);
 
-    // Subtle inner border for dark themes
-    if (isDark) {
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = Colors.white.withOpacity(0.06)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
-      );
+    // Tactical Machined Rim for the entire dock
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+
+    // Subtle Rim Light on the top edge
+    canvas.drawPath(path, rimLightPaint);
+
+    // Center Blue Glow Accent for Alerts (index 2)
+    if (isAlerts) {
+      final glowPaint = Paint()
+        ..color = AppColors.primaryBlue.withValues(alpha: 0.05)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawPath(path, glowPaint);
     }
   }
 
@@ -2558,7 +2981,7 @@ class _PulsingWrapperState extends State<_PulsingWrapper>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: widget.color.withOpacity(_anim.value * 0.4),
+                color: widget.color.withValues(alpha: _anim.value * 0.4),
                 blurRadius: 16 * _anim.value,
                 spreadRadius: 2 * _anim.value,
               ),

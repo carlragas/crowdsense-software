@@ -36,7 +36,7 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.5),
-          shadowColor: AppColors.primaryBlue.withOpacity(0.4),
+          shadowColor: AppColors.primaryBlue.withValues(alpha: 0.4),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -52,11 +52,11 @@ class AppTheme {
         fillColor: AppColors.surfaceDark,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
         errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.statusDanger)),
         labelStyle: const TextStyle(color: AppColors.textGrey),
-        hintStyle: TextStyle(color: AppColors.textGrey.withOpacity(0.7)),
+        hintStyle: TextStyle(color: AppColors.textGrey.withValues(alpha: 0.7)),
         prefixIconColor: AppColors.primaryBlue,
       ),
 
@@ -64,15 +64,15 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: AppColors.surfaceDark,
         elevation: 8,
-        shadowColor: Colors.black.withOpacity(0.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.white.withOpacity(0.05))),
+        shadowColor: Colors.black.withValues(alpha: 0.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
         margin: const EdgeInsets.only(bottom: 16),
       ),
       
       // Icon Theme
       iconTheme: const IconThemeData(color: AppColors.textLight),
       
-      dividerTheme: DividerThemeData(color: Colors.white.withOpacity(0.1)),
+      dividerTheme: DividerThemeData(color: Colors.white.withValues(alpha: 0.1)),
     );
   }
 
@@ -109,7 +109,7 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.5),
-          shadowColor: AppColors.primaryBlue.withOpacity(0.3),
+          shadowColor: AppColors.primaryBlue.withValues(alpha: 0.3),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -125,7 +125,7 @@ class AppTheme {
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.black.withOpacity(0.1))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1))),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
         errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.statusDanger)),
         labelStyle: const TextStyle(color: Color(0xFF4B5563)),
@@ -137,15 +137,15 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 8,
-        shadowColor: Colors.black.withOpacity(0.04),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.black.withOpacity(0.03))),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.black.withValues(alpha: 0.03))),
         margin: const EdgeInsets.only(bottom: 16),
       ),
       
       // Icon Theme
       iconTheme: const IconThemeData(color: AppColors.textDark),
       
-      dividerTheme: DividerThemeData(color: Colors.black.withOpacity(0.1)),
+      dividerTheme: DividerThemeData(color: Colors.black.withValues(alpha: 0.1)),
     );
   }
 }

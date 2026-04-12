@@ -57,7 +57,7 @@ class _PageTitleState extends State<PageTitle> with SingleTickerProviderStateMix
             shadows: [
               // Soothing, soft ambient drop shadow
               Shadow(
-                color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -115,11 +115,11 @@ class _HeartbeatPainter extends CustomPainter {
 
     // Delay the fade-out significantly so it doesn't fade too early
     final gradientStops = [0.0, 0.7, 1.0];
-    final gradientColors = [color, color, color.withOpacity(0.0)];
+    final gradientColors = [color, color, color.withValues(alpha: 0.0)];
     final glowColors = [
-      color.withOpacity(0.4),
-      color.withOpacity(0.4),
-      color.withOpacity(0.0)
+      color.withValues(alpha: 0.4),
+      color.withValues(alpha: 0.4),
+      color.withValues(alpha: 0.0)
     ];
 
     paint.shader = ui.Gradient.linear(

@@ -53,8 +53,8 @@ class _SecondaryGeometricPainter extends CustomPainter {
 
     paint.shader = LinearGradient(
       colors: [
-        AppColors.statusDanger.withOpacity(isDark ? 0.15 : 0.08),
-        AppColors.statusWarning.withOpacity(isDark ? 0.05 : 0.05),
+        AppColors.statusDanger.withValues(alpha: isDark ? 0.15 : 0.08),
+        AppColors.statusWarning.withValues(alpha: isDark ? 0.05 : 0.05),
       ],
       begin: Alignment.bottomRight,
       end: Alignment.topLeft,
@@ -72,8 +72,8 @@ class _SecondaryGeometricPainter extends CustomPainter {
 
     paint.shader = LinearGradient(
       colors: [
-        Colors.deepPurpleAccent.withOpacity(isDark ? 0.12 : 0.1),
-        AppColors.primaryBlue.withOpacity(isDark ? 0.05 : 0.05),
+        Colors.deepPurpleAccent.withValues(alpha: isDark ? 0.12 : 0.1),
+        AppColors.primaryBlue.withValues(alpha: isDark ? 0.05 : 0.05),
       ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,

@@ -120,13 +120,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: AppColors.surfaceDark,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primaryBlue.withOpacity(0.2),
+                                  color: AppColors.primaryBlue.withValues(alpha: 0.2),
                                   blurRadius: 30,
                                   offset: const Offset(0, 10),
                                 ),
                               ],
                               border: Border.all(
-                                color: AppColors.primaryBlue.withOpacity(0.1),
+                                color: AppColors.primaryBlue.withValues(alpha: 0.1),
                                 width: 1,
                               ),
                             ),
@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: TextStyle(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w900,
-                                    color: AppColors.textLight.withOpacity(0.8),
+                                    color: AppColors.textLight.withValues(alpha: 0.8),
                                     letterSpacing: 0,
                                   ),
                                 ),
@@ -201,11 +201,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.surfaceDark,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.white.withValues(alpha: 0.05),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -280,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: () => ForgotPasswordDialog.show(context),
                             child: Text(
                               "Forgot Password?",
-                              style: TextStyle(color: AppColors.textGrey.withOpacity(0.8)),
+                              style: TextStyle(color: AppColors.textGrey.withValues(alpha: 0.8)),
                             ),
                           ),
                         ],

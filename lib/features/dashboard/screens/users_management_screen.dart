@@ -210,7 +210,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                             Theme.of(context)
                                 .colorScheme
                                 .onSurfaceVariant
-                                .withOpacity(0.5),
+                                .withValues(alpha: 0.5),
                             'Offline $_offlineCount'),
                       ],
                     ),
@@ -313,9 +313,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: cs.surface.withOpacity(isDark ? 0.3 : 1.0),
+        color: cs.surface.withValues(alpha: isDark ? 0.3 : 1.0),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withOpacity(0.1)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.1)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -324,7 +324,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
             scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowColor: MaterialStateProperty.all(
-                  cs.surfaceVariant.withOpacity(isDark ? 0.4 : 0.8)),
+                  cs.surfaceVariant.withValues(alpha: isDark ? 0.4 : 0.8)),
               dataRowMaxHeight: 70,
               columnSpacing: 32,
               headingTextStyle: TextStyle(
@@ -358,7 +358,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       children: [
                         CircleAvatar(
                           radius: 16,
-                          backgroundColor: roleColor.withOpacity(0.15),
+                          backgroundColor: roleColor.withValues(alpha: 0.15),
                           child: Text(user['name'][0].toUpperCase(),
                               style: TextStyle(
                                   color: roleColor,
@@ -378,7 +378,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                          color: roleColor.withOpacity(0.1),
+                          color: roleColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8)),
                       child: Text(role.toUpperCase(),
                           style: TextStyle(
@@ -394,8 +394,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                           color: isOnline
-                              ? AppColors.statusSafe.withOpacity(0.1)
-                              : cs.onSurfaceVariant.withOpacity(0.1),
+                              ? AppColors.statusSafe.withValues(alpha: 0.1)
+                              : cs.onSurfaceVariant.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12)),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -436,7 +436,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                           ? const SizedBox.shrink()
                           : PopupMenuButton<String>(
                               icon: Icon(Icons.more_horiz,
-                                  color: cs.onSurfaceVariant.withOpacity(0.5),
+                                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                                   size: 20),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
@@ -527,7 +527,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               color: Theme.of(context)
                   .colorScheme
                   .onSurfaceVariant
-                  .withOpacity(0.3)),
+                  .withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           const Text('No users found.',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -576,14 +576,14 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
         border: Border.all(
           color: hasFocus
               ? borderBlue
-              : borderBlue.withOpacity(isDark ? 0.35 : 0.2),
+              : borderBlue.withValues(alpha: isDark ? 0.35 : 0.2),
           width: 1.0,
         ),
         // box-shadow only on focus (like :focus-within in CSS)
         boxShadow: [
           if (hasFocus)
             BoxShadow(
-              color: borderBlue.withOpacity(0.45),
+              color: borderBlue.withValues(alpha: 0.45),
               blurRadius: 16,
               spreadRadius: 0,
             ),
@@ -640,7 +640,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final borderColor = Theme.of(context).colorScheme.outline.withOpacity(0.2);
+    final borderColor = Theme.of(context).colorScheme.outline.withValues(alpha: 0.2);
     return PopupMenuButton<String>(
       onSelected: onChanged,
       offset: const Offset(0, 42),
@@ -682,7 +682,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
   Widget _buildAdvanceFilterButton(bool isDark) {
     final bgColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final borderColor = Theme.of(context).colorScheme.outline.withOpacity(0.2);
+    final borderColor = Theme.of(context).colorScheme.outline.withValues(alpha: 0.2);
     return Container(
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -728,7 +728,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: AppColors.statusDanger.withOpacity(0.1),
+                    color: AppColors.statusDanger.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.warning_rounded,
@@ -770,7 +770,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                                   color: Theme.of(context)
                                       .colorScheme
                                       .outline
-                                      .withOpacity(0.5))),
+                                      .withValues(alpha: 0.5))),
                         ),
                         child: Text("Cancel",
                             style: TextStyle(
@@ -907,9 +907,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.statusDanger.withOpacity(0.1),
+                      color: AppColors.statusDanger.withValues(alpha: 0.1),
                       border: Border.all(
-                          color: AppColors.statusDanger.withOpacity(0.5)),
+                          color: AppColors.statusDanger.withValues(alpha: 0.5)),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -999,12 +999,12 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                               horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? AppColors.primaryBlue.withOpacity(0.1)
+                                ? AppColors.primaryBlue.withValues(alpha: 0.1)
                                 : Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                                 color: AppColors.primaryBlue
-                                    .withOpacity(isDark ? 0.3 : 0.2)),
+                                    .withValues(alpha: isDark ? 0.3 : 0.2)),
                           ),
                           child: Row(
                             children: [
@@ -1065,7 +1065,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                                 color: Theme.of(context)
                                     .colorScheme
                                     .outline
-                                    .withOpacity(0.5))),
+                                    .withValues(alpha: 0.5))),
                       ),
                       child: Text("Cancel",
                           style: TextStyle(
@@ -1263,14 +1263,14 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           borderSide: BorderSide(
               color: hasError
                   ? AppColors.statusDanger
-                  : Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+                  : Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
               color: hasError
                   ? AppColors.statusDanger
-                  : Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+                  : Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -1349,7 +1349,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               decoration: BoxDecoration(
                 border: Border.all(
                     color:
-                        Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+                        Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -1409,10 +1409,10 @@ class _UserGridCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withOpacity(0.08)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
               blurRadius: 15,
               offset: const Offset(0, 5)),
         ],
@@ -1432,13 +1432,13 @@ class _UserGridCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: isOnline
-                        ? AppColors.statusSafe.withOpacity(0.15)
-                        : cs.onSurfaceVariant.withOpacity(0.1),
+                        ? AppColors.statusSafe.withValues(alpha: 0.15)
+                        : cs.onSurfaceVariant.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                         color: isOnline
-                            ? AppColors.statusSafe.withOpacity(0.3)
-                            : cs.onSurfaceVariant.withOpacity(0.2)),
+                            ? AppColors.statusSafe.withValues(alpha: 0.3)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1449,7 +1449,7 @@ class _UserGridCard extends StatelessWidget {
                           decoration: BoxDecoration(
                               color: isOnline
                                   ? AppColors.statusSafe
-                                  : cs.onSurfaceVariant.withOpacity(0.5),
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.5),
                               shape: BoxShape.circle)),
                       const SizedBox(width: 6),
                       Text(isOnline ? 'Active' : 'Offline',
@@ -1466,7 +1466,7 @@ class _UserGridCard extends StatelessWidget {
                 if (isAdmin)
                   PopupMenuButton<String>(
                     icon: Icon(Icons.more_horiz,
-                        color: cs.onSurfaceVariant.withOpacity(0.5), size: 22),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 22),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     offset: const Offset(0, 40),
@@ -1506,13 +1506,13 @@ class _UserGridCard extends StatelessWidget {
                   width: 78,
                   height: 78,
                   decoration: BoxDecoration(
-                    color: roleColor.withOpacity(0.08),
+                    color: roleColor.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                 ),
                 CircleAvatar(
                   radius: 33,
-                  backgroundColor: roleColor.withOpacity(0.15),
+                  backgroundColor: roleColor.withValues(alpha: 0.15),
                   child: Text(
                       user['name'].toString().substring(0, 1).toUpperCase(),
                       style: TextStyle(
@@ -1538,7 +1538,7 @@ class _UserGridCard extends StatelessWidget {
                 Text(user['designation'],
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: cs.onSurfaceVariant.withOpacity(0.7),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                         fontSize: 12,
                         fontWeight: FontWeight.w500),
                     maxLines: 1,
@@ -1555,10 +1555,10 @@ class _UserGridCard extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark
-                      ? cs.surfaceVariant.withOpacity(0.2)
+                      ? cs.surfaceVariant.withValues(alpha: 0.2)
                       : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: cs.outline.withOpacity(0.08)),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
                 ),
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -1573,7 +1573,7 @@ class _UserGridCard extends StatelessWidget {
                           children: [
                             Icon(Icons.tag_rounded,
                                 size: 16,
-                                color: cs.onSurfaceVariant.withOpacity(0.6)),
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                             const SizedBox(width: 4),
                             Text(user['id'],
                                 style: const TextStyle(
@@ -1584,10 +1584,10 @@ class _UserGridCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: roleColor.withOpacity(0.1),
+                            color: roleColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                             border:
-                                Border.all(color: roleColor.withOpacity(0.2)),
+                                Border.all(color: roleColor.withValues(alpha: 0.2)),
                           ),
                           child: Text(role.toUpperCase(),
                               style: TextStyle(
@@ -1598,7 +1598,7 @@ class _UserGridCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Divider(color: cs.outline.withOpacity(0.12), height: 20),
+                    Divider(color: cs.outline.withValues(alpha: 0.12), height: 20),
                     // Username & Contact Chips
                     _buildIconLabel(Icons.alternate_email, user['username'], cs,
                         isPill: false),
@@ -1626,7 +1626,7 @@ class _UserGridCard extends StatelessWidget {
                     'Joined: ${formatDate(user['createdAt'] as DateTime).toUpperCase()}',
                     style: TextStyle(
                         fontSize: 9,
-                        color: cs.onSurfaceVariant.withOpacity(0.6),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.3)),
                 InkWell(
@@ -1667,7 +1667,7 @@ class _UserGridCard extends StatelessWidget {
   Widget _buildIconLabel(IconData icon, String text, ColorScheme cs,
       {bool isPill = false}) {
     final iconWidget =
-        Icon(icon, size: 14, color: cs.onSurfaceVariant.withOpacity(0.7));
+        Icon(icon, size: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.7));
 
     if (!isPill) {
       return Row(
@@ -1690,11 +1690,11 @@ class _UserGridCard extends StatelessWidget {
     final pillDecoration = BoxDecoration(
       color: isDark ? cs.surface : Colors.white,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: cs.outline.withOpacity(0.12)),
+      border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
       boxShadow: [
         if (!isDark)
           BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 4,
               offset: const Offset(0, 2)),
       ],

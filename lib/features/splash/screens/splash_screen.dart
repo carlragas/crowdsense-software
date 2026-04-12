@@ -368,7 +368,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                             style: TextStyle(
                               fontSize: 8,
                               fontWeight: FontWeight.w900,
-                              color: const Color(0xFFE8EAF6).withOpacity(0.8),
+                              color: const Color(0xFFE8EAF6).withValues(alpha: 0.8),
                               letterSpacing: 0,
                             ),
                           ),

@@ -53,8 +53,8 @@ class _GeometricPainter extends CustomPainter {
     // Use a gradient for the shape
     paint.shader = LinearGradient(
       colors: [
-        AppColors.primaryBlue.withOpacity(isDark ? 0.15 : 0.15),
-        AppColors.accentBlue.withOpacity(isDark ? 0.05 : 0.08),
+        AppColors.primaryBlue.withValues(alpha: isDark ? 0.15 : 0.15),
+        AppColors.accentBlue.withValues(alpha: isDark ? 0.05 : 0.08),
       ],
       begin: Alignment.topRight,
       end: Alignment.bottomLeft,
@@ -71,7 +71,7 @@ class _GeometricPainter extends CustomPainter {
 
     paint.shader = LinearGradient(
       colors: [
-        AppColors.accentCyan.withOpacity(isDark ? 0.1 : 0.12),
+        AppColors.accentCyan.withValues(alpha: isDark ? 0.1 : 0.12),
         Colors.transparent,
       ],
       begin: Alignment.bottomLeft,
@@ -85,12 +85,12 @@ class _GeometricPainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30);
 
-    circlePaint.color = AppColors.primaryBlue.withOpacity(isDark ? 0.1 : 0.12);
+    circlePaint.color = AppColors.primaryBlue.withValues(alpha: isDark ? 0.1 : 0.12);
     canvas.drawCircle(Offset(size.width * 0.8, size.height * 0.2), 60, circlePaint);
 
     circlePaint.color = isDark 
-        ? AppColors.statusDanger.withOpacity(0.05) 
-        : AppColors.statusWarning.withOpacity(0.08); // Warm glow in light mode
+        ? AppColors.statusDanger.withValues(alpha: 0.05) 
+        : AppColors.statusWarning.withValues(alpha: 0.08); // Warm glow in light mode
     canvas.drawCircle(Offset(size.width * 0.2, size.height * 0.8), 80, circlePaint);
   }
 

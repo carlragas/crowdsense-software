@@ -119,10 +119,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       height: 140,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                       decoration: BoxDecoration(
-                        color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.04),
+                        color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: AppColors.statusSafe.withOpacity(0.15),
+                          color: AppColors.statusSafe.withValues(alpha: 0.15),
                           width: 1.0,
                         ),
                       ),
@@ -134,7 +134,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: AppColors.statusSafe.withOpacity(0.12),
+                                  color: AppColors.statusSafe.withValues(alpha: 0.12),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.bolt_rounded, color: AppColors.statusSafe, size: 14),
@@ -147,14 +147,14 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 1.2,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ),
                               Icon(
                                 Icons.arrow_forward_ios_rounded,
                                 size: 10,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.2),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
                               ),
                             ],
                           ),
@@ -172,7 +172,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                             "Status Monitor",
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -204,10 +204,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       height: 140,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                       decoration: BoxDecoration(
-                        color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.04),
+                        color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: AppColors.primaryBlue.withOpacity(0.15),
+                          color: AppColors.primaryBlue.withValues(alpha: 0.15),
                           width: 1.0,
                         ),
                       ),
@@ -219,7 +219,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryBlue.withOpacity(0.12),
+                                  color: AppColors.primaryBlue.withValues(alpha: 0.12),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.settings_suggest_rounded, color: AppColors.primaryBlue, size: 14),
@@ -232,14 +232,14 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 1.2,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ),
                               Icon(
                                 Icons.arrow_forward_ios_rounded,
                                 size: 10,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.2),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
                               ),
                             ],
                           ),
@@ -257,7 +257,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                             "Configuration",
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -281,7 +281,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.15),
+                    color: AppColors.primaryBlue.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.list_alt, color: AppColors.primaryBlue, size: 20),
@@ -337,12 +337,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
+                              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
                               borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
+                                  color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
                                   blurRadius: Theme.of(context).brightness == Brightness.dark ? 20 : 30,
                                   offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 10 : 15),
                                 ),
@@ -474,7 +474,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 }
                               });
                             },
-                            selectedColor: AppColors.primaryBlue.withOpacity(0.3),
+                            selectedColor: AppColors.primaryBlue.withValues(alpha: 0.3),
                             checkmarkColor: AppColors.primaryBlue,
                             backgroundColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
@@ -511,7 +511,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 }
                               });
                             },
-                            selectedColor: pColor.withOpacity(0.2),
+                            selectedColor: pColor.withValues(alpha: 0.2),
                             checkmarkColor: pColor,
                             backgroundColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
@@ -664,24 +664,24 @@ class _DevicesScreenState extends State<DevicesScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isHighlighted 
-            ? log.iconColor.withOpacity(0.15) 
+            ? log.iconColor.withValues(alpha: 0.15) 
             : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isHighlighted 
-              ? log.iconColor.withOpacity(0.8) 
-              : (Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+              ? log.iconColor.withValues(alpha: 0.8) 
+              : (Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
           width: isHighlighted ? 2.0 : 1.0,
         ),
         boxShadow: isHighlighted ? [
           BoxShadow(
-            color: log.iconColor.withOpacity(0.4),
+            color: log.iconColor.withValues(alpha: 0.4),
             blurRadius: 16,
             spreadRadius: 2,
           ),
         ] : [
           BoxShadow(
-            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
+            color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
             blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
             offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
           ),
@@ -702,7 +702,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                     color: log.iconColor,
                     boxShadow: [
                       BoxShadow(
-                        color: log.iconColor.withOpacity(isHighlighted ? 0.8 : 0.4),
+                        color: log.iconColor.withValues(alpha: isHighlighted ? 0.8 : 0.4),
                         blurRadius: isHighlighted ? 8 : 4,
                         spreadRadius: isHighlighted ? 2 : 1,
                       ),
@@ -718,7 +718,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: log.iconColor.withOpacity(0.1),
+                            color: log.iconColor.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(log.icon, color: log.iconColor, size: 24),
@@ -754,7 +754,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8),
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -785,7 +785,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 color: AppColors.statusSafe,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.statusSafe.withOpacity(0.4),
+                                    color: AppColors.statusSafe.withValues(alpha: 0.4),
                                     blurRadius: 4,
                                     spreadRadius: 1,
                                   ),
@@ -793,7 +793,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Icon(Icons.chevron_right, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                            Icon(Icons.chevron_right, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
                           ],
                         ),
                       ],
@@ -812,13 +812,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
     Color bgColor;
     Color textColor;
     if (status == 'Active') {
-      bgColor = AppColors.statusDanger.withOpacity(0.15);
+      bgColor = AppColors.statusDanger.withValues(alpha: 0.15);
       textColor = AppColors.statusDanger;
     } else if (status == 'Resolved' || status == 'Acknowledged') {
-      bgColor = AppColors.statusSafe.withOpacity(0.15);
+      bgColor = AppColors.statusSafe.withValues(alpha: 0.15);
       textColor = AppColors.statusSafe;
     } else {
-      bgColor = AppColors.statusWarning.withOpacity(0.15);
+      bgColor = AppColors.statusWarning.withValues(alpha: 0.15);
       textColor = AppColors.statusWarning;
     }
     return Container(
@@ -826,7 +826,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: textColor.withOpacity(0.3)),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
       ),
       child: Text(
         status.toUpperCase(),
@@ -864,12 +864,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface.withOpacity(0.95),
+                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+                        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.6 : 0.2),
+                            color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.6 : 0.2),
                             blurRadius: 30,
                             offset: const Offset(0, 15),
                           ),
@@ -886,7 +886,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: log.iconColor.withOpacity(0.15),
+                                    color: log.iconColor.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(log.icon, color: log.iconColor, size: 28),
@@ -896,7 +896,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('Activity Report', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8))),
+                                      Text('Activity Report', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8))),
                                       Text(log.title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface, height: 1.2)),
                                     ],
                                   ),
@@ -912,9 +912,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: log.iconColor.withOpacity(0.08),
+                                color: log.iconColor.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: log.iconColor.withOpacity(0.3)),
+                                border: Border.all(color: log.iconColor.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -981,12 +981,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               decoration: BoxDecoration(
                                 color: Theme.of(context).colorScheme.surface,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.2)),
+                                border: Border.all(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.2)),
                               ),
                               child: Stack(
                                 children: [
-                                  Center(child: Icon(Icons.map_outlined, size: 56, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.25))),
-                                  Center(child: Text('Floorplan View\n(Map integration pending)', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.bold))),
+                                  Center(child: Icon(Icons.map_outlined, size: 56, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.25))),
+                                  Center(child: Text('Floorplan View\n(Map integration pending)', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.bold))),
                                   const Positioned(top: 36, left: 90, child: Icon(Icons.location_on, color: AppColors.statusDanger, size: 30)),
                                 ],
                               ),
@@ -1060,13 +1060,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
               maxHeight: MediaQuery.of(context).size.height * 0.85,
             ),
             decoration: BoxDecoration(
-              color: colorScheme.surface.withOpacity(isDark ? 0.92 : 0.97),
+              color: colorScheme.surface.withValues(alpha: isDark ? 0.92 : 0.97),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(32),
                 topRight: Radius.circular(32),
               ),
               border: Border.all(
-                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
               ),
             ),
             child: Column(
@@ -1079,7 +1079,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.2),
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1093,7 +1093,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryBlue.withOpacity(0.12),
+                          color: AppColors.primaryBlue.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -1122,7 +1122,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               "4 sensors tracked",
                               style: TextStyle(
                                 fontSize: 12,
-                                color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1133,7 +1133,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                         onPressed: () => Navigator.pop(context),
                         icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant, size: 22),
                         style: IconButton.styleFrom(
-                          backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+                          backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
@@ -1159,11 +1159,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
-                                  Text("STATUS", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                                  Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                                  Text("STATUS", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
                                 ],
                               ),
-                              Divider(height: 32, color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06)),
+                              Divider(height: 32, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
 
                               if (title.toLowerCase().contains('power')) ...[
                                 _buildPowerStatusRow("Main Entrance", true),
@@ -1188,11 +1188,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
-                                    Text("BATTERY %", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                                    Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                                    Text("BATTERY %", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
                                   ],
                                 ),
-                                Divider(height: 32, color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06)),
+                                Divider(height: 32, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
                                 _buildDeviceBatteryRow("Main Entrance", "87%"),
                                 const SizedBox(height: 10),
                                 _buildDeviceBatteryRow("Central Stairs", "20%"),
@@ -1206,7 +1206,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               Center(
                                 child: Text(
                                   "Last sync: 2026/02/24 00:20",
-                                  style: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w600),
+                                  style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4), fontSize: 11, fontWeight: FontWeight.w600),
                                 ),
                               ),
                               const SizedBox(height: 48), // Extra padding at bottom for better feel
@@ -1233,10 +1233,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
         ),
       ),
       child: Row(
@@ -1253,9 +1253,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
+              color: statusColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: statusColor.withOpacity(0.2)),
+              border: Border.all(color: statusColor.withValues(alpha: 0.2)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1287,10 +1287,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
         ),
       ),
       child: Row(
@@ -1307,9 +1307,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
+              color: statusColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: statusColor.withOpacity(0.2)),
+              border: Border.all(color: statusColor.withValues(alpha: 0.2)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1368,7 +1368,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
             width: 44,
             height: 20,
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.statusDanger.withOpacity(0.5), width: 1.5),
+              border: Border.all(color: AppColors.statusDanger.withValues(alpha: 0.5), width: 1.5),
               borderRadius: BorderRadius.circular(5),
             ),
             padding: const EdgeInsets.all(2),
@@ -1380,7 +1380,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
             width: 2,
             height: 8,
             decoration: BoxDecoration(
-              color: AppColors.statusDanger.withOpacity(0.5),
+              color: AppColors.statusDanger.withValues(alpha: 0.5),
               borderRadius: const BorderRadius.only(topRight: Radius.circular(2), bottomRight: Radius.circular(2)),
             ),
           ),
@@ -1394,7 +1394,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
             width: 44,
             height: 20,
             decoration: BoxDecoration(
-              border: Border.all(color: batteryColor.withOpacity(0.5), width: 1.5),
+              border: Border.all(color: batteryColor.withValues(alpha: 0.5), width: 1.5),
               borderRadius: BorderRadius.circular(5),
             ),
             padding: const EdgeInsets.all(2),
@@ -1403,7 +1403,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 Container(
                   width: 38 * (batteryLevel / 100).clamp(0.0, 1.0),
                   decoration: BoxDecoration(
-                    color: batteryColor.withOpacity(0.3),
+                    color: batteryColor.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1424,7 +1424,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
             width: 2,
             height: 8,
             decoration: BoxDecoration(
-              color: batteryColor.withOpacity(0.5),
+              color: batteryColor.withValues(alpha: 0.5),
               borderRadius: const BorderRadius.only(topRight: Radius.circular(2), bottomRight: Radius.circular(2)),
             ),
           ),
@@ -1435,10 +1435,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
         ),
       ),
       child: Row(
@@ -1473,10 +1473,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(isDark ? 0.12 : 0.06),
+                  color: AppColors.primaryBlue.withValues(alpha: isDark ? 0.12 : 0.06),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.primaryBlue.withOpacity(isDark ? 0.3 : 0.2),
+                    color: AppColors.primaryBlue.withValues(alpha: isDark ? 0.3 : 0.2),
                     width: 1.5,
                   ),
                 ),
@@ -1499,7 +1499,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                           width: 1.5,
                           height: 14,
                           decoration: BoxDecoration(
-                            color: AppColors.primaryBlue.withOpacity(0.3),
+                            color: AppColors.primaryBlue.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(1),
                           ),
                         ),
@@ -1526,17 +1526,17 @@ class _DevicesScreenState extends State<DevicesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                 width: 1.2,
               ),
             ),
             child: Text(
               count.toString(),
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 fontWeight: FontWeight.w900,
                 fontSize: 12,
               ),
@@ -1603,14 +1603,14 @@ class _GlowingStatusCardState extends State<_GlowingStatusCard> with SingleTicke
         color: Theme.of(context).colorScheme.surface, // Fallback underlying color
         gradient: LinearGradient(
           colors: [
-            widget.color.withOpacity(0.25),
-            widget.color.withOpacity(0.08),
+            widget.color.withValues(alpha: 0.25),
+            widget.color.withValues(alpha: 0.08),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: widget.color.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: widget.color.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1626,7 +1626,7 @@ class _GlowingStatusCardState extends State<_GlowingStatusCard> with SingleTicke
                   color: widget.color,
                   boxShadow: [
                     BoxShadow(
-                      color: widget.color.withOpacity(0.8),
+                      color: widget.color.withValues(alpha: 0.8),
                       blurRadius: _glowAnimation.value,
                       spreadRadius: _glowAnimation.value / 3,
                     ),
@@ -1642,7 +1642,7 @@ class _GlowingStatusCardState extends State<_GlowingStatusCard> with SingleTicke
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: widget.color.withOpacity(0.9),
+                color: widget.color.withValues(alpha: 0.9),
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
                 height: 1.1,
@@ -1720,9 +1720,9 @@ class _BouncingFilterButtonState extends State<_BouncingFilterButton> with Singl
           duration: const Duration(milliseconds: 100),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: _isPressed ? Colors.white.withOpacity(0.15) : Colors.white.withOpacity(0.08),
+            color: _isPressed ? Colors.white.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1734,7 +1734,7 @@ class _BouncingFilterButtonState extends State<_BouncingFilterButton> with Singl
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9),
                 ),
               ),
             ],
@@ -1810,14 +1810,14 @@ class _AnimatedBouncingDeviceCardState extends State<_AnimatedBouncingDeviceCard
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           decoration: BoxDecoration(
             color: _isPressed 
-                ? (Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.03))
+                ? (Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.03))
                 : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
             boxShadow: [
               if (!_isPressed)
                 BoxShadow(
-                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.02),
+                  color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.02),
                   blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 15,
                   offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
                 ),
@@ -1903,7 +1903,7 @@ class _AnimatedPulsingDotState extends State<_AnimatedPulsingDot> with SingleTic
             color: widget.color,
             boxShadow: [
               BoxShadow(
-                color: widget.color.withOpacity(0.8),
+                color: widget.color.withValues(alpha: 0.8),
                 blurRadius: _glowAnimation.value,
                 spreadRadius: _glowAnimation.value / 3,
               ),

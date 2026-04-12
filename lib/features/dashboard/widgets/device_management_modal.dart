@@ -306,17 +306,17 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       child: Container(
         height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
-          color: colorScheme.surface.withOpacity(isDark ? 0.92 : 0.97),
+          color: colorScheme.surface.withValues(alpha: isDark ? 0.92 : 0.97),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(32),
             topRight: Radius.circular(32),
           ),
           border: Border.all(
-            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
               blurRadius: 30,
               offset: const Offset(0, -12),
             ),
@@ -331,7 +331,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.2),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -364,7 +364,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                               size: 22,
                             ),
                             style: IconButton.styleFrom(
-                              backgroundColor: (_isReordering ? AppColors.statusSafe : AppColors.primaryBlue).withOpacity(0.12),
+                              backgroundColor: (_isReordering ? AppColors.statusSafe : AppColors.primaryBlue).withValues(alpha: 0.12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             onPressed: () => setState(() => _isReordering = !_isReordering),
@@ -396,7 +396,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withOpacity(0.12),
+              color: AppColors.primaryBlue.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -423,7 +423,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                   "Manage sensor nodes",
                   style: TextStyle(
                     fontSize: 12,
-                    color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -434,7 +434,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
             onPressed: () => Navigator.pop(context),
             icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant, size: 22),
             style: IconButton.styleFrom(
-              backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+              backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
@@ -450,7 +450,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
         fontSize: 12,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.2,
-        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       ),
     );
   }
@@ -459,9 +459,9 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04)),
       ),
       child: Column(
         children: [
@@ -470,12 +470,12 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
               labelText: "MAC ADDRESS",
-              labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Theme.of(context).colorScheme.primary.withOpacity(0.85)),
+              labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.85)),
               hintText: "e.g. 00:1B:44:11:3A:B7",
-              prefixIcon: Icon(Icons.memory_rounded, color: AppColors.primaryBlue.withOpacity(0.7), size: 20),
+              prefixIcon: Icon(Icons.memory_rounded, color: AppColors.primaryBlue.withValues(alpha: 0.7), size: 20),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               filled: true,
-              fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+              fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
           ),
@@ -485,12 +485,12 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
               labelText: "LOCATION/NODE NAME",
-              labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Theme.of(context).colorScheme.primary.withOpacity(0.85)),
+              labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.85)),
               hintText: "e.g. CEA 3rd Floor",
-              prefixIcon: Icon(Icons.location_on_rounded, color: AppColors.primaryBlue.withOpacity(0.7), size: 20),
+              prefixIcon: Icon(Icons.location_on_rounded, color: AppColors.primaryBlue.withValues(alpha: 0.7), size: 20),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               filled: true,
-              fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+              fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
           ),
@@ -528,7 +528,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
           padding: const EdgeInsets.all(32.0),
           child: Column(
             children: [
-              Icon(Icons.devices_outlined, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)),
+              Icon(Icons.devices_outlined, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
               const SizedBox(height: 16),
               Text(
                 "No devices configured yet.",
@@ -688,10 +688,10 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.01),
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.01),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
         ),
       ),
       child: Theme(
@@ -706,7 +706,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (isOnline ? AppColors.primaryBlue : AppColors.textGrey).withOpacity(0.1),
+              color: (isOnline ? AppColors.primaryBlue : AppColors.textGrey).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -743,7 +743,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                 " · $_lastSeenText",
                 style: TextStyle(
                   fontSize: 10,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -754,7 +754,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                 index: widget.index,
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: Icon(Icons.drag_handle_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4)),
+                  child: Icon(Icons.drag_handle_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
                 ),
               )
             : _buildStatusBadge(isOnline),
@@ -766,7 +766,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             const SizedBox(height: 16),
             
             // Edit Fields
-            Text("DEVICE DETAILS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6))),
+            Text("DEVICE DETAILS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6))),
             const SizedBox(height: 12),
             TextField(
               controller: _macCtrl,
@@ -775,7 +775,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                 labelText: "MAC Address",
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 filled: true,
-                fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+                fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
                 isDense: true,
               ),
             ),
@@ -787,13 +787,13 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                 labelText: "Location Name",
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 filled: true,
-                fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+                fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
                 isDense: true,
               ),
             ),
             
             const SizedBox(height: 24),
-            Text("SENSOR THRESHOLDS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6))),
+            Text("SENSOR THRESHOLDS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6))),
             const SizedBox(height: 16),
             
             _buildThresholdSlider("Temperature", _tempThresh, 30, 60, AppColors.statusDanger, "°C", (v) => setState(() => _tempThresh = v)),
@@ -832,7 +832,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                   child: OutlinedButton(
                     onPressed: () => widget.onRemove(widget.device["macAddress"], widget.device["name"]),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.statusDanger.withOpacity(0.4), width: 1.5),
+                      side: BorderSide(color: AppColors.statusDanger.withValues(alpha: 0.4), width: 1.5),
                       foregroundColor: AppColors.statusDanger,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -869,7 +869,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             min: min,
             max: max,
             activeColor: color,
-            inactiveColor: color.withOpacity(0.1),
+            inactiveColor: color.withValues(alpha: 0.1),
             onChanged: onChange,
           ),
         ),
@@ -883,9 +883,9 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -917,9 +917,9 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -940,7 +940,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -972,11 +972,11 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7)),
+        Icon(icon, size: 12, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
         const SizedBox(width: 4),
         Text(
           '$label: ',
-          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7)),
+          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
         ),
         Text(
           value,
@@ -990,9 +990,9 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.06)),
+        border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1014,7 +1014,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                     isOnline ? "Device is currently POWERED ON" : "Device is currently POWERED OFF",
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1032,10 +1032,10 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               height: 30,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: isOnline ? AppColors.statusSafe.withOpacity(0.12) : AppColors.statusDanger.withOpacity(0.12),
+                color: isOnline ? AppColors.statusSafe.withValues(alpha: 0.12) : AppColors.statusDanger.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isOnline ? AppColors.statusSafe.withOpacity(0.3) : AppColors.statusDanger.withOpacity(0.25),
+                  color: isOnline ? AppColors.statusSafe.withValues(alpha: 0.3) : AppColors.statusDanger.withValues(alpha: 0.25),
                   width: 1.5,
                 ),
               ),
@@ -1051,7 +1051,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withOpacity(0.4),
+                        color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withValues(alpha: 0.4),
                         blurRadius: 4,
                         offset: const Offset(0, 1),
                       )
@@ -1114,10 +1114,10 @@ class _AnimatedPulsingDotState extends State<_AnimatedPulsingDot> with SingleTic
           height: widget.size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: widget.color.withOpacity(_animation.value),
+            color: widget.color.withValues(alpha: _animation.value),
             boxShadow: [
               BoxShadow(
-                color: widget.color.withOpacity(0.6 * _animation.value),
+                color: widget.color.withValues(alpha: 0.6 * _animation.value),
                 blurRadius: widget.size * _animation.value,
                 spreadRadius: (widget.size / 2) * _animation.value,
               ),

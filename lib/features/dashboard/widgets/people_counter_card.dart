@@ -43,15 +43,15 @@ class PeopleCounterCard extends StatelessWidget {
         child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.03) : Colors.white.withOpacity(0.4),
+              color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 ),
@@ -67,7 +67,7 @@ class PeopleCounterCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white.withOpacity(0.5) : colorScheme.onSurfaceVariant,
+                      color: isDark ? Colors.white.withValues(alpha: 0.5) : colorScheme.onSurfaceVariant,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -75,9 +75,9 @@ class PeopleCounterCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: statusColor.withOpacity(0.3)),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -148,12 +148,12 @@ class PeopleCounterCard extends StatelessWidget {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: badgeColor.withOpacity(0.2),
+                                          color: badgeColor.withValues(alpha: 0.2),
                                           borderRadius: BorderRadius.circular(30),
-                                          border: Border.all(color: badgeColor.withOpacity(0.4)),
+                                          border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: badgeColor.withOpacity(isDark ? 0.2 : 0.12),
+                                              color: badgeColor.withValues(alpha: isDark ? 0.2 : 0.12),
                                               blurRadius: 15,
                                               spreadRadius: 0,
                                             ),
@@ -211,7 +211,7 @@ class PeopleCounterCard extends StatelessWidget {
                       height: 160,
                       child: IconButton(
                         onPressed: onPrevious,
-                        icon: Icon(Icons.chevron_left, color: colorScheme.onSurface.withOpacity(0.7), size: 32),
+                        icon: Icon(Icons.chevron_left, color: colorScheme.onSurface.withValues(alpha: 0.7), size: 32),
                       ),
                     ),
                     Positioned(
@@ -220,7 +220,7 @@ class PeopleCounterCard extends StatelessWidget {
                       height: 160,
                       child: IconButton(
                         onPressed: onNext,
-                        icon: Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.7), size: 32),
+                        icon: Icon(Icons.chevron_right, color: colorScheme.onSurface.withValues(alpha: 0.7), size: 32),
                       ),
                     ),
                   ],
@@ -242,15 +242,15 @@ class PeopleCounterCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
             decoration: BoxDecoration(
-              color: color.withOpacity(isDark ? 0.12 : 0.08),
+              color: color.withValues(alpha: isDark ? 0.12 : 0.08),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: color.withOpacity(isDark ? 0.35 : 0.25),
+                color: color.withValues(alpha: isDark ? 0.35 : 0.25),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(isDark ? 0.1 : 0.05),
+                  color: color.withValues(alpha: isDark ? 0.1 : 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -264,7 +264,7 @@ class PeopleCounterCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : color.withOpacity(0.9),
+                    color: isDark ? Colors.white : color.withValues(alpha: 0.9),
                     height: 1.1,
                   ),
                 ),
@@ -274,7 +274,7 @@ class PeopleCounterCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    color: (isDark ? Colors.white : color).withOpacity(0.6),
+                    color: (isDark ? Colors.white : color).withValues(alpha: 0.6),
                     letterSpacing: 1.2,
                   ),
                 ),

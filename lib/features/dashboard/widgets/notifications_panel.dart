@@ -101,7 +101,7 @@ class _NotificationsPanelState extends State<NotificationsPanel>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
         child: Container(
-          color: Colors.black.withOpacity(0.35),
+          color: Colors.black.withValues(alpha: 0.35),
           alignment: Alignment.topCenter,
           child: GestureDetector(
             onTap: () {}, // Prevent tap-through
@@ -118,8 +118,8 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                     ),
                     decoration: ShapeDecoration(
                       color: isDark
-                          ? const Color(0xFF1A1A2E).withOpacity(0.97)
-                          : Colors.white.withOpacity(0.97),
+                          ? const Color(0xFF1A1A2E).withValues(alpha: 0.97)
+                          : Colors.white.withValues(alpha: 0.97),
                       shape: _ChatBubbleBorder(
                         borderRadius: 24.0,
                         arrowWidth: 18.0,
@@ -127,13 +127,13 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                         arrowOffset: 58.0,
                         side: BorderSide(
                           color: isDark
-                              ? Colors.white.withOpacity(0.08)
-                              : Colors.black.withOpacity(0.08),
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.black.withValues(alpha: 0.08),
                         ),
                       ),
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+                          color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
                           blurRadius: 30,
                           offset: const Offset(0, 8),
                         ),
@@ -283,7 +283,7 @@ class _NotificationsPanelState extends State<NotificationsPanel>
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.notifications_none,
-                size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4)),
+                size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
             const SizedBox(height: 12),
             Text(
               'You\'re all caught up!',
@@ -318,11 +318,11 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isUrgent
-        ? AppColors.statusDanger.withOpacity(0.4)
-        : notification.iconColor.withOpacity(0.2);
+        ? AppColors.statusDanger.withValues(alpha: 0.4)
+        : notification.iconColor.withValues(alpha: 0.2);
     final bgColor = isUrgent
-        ? AppColors.statusDanger.withOpacity(isDark ? 0.08 : 0.05)
-        : (isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02));
+        ? AppColors.statusDanger.withValues(alpha: isDark ? 0.08 : 0.05)
+        : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.02));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -343,7 +343,7 @@ class _NotificationTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
-                  color: notification.iconColor.withOpacity(0.12),
+                  color: notification.iconColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(notification.icon, color: notification.iconColor, size: 20),
@@ -439,7 +439,7 @@ class _NotificationTile extends StatelessWidget {
                             'Tap notification to dismiss view',
                             style: TextStyle(
                               fontSize: 10,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                               fontStyle: FontStyle.italic,
                             ),
                           ),

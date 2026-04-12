@@ -142,10 +142,10 @@ class AnalyticsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -159,7 +159,7 @@ class AnalyticsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -209,10 +209,10 @@ class AnalyticsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -226,7 +226,7 @@ class AnalyticsScreen extends StatelessWidget {
                Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, color: color, size: 24),
@@ -280,9 +280,9 @@ class AnalyticsScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +290,7 @@ class AnalyticsScreen extends StatelessWidget {
           Container(
              padding: const EdgeInsets.all(12),
              decoration: BoxDecoration(
-               color: color.withOpacity(0.2),
+               color: color.withValues(alpha: 0.2),
                shape: BoxShape.circle,
              ),
              child: Icon(icon, color: color, size: 32),
@@ -359,7 +359,7 @@ class AnalyticsScreen extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: 5,
           getDrawingHorizontalLine: (value) {
-            return FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1);
+            return FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1);
           },
         ),
         extraLinesData: ExtraLinesData(
@@ -429,7 +429,7 @@ class AnalyticsScreen extends StatelessWidget {
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: AppColors.statusWarning.withOpacity(0.15),
+              color: AppColors.statusWarning.withValues(alpha: 0.15),
             ),
           ),
         ],
@@ -627,9 +627,9 @@ class _PpmGauge extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: valueColor.withOpacity(0.15),
+                color: valueColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: valueColor.withOpacity(0.35)),
+                border: Border.all(color: valueColor.withValues(alpha: 0.35)),
               ),
               child: Text(
                 statusLabel,
@@ -700,7 +700,7 @@ class _GaugePainter extends CustomPainter {
       _rad(_sweepDeg),
       false,
       Paint()
-        ..color = Colors.grey.withOpacity(0.12)
+        ..color = Colors.grey.withValues(alpha: 0.12)
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeW
         ..strokeCap = StrokeCap.round,
@@ -714,7 +714,7 @@ class _GaugePainter extends CustomPainter {
         _rad(_sweepDeg * thresholdRatio),
         false,
         Paint()
-          ..color = baseColor.withOpacity(0.22)
+          ..color = baseColor.withValues(alpha: 0.22)
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeW
           ..strokeCap = StrokeCap.round,
@@ -778,7 +778,7 @@ class _GaugePainter extends CustomPainter {
     canvas.drawCircle(
       tip, strokeW * 0.50,
       Paint()
-        ..color = valueColor.withOpacity(0.30)
+        ..color = valueColor.withValues(alpha: 0.30)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
     canvas.drawCircle(tip, strokeW * 0.38, Paint()..color = valueColor);
@@ -792,7 +792,7 @@ class _GaugePainter extends CustomPainter {
         center + Offset((radius - strokeW) * math.cos(a), (radius - strokeW) * math.sin(a)),
         center + Offset((radius - strokeW * 0.45) * math.cos(a), (radius - strokeW * 0.45) * math.sin(a)),
         Paint()
-          ..color = Colors.grey.withOpacity(0.45)
+          ..color = Colors.grey.withValues(alpha: 0.45)
           ..strokeWidth = 1.5
           ..strokeCap = StrokeCap.round,
       );
@@ -804,7 +804,7 @@ class _GaugePainter extends CustomPainter {
     // Draw "0"
     textPainter.text = TextSpan(
       text: '0',
-      style: TextStyle(color: Colors.grey.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.bold),
+      style: TextStyle(color: Colors.grey.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold),
     );
     textPainter.layout();
     final startAngle = _rad(_startDeg);
@@ -818,7 +818,7 @@ class _GaugePainter extends CustomPainter {
     // Draw maxValue
     textPainter.text = TextSpan(
       text: maxValue.toStringAsFixed(0),
-      style: TextStyle(color: Colors.grey.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.bold),
+      style: TextStyle(color: Colors.grey.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold),
     );
     textPainter.layout();
     final endAngle = _rad(_startDeg + _sweepDeg);

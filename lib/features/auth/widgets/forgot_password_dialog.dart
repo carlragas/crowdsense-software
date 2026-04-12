@@ -129,16 +129,16 @@ class _ForgotPasswordDialogWidgetState
               color: isDark ? const Color(0xFF1A1F2E) : cs.surface,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: AppColors.primaryBlue.withOpacity(0.15),
+                color: AppColors.primaryBlue.withValues(alpha: 0.15),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   blurRadius: 40,
                   offset: const Offset(0, 16),
                 ),
                 BoxShadow(
-                  color: AppColors.primaryBlue.withOpacity(0.08),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.08),
                   blurRadius: 20,
                 ),
               ],
@@ -166,10 +166,10 @@ class _ForgotPasswordDialogWidgetState
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.12),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppColors.primaryBlue.withOpacity(0.25),
+                    color: AppColors.primaryBlue.withValues(alpha: 0.25),
                   ),
                 ),
                 child: const Icon(
@@ -239,7 +239,7 @@ class _ForgotPasswordDialogWidgetState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.primaryBlue.withOpacity(0.4),
+                  disabledBackgroundColor: AppColors.primaryBlue.withValues(alpha: 0.4),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -293,10 +293,10 @@ class _ForgotPasswordDialogWidgetState
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: const Color(0xFF1B5E20).withOpacity(0.15),
+                color: const Color(0xFF1B5E20).withValues(alpha: 0.15),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFF2E7D32).withOpacity(0.4),
+                  color: const Color(0xFF2E7D32).withValues(alpha: 0.4),
                   width: 2,
                 ),
               ),
@@ -325,10 +325,10 @@ class _ForgotPasswordDialogWidgetState
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.primaryBlue.withOpacity(0.08),
+                color: AppColors.primaryBlue.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: AppColors.primaryBlue.withOpacity(0.25),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.25),
                 ),
               ),
               child: Row(
@@ -371,10 +371,10 @@ class _ForgotPasswordDialogWidgetState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withOpacity(0.07),
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFFF59E0B).withOpacity(0.3),
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
               ),
             ),
             child: const Row(
@@ -401,10 +401,10 @@ class _ForgotPasswordDialogWidgetState
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withOpacity(0.05),
+              color: AppColors.primaryBlue.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.primaryBlue.withOpacity(0.2),
+                color: AppColors.primaryBlue.withValues(alpha: 0.2),
               ),
             ),
             child: Column(
@@ -419,7 +419,7 @@ class _ForgotPasswordDialogWidgetState
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryBlue.withOpacity(0.8),
+                        color: AppColors.primaryBlue.withValues(alpha: 0.8),
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -468,7 +468,7 @@ class _ForgotPasswordDialogWidgetState
             text,
             style: TextStyle(
               fontSize: 11.5,
-              color: AppColors.textLight.withOpacity(0.7),
+              color: AppColors.textLight.withValues(alpha: 0.7),
             ),
           ),
         ],

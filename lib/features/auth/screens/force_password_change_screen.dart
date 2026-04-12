@@ -164,10 +164,10 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surfaceDark, // CrowdSense Dark Theme Widget color
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.3)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                         blurRadius: 30,
                         offset: const Offset(0, 10),
                       )
@@ -182,7 +182,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.statusWarning.withOpacity(0.15),
+                            color: AppColors.statusWarning.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.security_rounded, size: 36, color: AppColors.statusWarning),
@@ -210,7 +210,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppColors.statusDanger.withOpacity(0.2),
+                              color: AppColors.statusDanger.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: AppColors.statusDanger),
                             ),
@@ -289,9 +289,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppColors.backgroundDark.withOpacity(0.5),
+                            color: AppColors.backgroundDark.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primaryBlue.withOpacity(0.2)),
+                            border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
