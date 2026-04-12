@@ -172,6 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         setState(() {
           _syncDeviceDataList();
         });
+        _checkHourlyResets();
       }
     });
   }
@@ -318,6 +319,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
                _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
                _deviceDataMap[mac]!['last_updated'] = data['last_updated'];
+               _deviceDataMap[mac]!['last_reset_hour'] = data['last_reset_hour'];
             });
             _syncDeviceDataList();
          });
@@ -353,10 +355,75 @@ class _DashboardScreenState extends State<DashboardScreen>
            'isOnline': isLive,
            'connectionState': connState,
            'last_updated': v['last_updated'],
+           'last_reset_hour': v['last_reset_hour'],
         };
     }).toList();
     if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
        _selectedLocation = _deviceData.first['location'];
+    }
+  }
+
+  // --- Automated Hourly Reset Logic ---
+  bool _isResettingCounts = false;
+
+  void _checkHourlyResets() async {
+    if (_isResettingCounts) return;
+    final currentHour = DateTime.now().hour;
+    final dbRef = FirebaseDatabase.instance.ref();
+    
+    for (final device in _deviceData) {
+      final bool isOnline = device['isOnline'] == true;
+      if (!isOnline) continue;
+
+      final mac = device['mac']?.toString() ?? '';
+      if (mac.isEmpty) continue;
+
+      final lastResetHour = (device['last_reset_hour'] as num?)?.toInt();
+      if (lastResetHour == currentHour) continue;
+
+      // This device is online and hasn't been reset this hour yet
+      _isResettingCounts = true;
+      try {
+        await dbRef.child('sensor_data').child(mac).update({
+          'total_entries': 0,
+          'total_exits': 0,
+          'people_inside': 0,
+          'last_reset_hour': currentHour,
+        });
+      } catch (_) {
+        // Silently handle write failures
+      }
+      _isResettingCounts = false;
+    }
+  }
+
+  Future<void> _resetSingleDevice(String mac, String location) async {
+    final dbRef = FirebaseDatabase.instance.ref();
+    final currentHour = DateTime.now().hour;
+    try {
+      await dbRef.child('sensor_data').child(mac).update({
+        'total_entries': 0,
+        'total_exits': 0,
+        'people_inside': 0,
+        'last_reset_hour': currentHour,
+      });
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Count Reset",
+          message: "Counts for '$location' have been reset to 0.",
+          isSuccess: true,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Reset Failed",
+          message: "Could not reset counts for '$location'.",
+          isSuccess: false,
+        );
+      }
     }
   }
 
@@ -429,8 +496,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 children: [
                   // --- Notification Bell ---
                   IconButton(
-            tooltip: 'Notifications',
-            icon: Badge(
+                    icon: Badge(
               isLabelVisible: _hasAnyNotification,
               smallSize: 9,
               backgroundColor: _hasUrgentNotification
@@ -681,9 +747,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const PageTitle(title: "Override Siren"),
-                      const SizedBox(height: 12),
-                      // Compact occupancy banner
-                      _buildOccupancyBanner(),
+                      const SizedBox(height: 16),
+                      // Tactical command strip console
+                      _buildSirenCommandStrip(),
                       const SizedBox(height: 20),
                       Text(
                         "Emergency Overrides",
@@ -703,17 +769,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                       const SizedBox(height: 14),
                       _buildAlarmControlCard(
-                        title: "Warning Chime",
-                        subtitle: "Broadcast a pre-warning alert across all zones",
-                        icon: Icons.notifications_active_rounded,
-                        color: AppColors.statusWarning,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildAlarmControlCard(
                         title: "Reset All Alarms",
                         subtitle: "Cancel all active sirens and visual alerts",
                         icon: Icons.refresh_rounded,
-                        color: AppColors.primaryBlue,
+                        color: AppColors.statusSafe,
                       ),
                     ],
                   ),
@@ -1073,6 +1132,157 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  Widget _buildSirenCommandStrip() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    Color hazardColor;
+    String hazardLabel;
+    bool isPulsing = false;
+
+    switch (_hazardLevel) {
+      case 2:
+        hazardColor = AppColors.statusDanger;
+        hazardLabel = "CRITICAL ALERT";
+        isPulsing = true;
+        break;
+      case 1:
+        hazardColor = AppColors.statusWarning;
+        hazardLabel = "CAUTION";
+        break;
+      default:
+        hazardColor = AppColors.primaryBlue;
+        hazardLabel = "SYSTEM NORMAL";
+        break;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          width: double.infinity,
+          height: 90,
+          decoration: BoxDecoration(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Zone 1: Vital Population
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _PulsingDot(color: AppColors.primaryBlue),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              "LIVE POPULATION",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _totalPeopleInside.toString(),
+                        style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Zone 2: Status Bay
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        "HAZARD STATUS",
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildSirenStatusCapsule(hazardLabel, hazardColor, isPulsing),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSirenStatusCapsule(String label, Color color, bool pulsing) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.2),
+        boxShadow: [
+          if (pulsing)
+            BoxShadow(
+              color: color.withOpacity(0.2),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (pulsing) ...[
+            _PulsingDot(color: color),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: color,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGlassStatCard({
     required String title,
     required String value,
@@ -1207,72 +1417,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildOccupancyBanner() {
-    final int inside = _totalPeopleInside;
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.05)
-            : Colors.black.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primaryBlue.withOpacity(0.25),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.groups_rounded, color: AppColors.primaryBlue, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            '$inside',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: AppColors.primaryBlue,
-            ),
-          ),
-          Text(
-            ' people inside',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurfaceVariant.withOpacity(0.65),
-            ),
-          ),
-          const Spacer(),
-          // Entries
-          Icon(Icons.login_rounded, size: 13, color: AppColors.statusSafe),
-          const SizedBox(width: 3),
-          Text(
-            '$_totalEntries',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: AppColors.statusSafe,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Exits
-          Icon(Icons.logout_rounded, size: 13, color: AppColors.statusDanger),
-          const SizedBox(width: 3),
-          Text(
-            '$_totalExits',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: AppColors.statusDanger,
-            ),
-          ),
-          const SizedBox(width: 8),
-          _PulsingDot(color: AppColors.statusSafe),
-        ],
-      ),
-    );
-  }
 
 
   Widget _buildAlarmControlCard({required String title, required String subtitle, required IconData icon, required Color color}) {
@@ -1442,112 +1587,137 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+              width: 1.0,
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Crowd Count",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _showCrowdCountDetail(),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.arrow_outward,
-                      color: colorScheme.onSurfaceVariant, size: 20),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                  flex: 2,
-                  child: Text("Location",
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurfaceVariant))),
-              Expanded(
-                  child: Text("Entry",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurfaceVariant))),
-              Expanded(
-                  child: Text("Exit",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurfaceVariant))),
-            ],
-          ),
-          Divider(
-              color: isDark ? Colors.white10 : Colors.black12, height: 16),
-          ListView.separated(
-            padding: EdgeInsets.zero,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _deviceData.length,
-            separatorBuilder: (context, index) =>
-                Divider(color: isDark ? Colors.white10 : Colors.black12, height: 16),
-            itemBuilder: (context, index) {
-              final data = _deviceData[index];
-              final int currentInside = ((data['entries'] ?? 0) as num).toInt() - ((data['exits'] ?? 0) as num).toInt();
-              return Row(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    flex: 2,
-                    child: Text(data['location'],
-                        style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w500)),
+                    child: Text(
+                      "CROWD MONITORING",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                      ),
+                    ),
                   ),
-                  Expanded(
-                    child: Text(currentInside.clamp(0, 99999).toString(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colorScheme.onSurface)),
-                  ),
-                  Expanded(
-                    child: Text(data['exits'].toString(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colorScheme.onSurface)),
+                  InkWell(
+                    onTap: () => _showCrowdCountDetail(),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.1)),
+                      ),
+                      child: Icon(Icons.north_east_rounded,
+                          color: colorScheme.onSurfaceVariant, size: 16),
+                    ),
                   ),
                 ],
-              );
-            },
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text("LOCATION",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 10,
+                            letterSpacing: 0.8,
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                  ),
+                  Expanded(
+                    child: Text("ENTRY",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 10,
+                            letterSpacing: 0.8,
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                  ),
+                  Expanded(
+                    child: Text("EXIT",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 10,
+                            letterSpacing: 0.8,
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Divider(
+                  color: (isDark ? Colors.white : Colors.black).withOpacity(0.06), height: 1),
+              const SizedBox(height: 12),
+              ListView.separated(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _deviceData.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final data = _deviceData[index];
+                  final int entries = ((data['entries'] ?? 0) as num).toInt();
+                  final int exits = ((data['exits'] ?? 0) as num).toInt();
+                  return Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(data['location'],
+                            style: TextStyle(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13)),
+                      ),
+                      Expanded(
+                        child: Text(entries.toString(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            )),
+                      ),
+                      Expanded(
+                        child: Text(exits.toString(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            )),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1556,357 +1726,645 @@ class _DashboardScreenState extends State<DashboardScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
-    // Next hourly reset: top of the next hour
     final nextReset = DateTime(now.year, now.month, now.day, now.hour + 1);
     final minsUntilReset = nextReset.difference(now).inMinutes;
 
+    // Check if any device is online (reset is only active when devices are online)
+    final bool anyOnline = _deviceData.any((d) => d['isOnline'] == true);
+
     showDialog(
       context: context,
+      barrierColor: Colors.black54,
       builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: colorScheme.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.7,
-              maxWidth: 500,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
-                  child: Row(
-                    children: [
-                      Icon(Icons.groups_rounded, color: AppColors.primaryBlue, size: 24),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          "Crowd Count Details",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.onSurface,
-                          ),
+        return TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 350),
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          curve: Curves.easeOutBack,
+          builder: (context, double animValue, child) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8.0 * animValue, sigmaY: 8.0 * animValue),
+              child: Opacity(
+                opacity: animValue.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.85 + (0.15 * animValue),
+                  child: Dialog(
+                    backgroundColor: Colors.transparent,
+                    insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.78,
+                        maxWidth: 500,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface.withOpacity(isDark ? 0.92 : 0.97),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                // Next reset banner
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.statusWarning.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.statusWarning.withOpacity(0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.timer_outlined, color: AppColors.statusWarning, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          "Next auto-reset in ${minsUntilReset}m",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.statusWarning,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          "Exits reset hourly",
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Table header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ),
-                      Expanded(
-                        child: Text("Entry", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ),
-                      Expanded(
-                        child: Text("Exit", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Text("Last Updated", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(color: isDark ? Colors.white10 : Colors.black12, indent: 20, endIndent: 20),
-                // Table rows
-                Flexible(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    shrinkWrap: true,
-                    itemCount: _deviceData.length,
-                    separatorBuilder: (_, __) => Divider(color: isDark ? Colors.white10 : Colors.black12, height: 16),
-                    itemBuilder: (context, index) {
-                      final data = _deviceData[index];
-                      final int rawEntries = ((data['entries'] ?? 0) as num).toInt();
-                      final int rawExits = ((data['exits'] ?? 0) as num).toInt();
-                      final int inside = (rawEntries - rawExits).clamp(0, 99999);
-
-                      String updatedText = "\u2014";
-                      final lu = data['last_updated'];
-                      if (lu != null) {
-                        final ts = DateTime.fromMillisecondsSinceEpoch((lu is int) ? lu : (lu as num).toInt());
-                        final diff = now.difference(ts);
-                        if (diff.inSeconds < 60) {
-                          updatedText = "Just now";
-                        } else if (diff.inMinutes < 60) {
-                          updatedText = "${diff.inMinutes}m ago";
-                        } else if (diff.inHours < 24) {
-                          updatedText = "${diff.inHours}h ago";
-                        } else {
-                          updatedText = "${diff.inDays}d ago";
-                        }
-                      }
-
-                      return Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Text(data['location'], style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w500, fontSize: 13)),
-                          ),
-                          Expanded(
-                            child: Text(inside.toString(), textAlign: TextAlign.center, style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 13)),
-                          ),
-                          Expanded(
-                            child: Text(rawExits.toString(), textAlign: TextAlign.center, style: TextStyle(color: colorScheme.onSurface, fontSize: 13)),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(updatedText, textAlign: TextAlign.center, style: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.6), fontSize: 11)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+                            blurRadius: 30,
+                            offset: const Offset(0, 12),
                           ),
                         ],
-                      );
-                    },
-                  ),
-                ),
-                // Reset button
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        showDialog(
-                          context: dialogContext,
-                          builder: (ctx) => AlertDialog(
-                            backgroundColor: colorScheme.surface,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            title: Row(
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // ── Header ──────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 24, 16, 0),
+                            child: Row(
                               children: [
-                                Icon(Icons.warning_amber_rounded, color: AppColors.statusDanger, size: 28),
-                                const SizedBox(width: 12),
-                                const Text("Reset All Counts", style: TextStyle(fontWeight: FontWeight.bold)),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryBlue.withOpacity(0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.groups_rounded, color: AppColors.primaryBlue, size: 22),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Crowd Count Details",
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w800,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "${_deviceData.length} sensor${_deviceData.length == 1 ? '' : 's'} registered",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant, size: 22),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
                               ],
                             ),
-                            content: const Text(
-                              "This will reset entries, exits, and people_inside to 0 for ALL devices.\n\nThis action cannot be undone.",
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                child: Text("Cancel", style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
-                              ),
-                              ElevatedButton(
-                                onPressed: () async {
-                                  Navigator.pop(ctx);
-                                  Navigator.pop(dialogContext);
-                                  final dbRef = FirebaseDatabase.instance.ref();
-                                  for (final device in _deviceData) {
-                                    final mac = device['mac']?.toString() ?? '';
-                                    if (mac.isNotEmpty) {
-                                      await dbRef.child('sensor_data').child(mac).update({
-                                        'total_entries': 0,
-                                        'total_exits': 0,
-                                        'people_inside': 0,
-                                      });
-                                    }
-                                  }
-                                  if (mounted) {
-                                    CustomNotificationModal.show(
-                                      context: this.context,
-                                      title: "Counts Reset",
-                                      message: "All ToF counts have been reset to 0.",
-                                      isSuccess: true,
-                                    );
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.statusDanger,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                child: const Text("RESET ALL", style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.restart_alt_rounded),
-                      label: const Text("Reset All ToF Counts", style: TextStyle(fontWeight: FontWeight.w700)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.statusDanger.withOpacity(0.1),
-                        foregroundColor: AppColors.statusDanger,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: AppColors.statusDanger.withOpacity(0.3)),
-                        ),
-                        elevation: 0,
+
+                          const SizedBox(height: 16),
+
+                          // ── Auto-Reset Timer Banner ─────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: anyOnline
+                                      ? [AppColors.statusWarning.withOpacity(0.10), AppColors.statusWarning.withOpacity(0.04)]
+                                      : [colorScheme.onSurfaceVariant.withOpacity(0.06), colorScheme.onSurfaceVariant.withOpacity(0.02)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: anyOnline
+                                      ? AppColors.statusWarning.withOpacity(0.25)
+                                      : colorScheme.onSurfaceVariant.withOpacity(0.1),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: (anyOnline ? AppColors.statusWarning : colorScheme.onSurfaceVariant).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      Icons.timer_outlined,
+                                      color: anyOnline ? AppColors.statusWarning : colorScheme.onSurfaceVariant,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          anyOnline
+                                              ? "Next auto-reset in ${minsUntilReset}m"
+                                              : "Auto-reset paused",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: anyOnline ? AppColors.statusWarning : colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          anyOnline
+                                              ? "Counts reset at the top of every hour"
+                                              : "No devices online — reset will resume on connection",
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // ── Column Headers ──────────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 5,
+                                  child: Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text("ENTRY", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text("EXIT", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.0, color: colorScheme.onSurfaceVariant.withOpacity(0.5))),
+                                ),
+                                const SizedBox(width: 36), // Space for reset button
+                              ],
+                            ),
+                          ),
+
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Divider(color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06), height: 20),
+                          ),
+
+                          // ── Device Rows ─────────────────────────
+                          Flexible(
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              shrinkWrap: true,
+                              itemCount: _deviceData.length,
+                              itemBuilder: (context, index) {
+                                final data = _deviceData[index];
+                                final int rawEntries = ((data['entries'] ?? 0) as num).toInt();
+                                final int rawExits = ((data['exits'] ?? 0) as num).toInt();
+                                final bool isOnline = data['isOnline'] == true;
+                                final String mac = data['mac']?.toString() ?? '';
+                                final String location = data['location']?.toString() ?? 'Unknown';
+
+                                String updatedText = "\u2014";
+                                final lu = data['last_updated'];
+                                if (lu != null) {
+                                  final ts = DateTime.fromMillisecondsSinceEpoch((lu is int) ? lu : (lu as num).toInt());
+                                  final diff = now.difference(ts);
+                                  if (diff.inSeconds < 60) {
+                                    updatedText = "Just now";
+                                  } else if (diff.inMinutes < 60) {
+                                    updatedText = "${diff.inMinutes}m ago";
+                                  } else if (diff.inHours < 24) {
+                                    updatedText = "${diff.inHours}h ago";
+                                  } else {
+                                    updatedText = "${diff.inDays}d ago";
+                                  }
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        // Main data row
+                                        Row(
+                                          children: [
+                                            // Location + Status
+                                            Expanded(
+                                              flex: 5,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    location,
+                                                    style: TextStyle(
+                                                      color: colorScheme.onSurface,
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration: BoxDecoration(
+                                                          shape: BoxShape.circle,
+                                                          color: isOnline ? AppColors.statusSafe : AppColors.statusDanger,
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withOpacity(0.5),
+                                                              blurRadius: 4,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        isOnline ? "Online" : "Offline",
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: isOnline ? AppColors.statusSafe : AppColors.statusDanger,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        "· $updatedText",
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          color: colorScheme.onSurfaceVariant.withOpacity(0.45),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Entry count
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                children: [
+                                                  Text(
+                                                    rawEntries.toString(),
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: AppColors.statusSafe,
+                                                      fontWeight: FontWeight.w800,
+                                                      fontSize: 18,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Exit count
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                children: [
+                                                  Text(
+                                                    rawExits.toString(),
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: AppColors.statusDanger,
+                                                      fontWeight: FontWeight.w800,
+                                                      fontSize: 18,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Per-location reset button
+                                            SizedBox(
+                                              width: 36,
+                                              child: IconButton(
+                                                onPressed: mac.isEmpty ? null : () {
+                                                  showDialog(
+                                                    context: dialogContext,
+                                                    builder: (ctx) => AlertDialog(
+                                                      backgroundColor: colorScheme.surface,
+                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                                      title: Row(
+                                                        children: [
+                                                          Icon(Icons.restart_alt_rounded, color: AppColors.statusWarning, size: 24),
+                                                          const SizedBox(width: 10),
+                                                          Expanded(
+                                                            child: Text("Reset $location?", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      content: Text(
+                                                        "This will reset entries, exits, and people inside to 0 for '$location'.\n\nThis action cannot be undone.",
+                                                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14, height: 1.5),
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () => Navigator.pop(ctx),
+                                                          child: Text("Cancel", style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                                                        ),
+                                                        ElevatedButton(
+                                                          onPressed: () {
+                                                            Navigator.pop(ctx);
+                                                            Navigator.pop(dialogContext);
+                                                            _resetSingleDevice(mac, location);
+                                                          },
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor: AppColors.statusWarning,
+                                                            foregroundColor: Colors.white,
+                                                            elevation: 0,
+                                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                          ),
+                                                          child: const Text("RESET", style: TextStyle(fontWeight: FontWeight.bold)),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                },
+                                                icon: const Icon(
+                                                  Icons.restart_alt_rounded,
+                                                  size: 18,
+                                                  color: AppColors.statusWarning,
+                                                ),
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                          // ── Reset All Button ────────────────────
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  showDialog(
+                                    context: dialogContext,
+                                    builder: (ctx) => AlertDialog(
+                                      backgroundColor: colorScheme.surface,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      title: Row(
+                                        children: [
+                                          Icon(Icons.warning_amber_rounded, color: AppColors.statusDanger, size: 28),
+                                          const SizedBox(width: 12),
+                                          const Text("Reset All Counts", style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                      content: Text(
+                                        "This will reset entries, exits, and people inside to 0 for ALL devices.\n\nThis action cannot be undone.",
+                                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14, height: 1.5),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx),
+                                          child: Text("Cancel", style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () async {
+                                            Navigator.pop(ctx);
+                                            Navigator.pop(dialogContext);
+                                            final dbRef = FirebaseDatabase.instance.ref();
+                                            final currentHour = DateTime.now().hour;
+                                            for (final device in _deviceData) {
+                                              final mac = device['mac']?.toString() ?? '';
+                                              if (mac.isNotEmpty) {
+                                                await dbRef.child('sensor_data').child(mac).update({
+                                                  'total_entries': 0,
+                                                  'total_exits': 0,
+                                                  'people_inside': 0,
+                                                  'last_reset_hour': currentHour,
+                                                });
+                                              }
+                                            }
+                                            if (mounted) {
+                                              CustomNotificationModal.show(
+                                                context: this.context,
+                                                title: "Counts Reset",
+                                                message: "All ToF counts have been reset to 0.",
+                                                isSuccess: true,
+                                              );
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.statusDanger,
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                          child: const Text("RESET ALL", style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                                label: const Text("Reset All ToF Counts", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.statusDanger.withOpacity(0.08),
+                                  foregroundColor: AppColors.statusDanger,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(color: AppColors.statusDanger.withOpacity(0.2)),
+                                  ),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
   Widget _buildRoleCard(BuildContext context, String label, int count, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
-            blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
-            offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          decoration: BoxDecoration(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: color.withOpacity(0.15),
+              width: 1.0,
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 14),
                   ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label.toUpperCase().split(' ').first, // Just the role name
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                  _PulsingDot(color: color),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "$count",
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "ONLINE",
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                  color: color.withOpacity(0.7),
+                  letterSpacing: 1.0,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            "$count",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildShowUsersButton(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const UsersManagementScreen()),
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
-              blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
-              offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primaryBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.manage_accounts, color: AppColors.accentBlue),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Show Users",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Manage administrators and facilitators",
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const UsersManagementScreen()),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withOpacity(isDark ? 0.08 : 0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.primaryBlue.withOpacity(0.25),
+                width: 1.2,
               ),
             ),
-            Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ],
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryBlue.withOpacity(0.2),
+                        blurRadius: 10,
+                        spreadRadius: -2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.manage_accounts_rounded, color: AppColors.primaryBlue, size: 22),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "USER RECORDS",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: AppColors.primaryBlue.withOpacity(0.8),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Manage Active Roles",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.primaryBlue),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

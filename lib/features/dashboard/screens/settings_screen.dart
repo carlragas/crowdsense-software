@@ -13,7 +13,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool pushNotifications = true;
   bool emailAlerts = false;
   bool maintenanceMode = false;
 
@@ -45,12 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             // Preferences Section
             _buildSectionHeader("Preferences"),
-            _buildSwitchTile(
-              icon: Icons.notifications_active_outlined,
-              title: "Push Notifications",
-              value: pushNotifications,
-              onChanged: (val) => setState(() => pushNotifications = val),
-            ),
+
             _buildSwitchTile(
               icon: Icons.email_outlined,
               title: "Email Alerts",
@@ -75,12 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             // System & Gateway Section
             _buildSectionHeader("System Network"),
-            _buildSettingsTile(
-              icon: Icons.router_outlined,
-              title: "Gateway Configuration",
-              subtitle: "Connected to PUP-CEA-MAIN",
-              onTap: () {},
-            ),
+
             _buildSwitchTile(
               icon: Icons.build_circle_outlined,
               title: "Maintenance Mode",
@@ -391,6 +380,22 @@ class _AboutCrowdSenseSheet extends StatelessWidget {
                       icon: Icons.thermostat_rounded,
                       title: "Temperature Monitoring",
                       description: "Continuous thermal tracking to identify abnormal heat patterns before they escalate.",
+                      isDark: isDark,
+                      colorScheme: colorScheme,
+                    ),
+                    const SizedBox(height: 8),
+                    _AboutFeatureCard(
+                      icon: Icons.cloud_done_rounded,
+                      title: "Firebase Cloud Server",
+                      description: "Real-time data synchronization and secure cloud storage using Firebase Realtime Database.",
+                      isDark: isDark,
+                      colorScheme: colorScheme,
+                    ),
+                    const SizedBox(height: 8),
+                    _AboutFeatureCard(
+                      icon: Icons.flutter_dash_rounded,
+                      title: "Flutter Framework",
+                      description: "Modern, cross-platform application built with the Flutter SDK for a premium user experience.",
                       isDark: isDark,
                       colorScheme: colorScheme,
                     ),

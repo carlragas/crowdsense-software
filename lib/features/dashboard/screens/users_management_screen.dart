@@ -644,7 +644,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     return PopupMenuButton<String>(
       onSelected: onChanged,
       offset: const Offset(0, 42),
-      tooltip: '',
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       itemBuilder: (context) {
         return items
@@ -895,7 +894,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                             color: textColor)),
                     IconButton(
                       icon: Icon(Icons.close, color: textMuted),
-                      tooltip: '',
                       onPressed: isSaving ? null : () => Navigator.pop(context),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),

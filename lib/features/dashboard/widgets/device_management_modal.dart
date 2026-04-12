@@ -299,36 +299,54 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
       child: Container(
         height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withOpacity(0.95),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(
-            top: BorderSide(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+          color: colorScheme.surface.withOpacity(isDark ? 0.92 : 0.97),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(32),
+            topRight: Radius.circular(32),
+          ),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.5 : 0.1),
-              blurRadius: isDark ? 20 : 30,
-              offset: Offset(0, isDark ? -10 : -15),
+              color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+              blurRadius: 30,
+              offset: const Offset(0, -12),
             ),
           ],
         ),
         child: Column(
           children: [
+            // ── Grab Handle ─────────────────────────────
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            
             _buildHeader(context),
-            const Divider(height: 1),
+            
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionTitle("Add New Device"),
+                    _buildSectionTitle("ADD NEW DEVICE"),
                     const SizedBox(height: 16),
                     _buildAddDeviceForm(isDark),
                     
@@ -337,14 +355,18 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildSectionTitle("Configured Devices"),
+                        _buildSectionTitle("CONFIGURED DEVICES"),
                         if (_devices.length > 1)
                           IconButton(
                             icon: Icon(
-                              _isReordering ? Icons.check_circle : Icons.reorder_rounded,
+                              _isReordering ? Icons.check_circle_rounded : Icons.reorder_rounded,
                               color: _isReordering ? AppColors.statusSafe : AppColors.primaryBlue,
+                              size: 22,
                             ),
-                            tooltip: _isReordering ? "Save Order" : "Reorder Devices",
+                            style: IconButton.styleFrom(
+                              backgroundColor: (_isReordering ? AppColors.statusSafe : AppColors.primaryBlue).withOpacity(0.12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                             onPressed: () => setState(() => _isReordering = !_isReordering),
                           ),
                       ],
@@ -352,7 +374,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                     const SizedBox(height: 16),
                     _buildDeviceList(isDark),
                     
-                    const SizedBox(height: 48), // Padding at bottom
+                    const SizedBox(height: 64), // Extra padding at bottom
                   ],
                 ),
               ),
@@ -364,36 +386,57 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+      child: Row(
         children: [
           Container(
-            width: 40,
-            height: 4,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(2),
+              color: AppColors.primaryBlue.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.settings_suggest_rounded,
+              color: AppColors.primaryBlue,
+              size: 22,
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Device Management",
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Device Management",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  "Manage sensor nodes",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant, size: 22),
+            style: IconButton.styleFrom(
+              backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ],
       ),
@@ -404,9 +447,10 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     return Text(
       title,
       style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.2,
+        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
       ),
     );
   }
@@ -415,46 +459,60 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.02) : Colors.black.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04)),
       ),
       child: Column(
         children: [
           TextField(
             controller: _macController,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
-              labelText: "MAC Address",
+              labelText: "MAC ADDRESS",
+              labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Theme.of(context).colorScheme.primary.withOpacity(0.85)),
               hintText: "e.g. 00:1B:44:11:3A:B7",
-              prefixIcon: const Icon(Icons.memory),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: Icon(Icons.memory_rounded, color: AppColors.primaryBlue.withOpacity(0.7), size: 20),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
+              fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _nameController,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
-              labelText: "Location/Node Name",
+              labelText: "LOCATION/NODE NAME",
+              labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Theme.of(context).colorScheme.primary.withOpacity(0.85)),
               hintText: "e.g. CEA 3rd Floor",
-              prefixIcon: const Icon(Icons.location_on),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: Icon(Icons.location_on_rounded, color: AppColors.primaryBlue.withOpacity(0.7), size: 20),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
+              fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               onPressed: _handleAddDevice,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text("Add Device", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryBlue,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text("Add Device", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                ],
               ),
             ),
           ),
@@ -628,154 +686,125 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     final isDark = widget.isDark;
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.01),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+        ),
       ),
       child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: (isOnline ? AppColors.primaryBlue : AppColors.textGrey).withOpacity(0.1),
               shape: BoxShape.circle,
-              border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
             ),
-            child: Stack(
-              children: [
-                Icon(Icons.router, color: isOnline ? AppColors.primaryBlue : AppColors.textGrey, size: 24),
-                // Pulsing hardware-live dot
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: _isHardwareLive ? AppColors.statusSafe : AppColors.textGrey,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Theme.of(context).colorScheme.surface, width: 1.5),
-                      boxShadow: _isHardwareLive
-                        ? [BoxShadow(color: AppColors.statusSafe.withOpacity(0.6), blurRadius: 4)]
-                        : null,
-                    ),
-                  ),
-                ),
-              ],
+            child: Icon(
+              Icons.router_rounded,
+              color: isOnline ? AppColors.primaryBlue : AppColors.textGrey,
+              size: 22,
             ),
           ),
           title: Text(
             widget.device["name"],
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          subtitle: Row(
             children: [
-              Text(
-                widget.device["macAddress"],
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+              _AnimatedPulsingDot(
+                color: _isHardwareLive ? AppColors.statusSafe : AppColors.textGrey,
+                size: 6,
               ),
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  Icon(
-                    _isHardwareLive ? Icons.sensors : Icons.sensors_off,
-                    size: 12,
-                    color: _isHardwareLive ? AppColors.statusSafe : AppColors.textGrey,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _isHardwareLive ? 'ESP32 Live · $_lastSeenText' : 'ESP32 Offline · $_lastSeenText',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _isHardwareLive ? AppColors.statusSafe : AppColors.textGrey,
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 8),
+              Text(
+                _isHardwareLive ? 'LIVE' : 'OFFLINE',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                  color: _isHardwareLive ? AppColors.statusSafe : AppColors.textGrey,
+                ),
+              ),
+              Text(
+                " · $_lastSeenText",
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
           trailing: widget.isReordering 
             ? ReorderableDragStartListener(
                 index: widget.index,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.drag_handle_rounded, color: AppColors.textGrey, size: 28),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(Icons.drag_handle_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4)),
                 ),
               )
             : _buildStatusBadge(isOnline),
           children: widget.isReordering ? [] : [
-            const Divider(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _buildHeartbeatCard(),
             const SizedBox(height: 12),
             _buildStatusToggle(isOnline),
             const SizedBox(height: 16),
-            TextField(
-               controller: _macCtrl,
-               decoration: const InputDecoration(labelText: "MAC Address", border: OutlineInputBorder(), isDense: true),
-            ),
+            
+            // Edit Fields
+            Text("DEVICE DETAILS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6))),
             const SizedBox(height: 12),
             TextField(
-               controller: _nameCtrl,
-               decoration: const InputDecoration(labelText: "Location/Node Name", border: OutlineInputBorder(), isDense: true),
+              controller: _macCtrl,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                labelText: "MAC Address",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                filled: true,
+                fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+                isDense: true,
+              ),
             ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _nameCtrl,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                labelText: "Location Name",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                filled: true,
+                fillColor: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
+                isDense: true,
+              ),
+            ),
+            
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Temperature Alert", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                Text("${_tempThresh.toStringAsFixed(1)} °C", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.statusDanger, fontSize: 13)),
-              ],
-            ),
-            Slider(
-              value: _tempThresh,
-              min: 30.0,
-              max: 60.0,
-              divisions: 60,
-              activeColor: AppColors.statusDanger,
-              onChanged: (val) => setState(() => _tempThresh = val),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Smoke Alert", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                Text("${_smokeThresh.toStringAsFixed(0)} PPM", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryBlue, fontSize: 13)),
-              ],
-            ),
-            Slider(
-              value: _smokeThresh,
-              min: 100.0,
-              max: 500.0,
-              divisions: 40,
-              activeColor: AppColors.primaryBlue,
-              onChanged: (val) => setState(() => _smokeThresh = val),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Flame Alert", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                Text("${_flameThresh.toStringAsFixed(0)} PPM", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.statusWarning, fontSize: 13)),
-              ],
-            ),
-            Slider(
-              value: _flameThresh,
-              min: 50.0,
-              max: 500.0,
-              divisions: 45,
-              activeColor: AppColors.statusWarning,
-              onChanged: (val) => setState(() => _flameThresh = val),
-            ),
+            Text("SENSOR THRESHOLDS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6))),
             const SizedBox(height: 16),
+            
+            _buildThresholdSlider("Temperature", _tempThresh, 30, 60, AppColors.statusDanger, "°C", (v) => setState(() => _tempThresh = v)),
+            _buildThresholdSlider("Smoke", _smokeThresh, 100, 500, AppColors.primaryBlue, "PPM", (v) => setState(() => _smokeThresh = v)),
+            _buildThresholdSlider("Flame", _flameThresh, 50, 500, AppColors.statusWarning, "PPM", (v) => setState(() => _flameThresh = v)),
+            
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: () {
                       widget.onSave(
                          widget.device["macAddress"], 
@@ -788,27 +817,27 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                          }
                       );
                     },
-                    icon: const Icon(Icons.check, color: Colors.white),
-                    label: const Text("Save", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryBlue,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      foregroundColor: Colors.white,
                       elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
+                    child: const Text("Save Changes", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: OutlinedButton(
                     onPressed: () => widget.onRemove(widget.device["macAddress"], widget.device["name"]),
-                    icon: const Icon(Icons.delete_outline, color: AppColors.statusDanger),
-                    label: const Text("Remove", style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold, fontSize: 14)),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: BorderSide(color: AppColors.statusDanger.withOpacity(0.5), width: 1.5),
+                      side: BorderSide(color: AppColors.statusDanger.withOpacity(0.4), width: 1.5),
+                      foregroundColor: AppColors.statusDanger,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
+                    child: const Text("Remove", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                   ),
                 ),
               ],
@@ -819,34 +848,56 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     );
   }
 
+  Widget _buildThresholdSlider(String label, double value, double min, double max, Color color, String unit, Function(double) onChange) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            Text("${value.toStringAsFixed(label == 'Temperature' ? 1 : 0)} $unit", style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 13)),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 4,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+          ),
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            activeColor: color,
+            inactiveColor: color.withOpacity(0.1),
+            onChanged: onChange,
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
   Widget _buildStatusBadge(bool isOnline) {
     final color = isOnline ? AppColors.statusSafe : AppColors.textGrey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: isOnline ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 6)] : null,
-            ),
-          ),
-          const SizedBox(width: 6),
+          _AnimatedPulsingDot(color: color, size: 6.0),
+          const SizedBox(width: 8),
           Text(
-            isOnline ? "ONLINE" : "OFFLINE",
+            isOnline ? "POWER ON" : "POWER OFF",
             style: TextStyle(
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
               letterSpacing: 0.5,
             ),
           ),
@@ -936,29 +987,35 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   }
 
   Widget _buildStatusToggle(bool isOnline) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.06)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
               Icon(
-                isOnline ? Icons.wifi : Icons.wifi_off,
+                isOnline ? Icons.power_rounded : Icons.power_off_rounded,
                 size: 22,
                 color: isOnline ? AppColors.statusSafe : AppColors.statusDanger,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Hardware Connectivity", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  const Text("Operation Power", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
                   const SizedBox(height: 2),
                   Text(
-                    isOnline ? "Node is active and sending data" : "Node is physically disconnected",
+                    isOnline ? "Device is currently POWERED ON" : "Device is currently POWERED OFF",
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8),
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -971,11 +1028,11 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              width: 68,
-              height: 34,
+              width: 58,
+              height: 30,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: isOnline ? AppColors.statusSafe.withOpacity(0.15) : AppColors.statusDanger.withOpacity(0.12),
+                color: isOnline ? AppColors.statusSafe.withOpacity(0.12) : AppColors.statusDanger.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isOnline ? AppColors.statusSafe.withOpacity(0.3) : AppColors.statusDanger.withOpacity(0.25),
@@ -987,23 +1044,23 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                 alignment: isOnline ? Alignment.centerRight : Alignment.centerLeft,
                 curve: Curves.easeOutBack,
                 child: Container(
-                  width: 26,
-                  height: 26,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: isOnline ? AppColors.statusSafe : AppColors.statusDanger,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withOpacity(0.5),
+                        color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withOpacity(0.4),
                         blurRadius: 4,
-                        offset: const Offset(0, 2),
+                        offset: const Offset(0, 1),
                       )
                     ],
                   ),
                   child: Icon(
-                    Icons.power_settings_new,
-                    size: 15,
-                    color: Colors.white.withOpacity(0.95),
+                    Icons.power_settings_new_rounded,
+                    size: 13,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -1011,6 +1068,63 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
           )
         ],
       ),
+    );
+  }
+}
+
+class _AnimatedPulsingDot extends StatefulWidget {
+  final Color color;
+  final double size;
+
+  const _AnimatedPulsingDot({required this.color, this.size = 8.0});
+
+  @override
+  State<_AnimatedPulsingDot> createState() => _AnimatedPulsingDotState();
+}
+
+class _AnimatedPulsingDotState extends State<_AnimatedPulsingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.color.withOpacity(_animation.value),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(0.6 * _animation.value),
+                blurRadius: widget.size * _animation.value,
+                spreadRadius: (widget.size / 2) * _animation.value,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

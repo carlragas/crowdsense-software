@@ -104,130 +104,171 @@ class _DevicesScreenState extends State<DevicesScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Power Management Full-Width Card
-        InkWell(
-          onTap: () => _showDeviceDetailsModal(context, "Power Management"),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
-                  blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
-                  offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.greenAccent[400]!.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.bolt, color: Colors.greenAccent[400]!),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Power Management",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
+        Row(
+          children: [
+            // Power Management Card
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: InkWell(
+                    onTap: () => _showDeviceDetailsModal(context, "Power Management"),
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      height: 140,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                      decoration: BoxDecoration(
+                        color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: AppColors.statusSafe.withOpacity(0.15),
+                          width: 1.0,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Monitor UPS battery and AC power status",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.statusSafe.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.bolt_rounded, color: AppColors.statusSafe, size: 14),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "POWER",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 10,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.2),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "UPS & AC",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Status Monitor",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ],
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Device Management Button
-        InkWell(
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => const DeviceManagementModal(),
-            );
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
-                  blurRadius: Theme.of(context).brightness == Brightness.dark ? 10 : 20,
-                  offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 4 : 8),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.settings_suggest, color: AppColors.accentBlue),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Device Management",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
+            const SizedBox(width: 12),
+            // Device Management Card
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: InkWell(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => const DeviceManagementModal(),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      height: 140,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                      decoration: BoxDecoration(
+                        color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: AppColors.primaryBlue.withOpacity(0.15),
+                          width: 1.0,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Add, remove, or configure devices",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryBlue.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.settings_suggest_rounded, color: AppColors.primaryBlue, size: 14),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "DEVICES",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 10,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.2),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Nodes Management",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Configuration",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
         const SizedBox(height: 32),
         // Logs Header
@@ -259,7 +300,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
             _BouncingFilterButton(onTap: _openFilterModal),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         
         ..._buildFilteredLogWidgets(),
       ],
@@ -598,7 +639,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
     // 3. Build Widgets
     List<Widget> widgets = [];
     groupedLogs.forEach((dateKey, logs) {
-      widgets.add(_buildDateHeader(dateKey, logs.length));
+      final parts = dateKey.split(" // ");
+      final dateStr = parts[0];
+      final relativeStr = parts.length > 1 ? parts[1] : "";
+      
+      widgets.add(_buildDateHeader(dateStr, relativeStr, logs.length));
       for (var log in logs) {
         widgets.add(_buildLogItem(log));
       }
@@ -998,129 +1043,183 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _showDeviceDetailsModal(BuildContext context, String title) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black45, // Translucent underlying barrier
-      builder: (context) {
-        return TweenAnimationBuilder(
-          duration: const Duration(milliseconds: 450), // Matches exactly the slow, smooth filter curve
-          tween: Tween<double>(begin: 0.0, end: 1.0),
-          curve: Curves.easeOutBack,
-          builder: (context, double value, child) {
-            return BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
-              child: Opacity(
-                opacity: value.clamp(0.0, 1.0),
-                child: Transform.scale(
-                  scale: 0.8 + (0.2 * value),
-                  child: Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.1),
-                    blurRadius: Theme.of(context).brightness == Brightness.dark ? 20 : 30,
-                    offset: Offset(0, Theme.of(context).brightness == Brightness.dark ? 10 : 15),
-                  ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title.replaceAll('\n', ' '),
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 28),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                        Text("Status", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                    Divider(height: 32, thickness: 1.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1)),
-                    if (title.toLowerCase().contains('power')) ...[
-                      _buildPowerStatusRow("Main Entrance", true),
-                      const SizedBox(height: 16),
-                      _buildPowerStatusRow("Central Stairs", false),
-                      const SizedBox(height: 16),
-                      _buildPowerStatusRow("Parking Entrance", true),
-                      const SizedBox(height: 16),
-                      _buildPowerStatusRow("Parking Side", false),
-                    ] else ...[
-                      _buildDeviceStatusRow("Main Entrance", true),
-                      const SizedBox(height: 16),
-                      _buildDeviceStatusRow("Central Stairs", true),
-                      const SizedBox(height: 16),
-                      _buildDeviceStatusRow("Parking Entrance", true),
-                      const SizedBox(height: 16),
-                      _buildDeviceStatusRow("Parking Side", false),
-                    ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
-                    if (title.toLowerCase().contains('power')) ...[
-                      const SizedBox(height: 48),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Location", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                          Text("Battery %", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                        ],
-                      ),
-                      Divider(height: 32, thickness: 1.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1)),
-                      _buildDeviceBatteryRow("Main Entrance", "87%"),
-                      const SizedBox(height: 16),
-                      _buildDeviceBatteryRow("Central Stairs", "20%"),
-                      const SizedBox(height: 16),
-                      _buildDeviceBatteryRow("Parking Entrance", "41%"),
-                      const SizedBox(height: 16),
-                      _buildDeviceBatteryRow("Parking Side", "N/A"),
-                    ],
-                    
-                    const SizedBox(height: 32),
-                    Center(
-                      child: Text(
-                        "Last sync: 2026/02/24 00:20",
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.surface.withOpacity(isDark ? 0.92 : 0.97),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(32),
+                topRight: Radius.circular(32),
+              ),
+              border: Border.all(
+                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
               ),
             ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Grab Handle ─────────────────────────────
+                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                
+                // ── Header ──────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBlue.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          title.toLowerCase().contains('power') ? Icons.bolt_rounded : Icons.router_rounded,
+                          color: AppColors.primaryBlue,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title.replaceAll('\n', ' '),
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: colorScheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "4 sensors tracked",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant, size: 22),
+                        style: IconButton.styleFrom(
+                          backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        
+                        const SizedBox(height: 24),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Section Header
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                                  Text("STATUS", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                                ],
+                              ),
+                              Divider(height: 32, color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06)),
+
+                              if (title.toLowerCase().contains('power')) ...[
+                                _buildPowerStatusRow("Main Entrance", true),
+                                const SizedBox(height: 10),
+                                _buildPowerStatusRow("Central Stairs", false),
+                                const SizedBox(height: 10),
+                                _buildPowerStatusRow("Parking Entrance", true),
+                                const SizedBox(height: 10),
+                                _buildPowerStatusRow("Parking Side", false),
+                              ] else ...[
+                                _buildDeviceStatusRow("Main Entrance", true),
+                                const SizedBox(height: 10),
+                                _buildDeviceStatusRow("Central Stairs", true),
+                                const SizedBox(height: 10),
+                                _buildDeviceStatusRow("Parking Entrance", true),
+                                const SizedBox(height: 10),
+                                _buildDeviceStatusRow("Parking Side", false),
+                              ],
+
+                              if (title.toLowerCase().contains('power')) ...[
+                                const SizedBox(height: 32),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                                    Text("BATTERY %", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                                  ],
+                                ),
+                                Divider(height: 32, color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06)),
+                                _buildDeviceBatteryRow("Main Entrance", "87%"),
+                                const SizedBox(height: 10),
+                                _buildDeviceBatteryRow("Central Stairs", "20%"),
+                                const SizedBox(height: 10),
+                                _buildDeviceBatteryRow("Parking Entrance", "41%"),
+                                const SizedBox(height: 10),
+                                _buildDeviceBatteryRow("Parking Side", "N/A"),
+                              ],
+                              
+                              const SizedBox(height: 32),
+                              Center(
+                                child: Text(
+                                  "Last sync: 2026/02/24 00:20",
+                                  style: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(height: 48), // Extra padding at bottom for better feel
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
-    );
-          },
         );
       },
     );
@@ -1128,29 +1227,37 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
   Widget _buildDeviceStatusRow(String location, bool isConnected) {
     final statusColor = isConnected ? AppColors.statusSafe : AppColors.statusDanger;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
-        SizedBox(
-          width: 90, // Fixed width for alignment
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            location,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              gradient: LinearGradient(
-                colors: [
-                  statusColor.withOpacity(0.25),
-                  statusColor.withOpacity(0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: statusColor.withOpacity(0.4), width: 1.0),
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: statusColor.withOpacity(0.2)),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 _AnimatedPulsingDot(color: statusColor, size: 6.0),
@@ -1159,66 +1266,74 @@ class _DevicesScreenState extends State<DevicesScreen> {
                   isConnected ? "ONLINE" : "OFFLINE",
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 11,
+                    fontSize: 10,
                     letterSpacing: 0.5,
-                    color: statusColor.withOpacity(0.9),
+                    color: statusColor,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildPowerStatusRow(String location, bool isMainPower) {
-    final statusColor = isMainPower ? Colors.green[700]! : Colors.amber[700]!;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
-        SizedBox(
-          width: 142, // Fixed width for alignment
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+    final statusColor = isMainPower ? AppColors.statusSafe : AppColors.statusWarning;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            location,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              gradient: LinearGradient(
-                colors: [
-                  statusColor.withOpacity(0.25),
-                  statusColor.withOpacity(0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: statusColor.withOpacity(0.4), width: 1.0),
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: statusColor.withOpacity(0.2)),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isMainPower ? Icons.check_circle : Icons.warning_rounded,
+                  isMainPower ? Icons.power_rounded : Icons.battery_alert_rounded,
                   color: statusColor,
                   size: 14,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Text(
                   isMainPower ? "MAIN POWER" : "BACKUP POWER",
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 11,
+                    fontSize: 10,
                     letterSpacing: 0.5,
-                    color: statusColor.withOpacity(0.9),
+                    color: statusColor,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1228,17 +1343,18 @@ class _DevicesScreenState extends State<DevicesScreen> {
       batteryLevel = int.tryParse(batteryStr.substring(0, batteryStr.length - 1));
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     Color batteryColor;
     if (batteryLevel == null) {
-      batteryColor = Theme.of(context).colorScheme.onSurfaceVariant;
+      batteryColor = colorScheme.onSurfaceVariant;
     } else if (batteryLevel >= 80) {
-      batteryColor = Colors.green[700]!; // Dark green for high battery
-    } else if (batteryLevel >= 60) {
-      batteryColor = Colors.lightGreen; // Light green for good battery
+      batteryColor = AppColors.statusSafe;
     } else if (batteryLevel >= 40) {
-      batteryColor = Colors.amber; // Yellow for medium battery
+      batteryColor = AppColors.statusWarning;
     } else {
-      batteryColor = Colors.red; // Red for low battery
+      batteryColor = AppColors.statusDanger;
     }
 
     Widget batteryIndicator;
@@ -1247,14 +1363,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
     if (needsCharging) {
       batteryIndicator = Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 50,
-            height: 24,
+            width: 44,
+            height: 20,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.red.withOpacity(0.5), width: 1.5),
-              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.statusDanger.withOpacity(0.5), width: 1.5),
+              borderRadius: BorderRadius.circular(5),
             ),
             padding: const EdgeInsets.all(2),
             child: const Center(
@@ -1262,14 +1377,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
             ),
           ),
           Container(
-            width: 3,
-            height: 10,
+            width: 2,
+            height: 8,
             decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.5),
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(3),
-                bottomRight: Radius.circular(3),
-              ),
+              color: AppColors.statusDanger.withOpacity(0.5),
+              borderRadius: const BorderRadius.only(topRight: Radius.circular(2), bottomRight: Radius.circular(2)),
             ),
           ),
         ],
@@ -1277,95 +1389,165 @@ class _DevicesScreenState extends State<DevicesScreen> {
     } else {
       batteryIndicator = Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 50,
-            height: 24,
+            width: 44,
+            height: 20,
             decoration: BoxDecoration(
               border: Border.all(color: batteryColor.withOpacity(0.5), width: 1.5),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(5),
             ),
             padding: const EdgeInsets.all(2),
             child: Stack(
-              alignment: Alignment.center,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    width: 43 * (batteryLevel / 100).clamp(0.0, 1.0),
-                    decoration: BoxDecoration(
-                      color: batteryColor.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
+                Container(
+                  width: 38 * (batteryLevel / 100).clamp(0.0, 1.0),
+                  decoration: BoxDecoration(
+                    color: batteryColor.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                Text(
-                  batteryStr,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
-                    letterSpacing: 0.5,
-                    color: batteryColor,
+                Center(
+                  child: Text(
+                    batteryStr,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 9,
+                      color: batteryColor,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            width: 3,
-            height: 10,
+            width: 2,
+            height: 8,
             decoration: BoxDecoration(
               color: batteryColor.withOpacity(0.5),
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(3),
-                bottomRight: Radius.circular(3),
-              ),
+              borderRadius: const BorderRadius.only(topRight: Radius.circular(2), bottomRight: Radius.circular(2)),
             ),
           ),
         ],
       );
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(location, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Theme.of(context).colorScheme.onSurface)),
-        batteryIndicator,
-      ],
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            location,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          batteryIndicator,
+        ],
+      ),
     );
   }
 
-  Widget _buildDateHeader(String date, int count) {
+  Widget _buildDateHeader(String date, String relative, int count) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      padding: const EdgeInsets.only(bottom: 16, top: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            date,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              letterSpacing: 0.5,
+          // ── Date & Relative Label Capsule ──────────────────────────────────
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(isDark ? 0.12 : 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryBlue.withOpacity(isDark ? 0.3 : 0.2),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      date,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    if (relative.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Container(
+                          width: 1.5,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryBlue.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        relative,
+                        style: const TextStyle(
+                          color: AppColors.primaryBlue,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
+          
+          const SizedBox(width: 10),
+          
+          // ── Count Badge ──────────────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.transparent,
-              border: Border.all(color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5), width: 1.5),
-              borderRadius: BorderRadius.circular(6),
+              color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                width: 1.2,
+              ),
             ),
             child: Text(
               count.toString(),
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                 fontWeight: FontWeight.w900,
                 fontSize: 12,
               ),
+            ),
+          ),
+          
+          // Spacer line to fill the rest of the row
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: 12),
+              child: Divider(thickness: 1, height: 1),
             ),
           ),
         ],
