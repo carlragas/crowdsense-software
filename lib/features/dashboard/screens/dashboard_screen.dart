@@ -692,7 +692,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const PageTitle(title: "Dashboard"),
+                        PageTitle(
+                          key: ValueKey('Page_$_currentIndex'), 
+                          title: "Dashboard"
+                        ),
                         const SizedBox(height: 12),
                         _buildStatsRow(),
                         const SizedBox(height: 12),
@@ -763,12 +766,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ],
                     ),
                     // Index 1: Analytics
-                    const AnalyticsScreen(),
+                    AnalyticsScreen(activeIndex: _currentIndex),
                     // Index 2 (Center): Alerts & Manual Siren Control
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const PageTitle(title: "Override Siren"),
+                        PageTitle(
+                          key: ValueKey('Page_$_currentIndex'), 
+                          title: "Override Siren"
+                        ),
                         const SizedBox(height: 16),
                         // Tactical command strip console
                         _buildSirenCommandStrip(),
@@ -819,7 +825,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                         _buildCircularOverrideCarousel(),
                       ],
                     ),
-                    // Index 3: Devices
                     DevicesScreen(
                       logs: _deviceLogs,
                       highlightedLogId: _highlightedLogId,
@@ -827,9 +832,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       parentScrollController: _scrollController,
                       onlineCount: _onlineCount,
                       offlineCount: _offlineCount,
+                      activeIndex: _currentIndex,
                     ),
                     // Index 4: Settings
-                    const SettingsScreen(),
+                    SettingsScreen(activeIndex: _currentIndex),
                   ],
                 ),
               ),
@@ -873,9 +879,16 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-              CustomPaint(
-                size: Size(MediaQuery.of(context).size.width - 32, 90),
-                painter: _NavBarPainter(context, _currentIndex),
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: _currentIndex == 2 ? 1.0 : 0.0, end: _currentIndex == 2 ? 1.0 : 0.0),
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return CustomPaint(
+                    size: Size(MediaQuery.of(context).size.width - 32, 90),
+                    painter: _AnimatedNavBarPainter(context, value),
+                  );
+                },
               ),
               Positioned.fill(
                 child: Row(
@@ -940,9 +953,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                   },
                     child: AnimatedScale(
                       scale: _currentIndex == 2 ? 1.12 : 1.0,
-                      duration: const Duration(milliseconds: 200),
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
                         width: 70, // Slightly larger
                         height: 70,
                         decoration: BoxDecoration(
@@ -964,13 +979,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                               offset: const Offset(0, 6),
                               spreadRadius: _currentIndex == 2 ? 2 : 0,
                             ),
-                            // Bloom glow
-                            if (_currentIndex == 2)
-                              BoxShadow(
-                                color: AppColors.primaryBlue.withValues(alpha: 0.35),
-                                blurRadius: 40,
-                                spreadRadius: 8,
-                              ),
+                            // Bloom glow (Animated smoothly via AnimatedContainer)
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.35 : 0.0),
+                              blurRadius: _currentIndex == 2 ? 40 : 20,
+                              spreadRadius: _currentIndex == 2 ? 8 : 0,
+                            ),
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 4,
@@ -2825,19 +2839,15 @@ class _PulsingDotState extends State<_PulsingDot>
   }
 }
 
-class _NavBarPainter extends CustomPainter {
+class _AnimatedNavBarPainter extends CustomPainter {
   final BuildContext context;
-  final int currentIndex;
-  _NavBarPainter(this.context, this.currentIndex);
+  final double alertsAnimationValue;
+  _AnimatedNavBarPainter(this.context, this.alertsAnimationValue);
 
   @override
   void paint(Canvas canvas, Size size) {
     // Safely get properties to avoid Null type errors during hot reload transitions
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Safety check: sometimes hot reload can leave fields uninitialized
-    // although they are non-nullable in code. We use a fallback to prevent crashes.
-    final int safeIndex = currentIndex;
     
     final paint = Paint()
       ..color = isDark ? AppColors.surfaceDark : Colors.white
@@ -2866,10 +2876,9 @@ class _NavBarPainter extends CustomPainter {
     
     final double center = w / 2;
     
-    // Notch dimensions - expands when Alerts (index 2) is active
-    final bool isAlerts = safeIndex == 2;
-    final double notchRadius = isAlerts ? 44.0 : 38.0;
-    final double notchDepth = isAlerts ? 36.0 : 30.0;
+    // Notch dimensions - smoothly expands when Alerts is active
+    final double notchRadius = 38.0 + (6.0 * alertsAnimationValue);
+    final double notchDepth = 30.0 + (6.0 * alertsAnimationValue);
 
     path.moveTo(0, 24); // Top left radius
     path.quadraticBezierTo(0, 0, 24, 0);
@@ -2917,23 +2926,13 @@ class _NavBarPainter extends CustomPainter {
 
     // Subtle Rim Light on the top edge
     canvas.drawPath(path, rimLightPaint);
-
-    // Center Blue Glow Accent for Alerts (index 2)
-    if (isAlerts) {
-      final glowPaint = Paint()
-        ..color = AppColors.primaryBlue.withValues(alpha: 0.05)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
-      canvas.drawPath(path, glowPaint);
-    }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    if (oldDelegate is! _NavBarPainter) return true;
-    // Standard safety check for hot reload transitions
+    if (oldDelegate is! _AnimatedNavBarPainter) return true;
     try {
-      return oldDelegate.currentIndex != currentIndex;
+      return oldDelegate.alertsAnimationValue != alertsAnimationValue;
     } catch (_) {
       return true;
     }

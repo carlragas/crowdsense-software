@@ -6,7 +6,8 @@ import '../../../../core/widgets/page_title.dart';
 import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final int activeIndex;
+  const SettingsScreen({super.key, this.activeIndex = 4});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -21,7 +22,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const PageTitle(title: "Settings"),
+        PageTitle(
+          key: ValueKey('Page_${widget.activeIndex}'),
+          title: "Settings"
+        ),
         const SizedBox(height: 24),
         // Settings Content
         Column(

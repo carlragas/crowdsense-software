@@ -8,7 +8,8 @@ import '../../../../core/widgets/page_title.dart';
 import '../../../../core/providers/settings_provider.dart';
 
 class AnalyticsScreen extends StatelessWidget {
-  const AnalyticsScreen({super.key});
+  final int activeIndex;
+  const AnalyticsScreen({super.key, this.activeIndex = 1});
 
   @override
   Widget build(BuildContext context) {
@@ -19,19 +20,15 @@ class AnalyticsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const PageTitle(title: "Analytics"),
+        PageTitle(
+          key: ValueKey('Page_$activeIndex'),
+          title: "Analytics"
+        ),
         const SizedBox(height: 24),
         
         // --- SECTION 1: Emergency Sensor Trends ---
-        Text(
-          "Emergency Sensor Trends",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 16),
+        _buildSectionTitle(context, "EMERGENCY SENSOR TRENDS"),
+        const SizedBox(height: 24),
         SizedBox(
           height: 320,
           child: ScrollConfiguration(
@@ -80,26 +77,9 @@ class AnalyticsScreen extends StatelessWidget {
         const SizedBox(height: 32),
         
         // --- SECTION 2: Hardware Health & System Performance ---
-        Text(
-          "Hardware & System Health",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 16),
+        _buildSectionTitle(context, "HARDWARE & SYSTEM HEALTH"),
+        const SizedBox(height: 24),
         
-        // System Latency KPI Card
-        _buildMetricCard(
-          context: context,
-          title: "System Latency",
-          value: "1.2s",
-          unit: "avg response",
-          subtitle: "Time from sensor threshold to 115dB siren trigger.",
-          icon: Icons.bolt,
-          color: AppColors.statusWarning,
-        ),
         const SizedBox(height: 16),
         
         // Power Stability Pie Chart
@@ -264,6 +244,68 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
   
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  colorScheme.primary.withValues(alpha: 0.0),
+                  colorScheme.primary.withValues(alpha: 0.3),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.2),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.primary.withValues(alpha: 0.05),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+              color: colorScheme.primary,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  colorScheme.primary.withValues(alpha: 0.3),
+                  colorScheme.primary.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
     Widget _buildMetricCard({
     required BuildContext context,
     required String title,

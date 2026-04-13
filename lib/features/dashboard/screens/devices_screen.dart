@@ -66,7 +66,10 @@ class DevicesScreen extends StatefulWidget {
     this.parentScrollController,
     this.onlineCount = 0,
     this.offlineCount = 0,
+    this.activeIndex = 3,
   });
+
+  final int activeIndex;
 
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
@@ -87,7 +90,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const PageTitle(title: "Devices"),
+        PageTitle(
+          key: ValueKey('Page_${widget.activeIndex}'),
+          title: "Devices"
+        ),
         const SizedBox(height: 16),
         
         // Online / Offline count

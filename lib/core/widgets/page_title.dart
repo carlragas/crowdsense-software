@@ -20,16 +20,16 @@ class _PageTitleState extends State<PageTitle> with SingleTickerProviderStateMix
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 1500),
     );
     
-    // Add a slight ease-out curve for a natural stopping motion
+    // High-performance entrance reveal
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeInOutCubic,
+      curve: Curves.easeOutCubic,
     );
     
-    // Start animation on load
+    // Trigger the sweep once on entry
     _controller.forward();
   }
 
@@ -73,7 +73,7 @@ class _PageTitleState extends State<PageTitle> with SingleTickerProviderStateMix
               builder: (context, child) {
                 return CustomPaint(
                   painter: _HeartbeatPainter(
-                    color: const Color(0xFFFF3B30),
+                    color: const Color(0xFFFF0000), // Hyper-vibrant Neon Red
                     progress: _animation.value,
                   ),
                 );
@@ -104,39 +104,15 @@ class _HeartbeatPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8.0
       ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
 
     final ambientGlowPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 14.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..imageFilter = ui.ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0);
-
-    // Delay the fade-out significantly so it doesn't fade too early
-    final gradientStops = [0.0, 0.7, 1.0];
-    final gradientColors = [color, color, color.withValues(alpha: 0.0)];
-    final glowColors = [
-      color.withValues(alpha: 0.4),
-      color.withValues(alpha: 0.4),
-      color.withValues(alpha: 0.0)
-    ];
-
-    paint.shader = ui.Gradient.linear(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      gradientColors,
-      gradientStops,
-    );
-
-    glowPaint.shader = ui.Gradient.linear(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      glowColors,
-      gradientStops,
-    );
-
-    ambientGlowPaint.shader = glowPaint.shader;
+      ..imageFilter = ui.ImageFilter.blur(sigmaX: 7.0, sigmaY: 7.0);
 
     final path = Path();
     double startY = size.height / 2;
@@ -170,19 +146,83 @@ class _HeartbeatPainter extends CustomPainter {
     x += 10;
     path.lineTo(x, startY);
 
-    // Extended flat line fading out late
-    path.lineTo(size.width, startY);
+    // Extended flat line
+    // Extended flat line - Shortened slightly to allow glow room at the end
+    path.lineTo(size.width - 12, startY);
 
-    // Compute metrics to only draw up to the current progress
+    // Compute metrics to animate the EKG sweep
     final metrics = path.computeMetrics().toList();
     if (metrics.isEmpty) return;
     
     final metric = metrics.first;
-    final extractPath = metric.extractPath(0.0, metric.length * progress);
+    final totalLength = metric.length;
+    final currentLength = totalLength * progress;
+    
+    // Reveal path from start to current progress
+    final extractPath = metric.extractPath(0.0, currentLength);
+    
+    // Create a dynamic gradient that follows the 'scan' head
+    // This gives it that hospital monitor 'leading edge' glow
+    final sweepGradient = ui.Gradient.linear(
+      Offset(0, startY),
+      Offset(size.width, startY),
+      [
+        color.withValues(alpha: 0.95), // Solid consistent trail
+        color, // Brightest scan head
+        color.withValues(alpha: 0.0), // Hidden ahead
+      ],
+      [
+        (progress - 0.02).clamp(0.0, 1.0),
+        progress.clamp(0.0, 1.0),
+        (progress + 0.001).clamp(0.0, 1.0),
+      ],
+    );
+
+    paint.shader = sweepGradient;
+    
+    final glowSweepGradient = ui.Gradient.linear(
+      Offset(0, startY),
+      Offset(size.width, startY),
+      [
+        color.withValues(alpha: 0.5),  // Consistent glowing body
+        color, // Brightest scan head
+        color.withValues(alpha: 0.0), // Hidden ahead
+      ],
+      [
+        (progress - 0.05).clamp(0.0, 1.0),
+        progress.clamp(0.0, 1.0),
+        (progress + 0.001).clamp(0.0, 1.0),
+      ],
+    );
+    
+    glowPaint.shader = glowSweepGradient;
+    ambientGlowPaint.shader = glowSweepGradient;
 
     canvas.drawPath(extractPath, ambientGlowPaint);
     canvas.drawPath(extractPath, glowPaint);
     canvas.drawPath(extractPath, paint);
+    
+    // Add a bright dot 'blip' at the tip for the BPM look
+    if (progress > 0 && progress < 1.0) {
+      final tangent = metric.getTangentForOffset(currentLength);
+      if (tangent != null) {
+        final pos = tangent.position;
+        // Outer glow
+        canvas.drawCircle(
+          pos, 
+          5.0, 
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.3)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
+        );
+        // Inner core
+        canvas.drawCircle(
+          pos, 
+          2.0, 
+          Paint()..color = Colors.white
+        );
+      }
+    }
   }
 
   @override
