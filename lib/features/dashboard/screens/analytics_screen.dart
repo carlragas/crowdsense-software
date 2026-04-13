@@ -29,52 +29,144 @@ class AnalyticsScreen extends StatelessWidget {
         // --- SECTION 1: Emergency Sensor Trends ---
         _buildSectionTitle(context, "EMERGENCY SENSOR TRENDS"),
         const SizedBox(height: 24),
-        SizedBox(
-          height: 320,
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {
-                PointerDeviceKind.touch,
-                PointerDeviceKind.mouse,
-              },
+        
+        // --- 1.1 TEMPERATURE READINGS ---
+        _buildSubHeader(context, "Temperature Readings", Icons.thermostat_rounded),
+        _buildHorizontalSensorRow(
+          context,
+          children: [
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Server Room",
+              subtitle: "Critical Infrastructure Path",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusDanger,
+              child: _buildTemperatureChart(settings.temperatureThreshold),
             ),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              children: [
-              _buildChartCard(
-                context: context,
-                title: "Temperature Trend (24h)",
-                subtitle: "Continuous environmental monitoring",
-                icon: Icons.device_thermostat,
-                color: AppColors.statusWarning,
-                child: _buildTemperatureChart(settings.temperatureThreshold),
-              ),
-              const SizedBox(width: 16),
-              _buildChartCard(
-                context: context,
-                title: "Smoke Concentration",
-                subtitle: "Current PPM vs threshold",
-                icon: Icons.cloud_outlined,
-                color: AppColors.primaryBlue,
-                child: _buildSmokeGauge(context, settings.smokeThreshold),
-              ),
-              const SizedBox(width: 16),
-              _buildChartCard(
-                context: context,
-                title: "Flame Sensor PPM",
-                subtitle: "IR analog reading vs threshold",
-                icon: Icons.local_fire_department_outlined,
-                color: AppColors.statusDanger,
-                child: _buildFlameGauge(context, settings.flameThreshold),
-              ),
-            ],
-          ),
-        ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Hallway A",
+              subtitle: "Public Zone Monitoring",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusSafe,
+              child: _buildTemperatureChart(40.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Flame Sensor - Main Entrance",
+              subtitle: "Combined Safety Node",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusSafe,
+              child: _buildTemperatureChart(36.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "ToF - Parking Entrance",
+              subtitle: "Garage Access Monitor",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusSafe,
+              child: _buildTemperatureChart(35.0),
+            ),
+            const SizedBox(width: 20),
+          ],
         ),
         
         const SizedBox(height: 32),
+
+        // --- 1.2 SMOKE READINGS ---
+        _buildSubHeader(context, "Smoke Readings", Icons.smoking_rooms_rounded),
+        _buildHorizontalSensorRow(
+          context,
+          children: [
+            _buildChartCard(
+              context: context,
+              title: "Smoke Sensor - Hallway A",
+              subtitle: "Primary Corridor Detection",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, settings.smokeThreshold),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Server Room",
+              subtitle: "Internal Rack Monitor",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, 350.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Flame Sensor - Main Entrance",
+              subtitle: "Lobby Intake Channel",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, 280.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "ToF - Parking Entrance",
+              subtitle: "Exhaust Vent Sensor",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, 400.0),
+            ),
+            const SizedBox(width: 20),
+          ],
+        ),
+
+        const SizedBox(height: 32),
+
+        // --- 1.3 FLAME READINGS ---
+        _buildSubHeader(context, "Flame Readings", Icons.local_fire_department_rounded),
+        _buildHorizontalSensorRow(
+          context,
+          children: [
+            _buildChartCard(
+              context: context,
+              title: "Flame Sensor - Main Entrance",
+              subtitle: "Primary Exit Surveillance",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, settings.flameThreshold),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Server Room",
+              subtitle: "Radiation Spike Check",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, 150.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Smoke Sensor - Hallway A",
+              subtitle: "Duct Fire Prevention",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, 220.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "ToF - Parking Entrance",
+              subtitle: "Loading Dock IR Node",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, 180.0),
+            ),
+            const SizedBox(width: 20),
+          ],
+        ),
+        const SizedBox(height: 32),
+        
         
         // --- SECTION 2: Hardware Health & System Performance ---
         _buildSectionTitle(context, "HARDWARE & SYSTEM HEALTH"),
@@ -244,6 +336,48 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
   
+  Widget _buildSubHeader(BuildContext context, String title, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: colorScheme.primary.withValues(alpha: 0.7)),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+              color: colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHorizontalSensorRow(BuildContext context, {required List<Widget> children}) {
+    return SizedBox(
+      height: 320,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+          },
+        ),
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          children: children,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(BuildContext context, String title) {
     final colorScheme = Theme.of(context).colorScheme;
     
