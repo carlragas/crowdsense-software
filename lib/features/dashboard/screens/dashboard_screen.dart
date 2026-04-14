@@ -896,8 +896,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   children: [
                     _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
                     _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 1),
-                    SizedBox(
-                      width: 80, 
+                    Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -946,8 +945,10 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               Positioned(
                 top: -10,
-                left: MediaQuery.of(context).size.width / 2 - 16 - 32, // Parent is margin 16 left -> Center visually
-                child: GestureDetector(
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GestureDetector(
                   onTap: () {
                     setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
                   },
@@ -1012,6 +1013,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                       ),
                     ),
+                    ),
                   ),
                 ),
               ],
@@ -1027,16 +1029,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     final isSelected = _currentIndex == index;
     final color = isSelected ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.9);
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentIndex = index;
-          _showNotificationsPanel = false;
-        });
-      },
-      behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: 75, // Increased from 65 to prevent text wrapping
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _currentIndex = index;
+            _showNotificationsPanel = false;
+          });
+        },
+        behavior: HitTestBehavior.translucent,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
