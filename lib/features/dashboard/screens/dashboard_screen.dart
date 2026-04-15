@@ -30,7 +30,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
-  final ScrollController _scrollController = ScrollController();
+  late final List<ScrollController> _tabScrollControllers = List.generate(5, (index) => ScrollController()..addListener(_onScroll));
   bool _isScrolled = false;
   bool _isBottomNavVisible = true;
   int _currentIndex = 0;
@@ -163,25 +163,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     ];
 
-    _scrollController.addListener(() {
-      if (_scrollController.offset > 50 && !_isScrolled) {
-        setState(() => _isScrolled = true);
-      } else if (_scrollController.offset <= 50 && _isScrolled) {
-        setState(() => _isScrolled = false);
-      }
 
-      if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
-        if (_isBottomNavVisible) {
-          setState(() => _isBottomNavVisible = false);
-          context.read<SirenProvider>().setBottomNavVisibility(false);
-        }
-      } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
-        if (!_isBottomNavVisible) {
-          setState(() => _isBottomNavVisible = true);
-          context.read<SirenProvider>().setBottomNavVisibility(true);
-        }
-      }
-    });
 
     _overridePageController = PageController(viewportFraction: 0.68);
 
@@ -202,8 +184,49 @@ class _DashboardScreenState extends State<DashboardScreen>
     _sensorDataSubscription?.cancel();
     _pageController?.dispose();
     _overridePageController?.dispose();
-    _scrollController.dispose();
+    for (var controller in _tabScrollControllers) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!mounted) return;
+    final currentController = _tabScrollControllers[_currentIndex];
+    if (!currentController.hasClients) return;
+
+    if (currentController.offset > 50 && !_isScrolled) {
+      setState(() => _isScrolled = true);
+    } else if (currentController.offset <= 50 && _isScrolled) {
+      setState(() => _isScrolled = false);
+    }
+
+    if (currentController.position.userScrollDirection == ScrollDirection.reverse) {
+      if (_isBottomNavVisible) {
+        setState(() => _isBottomNavVisible = false);
+        context.read<SirenProvider>().setBottomNavVisibility(false);
+      }
+    } else if (currentController.position.userScrollDirection == ScrollDirection.forward) {
+      if (!_isBottomNavVisible) {
+        setState(() => _isBottomNavVisible = true);
+        context.read<SirenProvider>().setBottomNavVisibility(true);
+      }
+    }
+  }
+
+  Widget _buildTabScrollWrapper({required int index, required Widget child}) {
+    return SingleChildScrollView(
+      controller: _tabScrollControllers[index],
+      physics: const ClampingScrollPhysics(),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + kToolbarHeight + 10,
+            20,
+            index == 2 ? 0 : 100),
+        child: child,
+      ),
+    );
   }
 
   // Derived computed properties
@@ -516,156 +539,156 @@ class _DashboardScreenState extends State<DashboardScreen>
                   // --- Notification Bell ---
                   IconButton(
                     icon: Badge(
-              isLabelVisible: _hasAnyNotification,
-              smallSize: 9,
-              backgroundColor: _hasUrgentNotification
-                  ? AppColors.statusDanger
-                  : AppColors.statusWarning,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: Icon(
-                  key: ValueKey(_hasUrgentNotification),
-                  _hasUrgentNotification
-                      ? Icons.notifications_active
-                      : Icons.notifications_none,
-                  color: _hasUrgentNotification
-                      ? AppColors.statusDanger
-                      : Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ),
-            onPressed: () {
-              setState(() {
-                _showNotificationsPanel = !_showNotificationsPanel;
-              });
-            },
-          ),
-          const SizedBox(width: 2),
-          PopupMenuButton<String>(
-            offset: const Offset(0, 56),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              color: Theme.of(context).colorScheme.surface,
-              icon: CircleAvatar(
-                backgroundColor:
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                child: Icon(Icons.person,
-                    color: Theme.of(context).colorScheme.primary),
-              ),
-              onSelected: (value) async {
-                if (value == 'account') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  );
-                } else if (value == 'settings') {
-                  setState(() => _currentIndex = 4);
-                } else if (value == 'logout') {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext dialogContext) {
-                      return AlertDialog(
-                        title: const Text("Log Out"),
-                        content: const Text("Log out of your account?"),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text("Cancel"),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              Navigator.of(dialogContext).pop();
-                              await AuthService().logout();
-                              if (context.mounted) {
-                                context.read<UserProvider>().clearUser();
-                                Navigator.pushNamedAndRemoveUntil(
-                                  context,
-                                  '/login',
-                                  (route) => false,
-                                );
-                              }
-                            },
-                            child: const Text(
-                              "Log Out",
-                              style: TextStyle(color: AppColors.statusDanger),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                }
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                PopupMenuItem<String>(
-                  enabled: false,
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 12),
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor:
-                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                        child: Icon(Icons.person,
-                            size: 26,
-                            color: Theme.of(context).colorScheme.primary),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Welcome, ${userProv.firstName}!',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
+                      isLabelVisible: _hasAnyNotification,
+                      smallSize: 9,
+                      backgroundColor: _hasUrgentNotification
+                          ? AppColors.statusDanger
+                          : AppColors.statusWarning,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Icon(
+                          key: ValueKey(_hasUrgentNotification),
+                          _hasUrgentNotification
+                              ? Icons.notifications_active
+                              : Icons.notifications_none,
+                          color: _hasUrgentNotification
+                              ? AppColors.statusDanger
+                              : Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Divider(
-                          height: 1,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant
-                              .withValues(alpha: 0.2)),
-                      const SizedBox(height: 4),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _showNotificationsPanel = !_showNotificationsPanel;
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 2),
+                  PopupMenuButton<String>(
+                    offset: const Offset(0, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    color: Theme.of(context).colorScheme.surface,
+                    icon: CircleAvatar(
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                      child: Icon(Icons.person,
+                          color: Theme.of(context).colorScheme.primary),
+                    ),
+                    onSelected: (value) async {
+                      if (value == 'account') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                        );
+                      } else if (value == 'settings') {
+                        setState(() => _currentIndex = 4);
+                      } else if (value == 'logout') {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext dialogContext) {
+                            return AlertDialog(
+                              title: const Text("Log Out"),
+                              content: const Text("Log out of your account?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(dialogContext).pop(),
+                                  child: const Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    Navigator.of(dialogContext).pop();
+                                    await AuthService().logout();
+                                    if (context.mounted) {
+                                      context.read<UserProvider>().clearUser();
+                                      Navigator.pushNamedAndRemoveUntil(
+                                        context,
+                                        '/login',
+                                        (route) => false,
+                                      );
+                                    }
+                                  },
+                                  child: const Text(
+                                    "Log Out",
+                                    style: TextStyle(color: AppColors.statusDanger),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      PopupMenuItem<String>(
+                        enabled: false,
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 12),
+                            CircleAvatar(
+                              radius: 22,
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                              child: Icon(Icons.person,
+                                  size: 26,
+                                  color: Theme.of(context).colorScheme.primary),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Welcome, ${userProv.firstName}!',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.2)),
+                            const SizedBox(height: 4),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'account',
+                        height: 40,
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.onSurface),
+                            const SizedBox(width: 12),
+                            Text('Profile Details',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context).colorScheme.onSurface)),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'logout',
+                        height: 40,
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout, size: 20, color: AppColors.statusDanger),
+                            SizedBox(width: 12),
+                            Text('Logout',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.statusDanger,
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'account',
-                  height: 40,
-                  child: Row(
-                    children: [
-                      Icon(Icons.person_outline,
-                          size: 20,
-                          color: Theme.of(context).colorScheme.onSurface),
-                      const SizedBox(width: 12),
-                      Text('Profile Details',
-                          style: TextStyle(
-                              fontSize: 14,
-                              color: Theme.of(context).colorScheme.onSurface)),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'logout',
-                  height: 40,
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, size: 20, color: AppColors.statusDanger),
-                      SizedBox(width: 12),
-                      Text('Logout',
-                          style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.statusDanger,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-                ],
-              ),
                 ],
               ),
             ),
@@ -676,20 +699,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         children: [
           // --- Main body ---
           GeometricBackground(
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              physics: const ClampingScrollPhysics(), // Prevents bouncy overscroll that adds artificial length
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                    20,
-                    MediaQuery.of(context).padding.top + kToolbarHeight + 10,
-                    20,
-                    _currentIndex == 2 ? 0 : 100), // Significantly shortened bottom space for Siren Override tab
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    // Index 0: Dashboard Content
-                    Column(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: [
+                // Index 0: Dashboard Content
+                _buildTabScrollWrapper(
+                  index: 0,
+                  child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         PageTitle(
@@ -765,80 +781,91 @@ class _DashboardScreenState extends State<DashboardScreen>
                         _buildShowUsersButton(context),
                       ],
                     ),
-                    // Index 1: Analytics
-                    AnalyticsScreen(activeIndex: _currentIndex),
-                    // Index 2 (Center): Alerts & Manual Siren Control
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        PageTitle(
-                          key: ValueKey('Page_$_currentIndex'), 
-                          title: "Override Siren"
-                        ),
-                        const SizedBox(height: 16),
-                        // Tactical command strip console
-                        _buildSirenCommandStrip(),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Container(
-                              width: 3,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryBlue,
-                                borderRadius: BorderRadius.circular(2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primaryBlue.withValues(alpha: 0.5),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "EMERGENCY OVERRIDES",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.5,
-                                    color: Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                ),
-                                Text(
-                                  "MANUAL SIREN CONTROL CONSOLE",
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.2,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                  ),
+                ),
+                // Index 1: Analytics
+                _buildTabScrollWrapper(
+                  index: 1,
+                  child: AnalyticsScreen(activeIndex: _currentIndex),
+                ),
+                // Index 2 (Center): Alerts & Manual Siren Control
+                _buildTabScrollWrapper(
+                  index: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      PageTitle(
+                        key: ValueKey('Page_$_currentIndex'), 
+                        title: "Override Siren"
+                      ),
+                      const SizedBox(height: 16),
+                      // Tactical command strip console
+                      _buildSirenCommandStrip(),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            width: 3,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlue,
+                              borderRadius: BorderRadius.circular(2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryBlue.withValues(alpha: 0.5),
+                                  blurRadius: 8,
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        _buildCircularOverrideCarousel(),
-                      ],
-                    ),
-                    DevicesScreen(
-                      logs: _deviceLogs,
-                      highlightedLogId: _highlightedLogId,
-                      highlightedItemKey: _highlightedItemKey,
-                      parentScrollController: _scrollController,
-                      onlineCount: _onlineCount,
-                      offlineCount: _offlineCount,
-                      activeIndex: _currentIndex,
-                    ),
-                    // Index 4: Settings
-                    SettingsScreen(activeIndex: _currentIndex),
-                  ],
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "EMERGENCY OVERRIDES",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                              Text(
+                                "MANUAL SIREN CONTROL CONSOLE",
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      _buildCircularOverrideCarousel(),
+                    ],
+                  ),
                 ),
-              ),
+                _buildTabScrollWrapper(
+                  index: 3,
+                  child: DevicesScreen(
+                    logs: _deviceLogs,
+                    highlightedLogId: _highlightedLogId,
+                    highlightedItemKey: _highlightedItemKey,
+                    parentScrollController: _tabScrollControllers[3],
+                    onlineCount: _onlineCount,
+                    offlineCount: _offlineCount,
+                    activeIndex: _currentIndex,
+                  ),
+                ),
+                // Index 4: Settings
+                _buildTabScrollWrapper(
+                  index: 4,
+                  child: SettingsScreen(activeIndex: _currentIndex),
+                ),
+              ],
             ),
           ),
 
@@ -879,143 +906,143 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-              TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: _currentIndex == 2 ? 1.0 : 0.0, end: _currentIndex == 2 ? 1.0 : 0.0),
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                builder: (context, value, child) {
-                  return CustomPaint(
-                    size: Size(MediaQuery.of(context).size.width - 32, 90),
-                    painter: _AnimatedNavBarPainter(context, value),
-                  );
-                },
-              ),
-              Positioned.fill(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
-                    _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 1),
-                    SizedBox(
-                      width: 80, 
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const SizedBox(height: 50),
-                          Text(
-                            "ALERTS", 
-                            style: TextStyle(
-                              fontSize: 9, 
-                              fontWeight: FontWeight.w900, 
-                              letterSpacing: 1.2,
-                              color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.6),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          // Integrated Active Indicator for Alerts
-                          AnimatedOpacity(
-                            duration: const Duration(milliseconds: 300),
-                            opacity: _currentIndex == 2 ? 1.0 : 0.0,
-                            child: AnimatedScale(
-                              scale: _currentIndex == 2 ? 1.0 : 0.5,
-                              duration: const Duration(milliseconds: 300),
-                              child: Container(
-                                width: 20,
-                                height: 2.5,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: AppColors.primaryBlue,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primaryBlue.withValues(alpha: 0.6),
-                                      blurRadius: 8,
-                                      spreadRadius: 1,
-                                    ),
-                                  ],
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: _currentIndex == 2 ? 1.0 : 0.0, end: _currentIndex == 2 ? 1.0 : 0.0),
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    builder: (context, value, child) {
+                      return CustomPaint(
+                        size: Size(MediaQuery.of(context).size.width - 32, 90),
+                        painter: _AnimatedNavBarPainter(context, value),
+                      );
+                    },
+                  ),
+                  Positioned.fill(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
+                        _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 1),
+                        SizedBox(
+                          width: 80, 
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              const SizedBox(height: 50),
+                              Text(
+                                "ALERTS", 
+                                style: TextStyle(
+                                  fontSize: 9, 
+                                  fontWeight: FontWeight.w900, 
+                                  letterSpacing: 1.2,
+                                  color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.6),
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 6),
+                              // Integrated Active Indicator for Alerts
+                              AnimatedOpacity(
+                                duration: const Duration(milliseconds: 300),
+                                opacity: _currentIndex == 2 ? 1.0 : 0.0,
+                                child: AnimatedScale(
+                                  scale: _currentIndex == 2 ? 1.0 : 0.5,
+                                  duration: const Duration(milliseconds: 300),
+                                  child: Container(
+                                    width: 20,
+                                    height: 2.5,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: AppColors.primaryBlue,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.primaryBlue.withValues(alpha: 0.6),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        _buildNavItem(icon: Icons.devices_other, label: "Devices", index: 3),
+                        _buildNavItem(icon: Icons.settings_outlined, label: "Settings", index: 4),
+                      ],
                     ),
-                    _buildNavItem(icon: Icons.devices_other, label: "Devices", index: 3),
-                    _buildNavItem(icon: Icons.settings_outlined, label: "Settings", index: 4),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: -10,
-                left: MediaQuery.of(context).size.width / 2 - 16 - 32, // Parent is margin 16 left -> Center visually
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
-                  },
-                    child: AnimatedScale(
-                      scale: _currentIndex == 2 ? 1.12 : 1.0,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeInOut,
-                      child: AnimatedContainer(
+                  ),
+                  Positioned(
+                    top: -10,
+                    left: MediaQuery.of(context).size.width / 2 - 16 - 32, // Parent is margin 16 left -> Center visually
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
+                      },
+                      child: AnimatedScale(
+                        scale: _currentIndex == 2 ? 1.12 : 1.0,
                         duration: const Duration(milliseconds: 250),
                         curve: Curves.easeInOut,
-                        width: 70, // Slightly larger
-                        height: 70,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              AppColors.accentBlue.withValues(alpha: 0.9),
-                              AppColors.primaryBlue,
-                              const Color(0xFF2563EB), // Darker shade of primaryBlue
-                            ],
-                            center: const Alignment(0, -0.2),
-                            radius: 1.0,
-                          ),
-                          boxShadow: [
-                            // Main shadow
-                            BoxShadow(
-                              color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.6 : 0.4),
-                              blurRadius: _currentIndex == 2 ? 24 : 14,
-                              offset: const Offset(0, 6),
-                              spreadRadius: _currentIndex == 2 ? 2 : 0,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut,
+                          width: 70, // Slightly larger
+                          height: 70,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                AppColors.accentBlue.withValues(alpha: 0.9),
+                                AppColors.primaryBlue,
+                                const Color(0xFF2563EB), // Darker shade of primaryBlue
+                              ],
+                              center: const Alignment(0, -0.2),
+                              radius: 1.0,
                             ),
-                            // Bloom glow (Animated smoothly via AnimatedContainer)
-                            BoxShadow(
-                              color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.35 : 0.0),
-                              blurRadius: _currentIndex == 2 ? 40 : 20,
-                              spreadRadius: _currentIndex == 2 ? 8 : 0,
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            )
-                          ],
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 58,
-                            height: 58,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.25),
-                                width: 1.5,
+                            boxShadow: [
+                              // Main shadow
+                              BoxShadow(
+                                color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.6 : 0.4),
+                                blurRadius: _currentIndex == 2 ? 24 : 14,
+                                offset: const Offset(0, 6),
+                                spreadRadius: _currentIndex == 2 ? 2 : 0,
                               ),
-                            ),
-                            child: const Icon(
-                              Icons.notifications_active_rounded,
-                              color: Colors.white,
-                              size: 32,
+                              // Bloom glow (Animated smoothly via AnimatedContainer)
+                              BoxShadow(
+                                color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.35 : 0.0),
+                                blurRadius: _currentIndex == 2 ? 40 : 20,
+                                spreadRadius: _currentIndex == 2 ? 8 : 0,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: 58,
+                              height: 58,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.notifications_active_rounded,
+                                color: Colors.white,
+                                size: 32,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
         ],
