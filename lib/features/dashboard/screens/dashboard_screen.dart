@@ -470,6 +470,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
        _selectedLocation = _deviceData.first['location'];
     }
+
+    if (_deviceData.isNotEmpty && _pageController == null) {
+       final int realIndex = _deviceData.indexWhere((data) => data['location'] == _selectedLocation);
+       _pageController = PageController(
+         initialPage: 1000 * _deviceData.length + (realIndex != -1 ? realIndex : 0),
+       );
+    }
   }
 
   // --- Automated Hourly Reset Logic ---
@@ -806,10 +813,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                           : Builder(builder: (context) {
                           final int realIndex = _deviceData.indexWhere(
                               (data) => data['location'] == _selectedLocation);
-                          _pageController ??= PageController(
-                            initialPage: 1000 * _deviceData.length +
-                                (realIndex != -1 ? realIndex : 0),
-                          );
                           return PeopleCounterCard(
                             deviceData: _deviceData,
                             currentIndex: realIndex != -1 ? realIndex : 0,

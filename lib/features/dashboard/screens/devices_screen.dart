@@ -494,7 +494,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: ['Power'].map((sensor) {
+                        children: ['ToF', 'Flame', 'Smoke', 'Temp', 'Power'].map((sensor) {
                           final isSelected = tempSensors.contains(sensor);
                           return FilterChip(
                             label: Text(sensor),
