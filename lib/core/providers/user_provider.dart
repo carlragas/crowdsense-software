@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class UserProvider extends ChangeNotifier {
   User? _authUser;
   Map<String, dynamic>? _userData;
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+  StreamSubscription? _presenceSubscription;
 
   User? get authUser => _authUser;
   Map<String, dynamic>? get userData => _userData;
@@ -11,6 +15,7 @@ class UserProvider extends ChangeNotifier {
   bool get isAuthenticated => _authUser != null && _userData != null;
 
   String get id => _userData?['customId'] ?? 'Unknown ID';
+  String get uid => _authUser?.uid ?? '';
   String get role => _userData?['role'] ?? 'Unknown';
   String get name => _userData?['name'] ?? 'Admin';
   String get firstName => name.isNotEmpty ? name.split(' ').first : 'Admin';
@@ -26,8 +31,37 @@ class UserProvider extends ChangeNotifier {
     if (data != null) {
       // Create a clean modifiable string map from the dynamic Firebase snapshot
       _userData = Map<String, dynamic>.from(data);
+      _setupPresence();
+    } else {
+      _userData = null;
+      _cancelPresence();
     }
     notifyListeners();
+  }
+
+  void _setupPresence() {
+    if (_authUser == null) return;
+    
+    // Cancel any existing subscription first
+    _cancelPresence();
+
+    final String userUid = _authUser!.uid;
+    final presenceRef = _dbRef.child('users').child(userUid).child('isOnline');
+    
+    // Use Firebase RTDB presence system
+    _presenceSubscription = _dbRef.child('.info/connected').onValue.listen((event) {
+      if (event.snapshot.value == true) {
+        // When connected, set isOnline to true
+        presenceRef.set(true);
+        // On disconnect, set isOnline to false
+        presenceRef.onDisconnect().set(false);
+      }
+    });
+  }
+
+  void _cancelPresence() {
+    _presenceSubscription?.cancel();
+    _presenceSubscription = null;
   }
 
   void updateProfile(Map<String, dynamic> updatedData) {
@@ -38,8 +72,14 @@ class UserProvider extends ChangeNotifier {
   }
 
   void clearUser() {
+    if (_authUser != null) {
+      _dbRef.child('users').child(_authUser!.uid).child('isOnline').set(false);
+    }
+    _cancelPresence();
     _authUser = null;
     _userData = null;
     notifyListeners();
   }
 }
+
+

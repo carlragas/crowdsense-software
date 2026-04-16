@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
 import '../../../../core/widgets/secondary_geometric_background.dart';
@@ -25,18 +27,17 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   final FocusNode _searchFocusNode = FocusNode();
 
   // ─── Data State ─────────────────────────────────────────────────────────────
-  final String _dbBaseUrl =
-      'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
   final GlobalKey _roleDropdownKey = GlobalKey();
   List<Map<String, dynamic>> _allUsers = [];
   bool _isLoading = true;
   int _onlineCount = 0;
   int _offlineCount = 0;
+  StreamSubscription? _usersSubscription;
 
   @override
   void initState() {
     super.initState();
-    _fetchUsers();
+    _listenToUsers();
     _searchCtrl.addListener(() => setState(() {}));
 
     // Auto-select text when clicked (YouTube style)
@@ -55,36 +56,41 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   void dispose() {
     _searchCtrl.dispose();
     _searchFocusNode.dispose();
+    _usersSubscription?.cancel();
     super.dispose();
   }
 
-  // ─── Firebase Fetch (Using safe SDK instead of REST) ────────────────────────
-  Future<void> _fetchUsers() async {
-    try {
-      final url = Uri.parse('$_dbBaseUrl/users.json');
-      final response = await http.get(url);
-
-      if (response.statusCode != 200 || response.body == 'null') {
-        setState(() => _isLoading = false);
+  // ─── Firebase Fetch (Using real-time stream) ────────────────────────
+  void _listenToUsers() {
+    final dbRef = FirebaseDatabase.instance.ref().child('users');
+    _usersSubscription = dbRef.onValue.listen((event) {
+      if (event.snapshot.value is! Map) {
+        if (mounted) {
+          setState(() {
+            _allUsers = [];
+            _onlineCount = 0;
+            _offlineCount = 0;
+            _isLoading = false;
+          });
+        }
         return;
       }
 
-      final raw = json.decode(response.body) as Map<String, dynamic>;
+      final raw = event.snapshot.value as Map<dynamic, dynamic>;
       final List<Map<String, dynamic>> loaded = [];
 
       raw.forEach((uid, value) {
         if (value is! Map) return;
         final d = Map<String, dynamic>.from(value as Map);
         loaded.add({
-          'uid': uid,
-          'id': d['customId']?.toString() ?? uid.substring(0, 6).toUpperCase(),
+          'uid': uid.toString(),
+          'id': d['customId']?.toString() ?? uid.toString().substring(0, 6).toUpperCase(),
           'name': d['name']?.toString() ?? 'Unknown User',
           'username': d['username']?.toString() ?? '',
           'email': d['email']?.toString() ?? '',
           'phone': d['phone']?.toString() ?? '',
           'role': d['role']?.toString() ?? 'User',
           'designation': d['designation']?.toString() ?? 'N/A',
-          // Firebase boolean sometimes saves as digit 1 or 0
           'isOnline': d['isOnline'] == true || d['isOnline'] == 1,
           'createdAt': _parseCreatedAt(d['createdAt']),
         });
@@ -93,28 +99,20 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
       loaded.sort((a, b) =>
           (a['createdAt'] as DateTime).compareTo(b['createdAt'] as DateTime));
 
-      // Determine who is currently logged in — they are "Online"
-      // The `isOnline` field may not exist in the DB yet; we derive it
-      // directly from Firebase Auth's currently authenticated user.
-      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      loaded.sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));
 
-      loaded
-          .sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));
-
-      for (final u in loaded) {
-        u['isOnline'] = u['uid'] == currentUid;
+      if (mounted) {
+        setState(() {
+          _allUsers = loaded;
+          _onlineCount = loaded.where((u) => u['isOnline'] == true).length;
+          _offlineCount = loaded.where((u) => u['isOnline'] == false).length;
+          _isLoading = false;
+        });
       }
-
-      setState(() {
-        _allUsers = loaded;
-        _onlineCount = loaded.where((u) => u['isOnline'] == true).length;
-        _offlineCount = loaded.where((u) => u['isOnline'] == false).length;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Fetch users error: $e');
-      setState(() => _isLoading = false);
-    }
+    }, onError: (e) {
+      debugPrint('Stream users error: $e');
+      if (mounted) setState(() => _isLoading = false);
+    });
   }
 
   DateTime _parseCreatedAt(dynamic raw) {

@@ -47,10 +47,16 @@ class _DashboardScreenState extends State<DashboardScreen>
   int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
   int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
 
+  // --- User Presence State ---
+  StreamSubscription? _usersSubscription;
+  int _adminsOnline = 0;
+  int _facilitatorsOnline = 0;
+
   @override
   void initState() {
     super.initState();
     _listenToDeviceStreams();
+    _listenToUserPresence();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -182,6 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _heartbeatTimer?.cancel();
     _prototypeUnitsSubscription?.cancel();
     _sensorDataSubscription?.cancel();
+    _usersSubscription?.cancel();
     _pageController?.dispose();
     _overridePageController?.dispose();
     for (var controller in _tabScrollControllers) {
@@ -368,6 +375,49 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
     });
   }
+
+
+  void _listenToUserPresence() {
+    final dbRef = FirebaseDatabase.instance.ref();
+    _usersSubscription = dbRef.child('users').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+        final Map<dynamic, dynamic> usersMap = event.snapshot.value as Map<dynamic, dynamic>;
+        int admins = 0;
+        int facilitators = 0;
+
+        usersMap.forEach((key, value) {
+          if (value is Map) {
+            final bool isOnline = value['isOnline'] == true || value['isOnline'] == 1;
+            final String role = (value['role']?.toString() ?? '').toLowerCase();
+
+            if (isOnline) {
+              if (role == 'admin') {
+                admins++;
+              } else if (role == 'facilitator') {
+                facilitators++;
+              }
+            }
+          }
+        });
+
+        if (mounted) {
+          setState(() {
+            _adminsOnline = admins;
+            _facilitatorsOnline = facilitators;
+          });
+        }
+      } else {
+        // Handle null or invalid data
+        if (mounted) {
+          setState(() {
+            _adminsOnline = 0;
+            _facilitatorsOnline = 0;
+          });
+        }
+      }
+    });
+  }
+
 
   void _syncDeviceDataList() {
     _deviceData = _deviceDataMap.values.map((v) {
@@ -772,9 +822,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Expanded(child: _buildRoleCard(context, "Admins Online", 1, Icons.admin_panel_settings, AppColors.statusDanger)), // Red
+                            Expanded(child: _buildRoleCard(context, "Admins Online", _adminsOnline, Icons.admin_panel_settings, AppColors.statusDanger)), // Red
                             const SizedBox(width: 12),
-                            Expanded(child: _buildRoleCard(context, "Facilitators Online", 0, Icons.support_agent, AppColors.statusWarning)), // Orange
+                            Expanded(child: _buildRoleCard(context, "Facilitators Online", _facilitatorsOnline, Icons.support_agent, AppColors.statusWarning)), // Orange
                           ],
                         ),
                         const SizedBox(height: 16),

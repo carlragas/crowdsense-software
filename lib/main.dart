@@ -4,8 +4,6 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/force_password_change_screen.dart';
 import 'features/dashboard/screens/dashboard_screen.dart';
-import 'features/dashboard/screens/analytics_screen.dart';
-import 'features/dashboard/screens/devices_screen.dart';
 
 import 'features/splash/screens/splash_screen.dart';
 import 'core/widgets/siren_active_dialog.dart';
@@ -21,13 +19,19 @@ import 'core/providers/user_provider.dart';
 import 'core/providers/siren_provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+    debugPrint('[CrowdSense] .env loaded successfully. DB URL: ${dotenv.env['FIREBASE_DATABASE_URL']}');
+  } catch (e) {
+    debugPrint('[CrowdSense] WARNING: Failed to load .env file: $e');
+  }
 
   try {
     await Firebase.initializeApp(
@@ -39,6 +43,13 @@ void main() async {
       rethrow;
     }
   }
+
+  // Explicitly set the RTDB URL to the correct asia-southeast1 region
+  // This prevents the "Database lives in a different region" error on Android
+  final dbUrl = dotenv.env['FIREBASE_DATABASE_URL'] ?? 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
+  FirebaseDatabase.instance.databaseURL = dbUrl;
+  debugPrint('[CrowdSense] Firebase RTDB URL set to: $dbUrl');
+
 
   // Catch the firebase_auth Windows threading bug at the zone level
   // so it doesn't hard-crash the "Lost connection to device"
@@ -84,7 +95,8 @@ void main() async {
 class CrowdSenseApp extends StatelessWidget {
   const CrowdSenseApp({super.key});
 
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +128,7 @@ class CrowdSenseApp extends StatelessWidget {
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOutCubic,
-                        bottom: sirenProvider.isBottomNavVisible ? 130 : 40, 
+                        bottom: sirenProvider.isBottomNavVisible ? 130 : 40,
                         left: 16,
                         right: 16,
                         child: _GlobalSirenBar(
@@ -140,7 +152,8 @@ class CrowdSenseApp extends StatelessWidget {
                 '/splash': (context) => const SplashScreen(),
                 '/login': (context) => const LoginScreen(),
                 '/force-password-change': (context) {
-                  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+                  final args = ModalRoute.of(context)!.settings.arguments
+                      as Map<String, dynamic>;
                   return ForcePasswordChangeScreen(
                     email: args['email'] as String,
                     userData: args['userData'] as Map<String, dynamic>,
@@ -180,12 +193,20 @@ class _GlobalSirenBar extends StatelessWidget {
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E2433).withValues(alpha: 0.95) : Colors.white,
+          color: isDark
+              ? const Color(0xFF1E2433).withValues(alpha: 0.95)
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
           boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 12, spreadRadius: 2),
-            BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 4)),
+            BoxShadow(
+                color: color.withValues(alpha: 0.2),
+                blurRadius: 12,
+                spreadRadius: 2),
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 4)),
           ],
         ),
         child: Row(
@@ -193,24 +214,28 @@ class _GlobalSirenBar extends StatelessWidget {
             TweenAnimationBuilder(
               tween: Tween<double>(begin: 0.8, end: 1.1),
               duration: const Duration(milliseconds: 600),
-              builder: (context, val, child) => Transform.scale(scale: val, child: Icon(icon, color: color, size: 20)),
+              builder: (context, val, child) => Transform.scale(
+                  scale: val, child: Icon(icon, color: color, size: 20)),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 "${title.toUpperCase()} IS ACTIVE",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: color, decoration: TextDecoration.none),
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    color: color,
+                    decoration: TextDecoration.none),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Icon(Icons.power_settings_new_rounded, size: 16, color: color.withValues(alpha: 0.7)),
+            Icon(Icons.power_settings_new_rounded,
+                size: 16, color: color.withValues(alpha: 0.7)),
           ],
         ),
       ),
     );
   }
 }
-
-
-
