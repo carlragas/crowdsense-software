@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,14 +32,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
   late TextEditingController _designationCtrl;
+  late TextEditingController _deptCtrl;
 
   late String _adminId;
   late String _accessLevel;
 
-  // static display data
-  final List<String> _permissions = ['Read/Write – Sensor Thresholds', 'Device Decommissioning', 'Trend Reporting'];
-  final List<String> _managedZones = ['Sector 7 – North CEA Wing', 'Main Access Gateway – PUP-CEA'];
-  
+  // dynamic permissions based on role
+  List<String> get _rolePermissions {
+    final role = context.read<UserProvider>().role.toLowerCase();
+    final common = [
+      'Real-time Analytics & Dashboarding',
+      'Fire & Hazard Monitoring',
+      'Historical Trend Reporting',
+      'Manual Warning Control',
+      'Node Status Inspection',
+    ];
+    
+    if (role == 'admin') {
+      return [
+        ...common,
+        'Sensor Threshold Calibration',
+        'Device Node Configuration & Management',
+        'Global User Access Control',
+      ];
+    }
+    return common;
+  }
+
+  List<String> _managedZones = [];
+  StreamSubscription? _zonesSubscription;
   final List<Map<String, String>> _activeSessions = [
     {'device': 'This Device', 'status': 'Active'},
   ];
@@ -49,18 +73,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
   final Map<String, int> _deviceHealth = {'Online': 6, 'Critical': 1, 'Offline': 0};
 
-  String _alertChannel = 'Push Notification';
-  final List<String> _alertChannels = ['Push Notification', 'SMS', 'Automated Voice Call'];
 
   bool _isEditing = false;
   bool _hasChanges = false;
 
   // originals for cancel-reset
-  late String _origName, _origUsername, _origEmail, _origPhone, _origDesignation;
+  late String _origName, _origUsername, _origEmail, _origPhone, _origDesignation, _origDept;
 
   @override
   void initState() {
     super.initState();
+    _listenToZones();
     final userProv = context.read<UserProvider>();
     
     _origName = userProv.name;
@@ -68,14 +91,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _origEmail = userProv.email;
     _origPhone = userProv.phone.isEmpty ? 'N/A' : userProv.phone;
     _origDesignation = userProv.designation.isEmpty ? 'N/A' : userProv.designation;
+    _origDept = userProv.department.isEmpty ? 'N/A' : userProv.department;
     _adminId = userProv.id;
     _accessLevel = userProv.role.toUpperCase();
 
-    _nameCtrl = TextEditingController(text: _origName)..addListener(_onChange);
-    _usernameCtrl = TextEditingController(text: _origUsername)..addListener(_onChange);
-    _emailCtrl = TextEditingController(text: _origEmail)..addListener(_onChange);
-    _phoneCtrl = TextEditingController(text: _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '+63 ' : _origPhone)..addListener(_onChange);
-    _designationCtrl = TextEditingController(text: _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation)..addListener(_onChange);
+    _nameCtrl = TextEditingController(text: _origName);
+    _usernameCtrl = TextEditingController(text: _origUsername);
+    _emailCtrl = TextEditingController(text: _origEmail);
+    _phoneCtrl = TextEditingController(
+        text: _origPhone == 'N/A' || _origPhone == '+63 900 000 0000'
+            ? '+63 '
+            : _origPhone);
+    _designationCtrl = TextEditingController(
+        text: _origDesignation == 'N/A' ||
+                _origDesignation == 'Official Administrator'
+            ? ''
+            : _origDesignation);
+    _deptCtrl = TextEditingController(
+        text: _origDept == 'N/A' ||
+                _origDept == 'Disaster Response Team – CEA'
+            ? ''
+            : _origDept);
+
+    // Add listeners ONLY after all controllers are initialized to avoid LateInitializationError in _onChange
+    _nameCtrl.addListener(_onChange);
+    _usernameCtrl.addListener(_onChange);
+    _emailCtrl.addListener(_onChange);
+    _phoneCtrl.addListener(_onChange);
+    _designationCtrl.addListener(_onChange);
+    _deptCtrl.addListener(_onChange);
 
     // Email fields are now refreshed reactively via UserProvider (context.watch)
     // The UpdateEmailDialog handles its own RTDB sync upon verification.
@@ -86,27 +130,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final currentPhoneRaw = _phoneCtrl.text.trim();
     final currentPhone = (currentPhoneRaw.isEmpty || currentPhoneRaw == '+63') ? 'N/A' : currentPhoneRaw;
     final currentDesignation = _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim();
+    final currentDept = _deptCtrl.text.trim().isEmpty ? 'N/A' : _deptCtrl.text.trim();
     
     final origP = _origPhone == '+63 900 000 0000' ? 'N/A' : _origPhone;
     final origD = _origDesignation == 'Official Administrator' ? 'N/A' : _origDesignation;
+    final origDept = _origDept == 'Disaster Response Team – CEA' ? 'N/A' : _origDept;
 
     final changed = _nameCtrl.text.trim() != _origName.trim() ||
         _usernameCtrl.text.trim() != _origUsername.trim() ||
         _emailCtrl.text.trim() != _origEmail.trim() ||
         currentPhone != origP ||
-        currentDesignation != origD;
+        currentDesignation != origD ||
+        currentDept != origDept;
 
     if (_hasChanges != changed) setState(() => _hasChanges = changed);
   }
 
   @override
   void dispose() {
+    _zonesSubscription?.cancel();
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _designationCtrl.dispose();
+    _deptCtrl.dispose();
     super.dispose();
+  }
+
+  void _listenToZones() {
+    _zonesSubscription = FirebaseDatabase.instance.ref().child('prototype_units').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+        final map = event.snapshot.value as Map;
+        final List<Map<String, dynamic>> devices = [];
+        
+        map.forEach((key, val) {
+          final data = val as Map;
+          final name = data['name']?.toString() ?? 'Unknown Node';
+          int priority = 999;
+          if (data.containsKey('priority')) {
+              priority = data['priority'] is int ? data['priority'] : int.tryParse(data['priority'].toString()) ?? 999;
+          } else if (data.containsKey('config') && data['config'] is Map && data['config'].containsKey('priority')) {
+              final c = data['config'] as Map;
+              priority = c['priority'] is int ? c['priority'] : int.tryParse(c['priority'].toString()) ?? 999;
+          }
+          devices.add({'name': name, 'priority': priority});
+        });
+        
+        devices.sort((a, b) => (a['priority'] as int).compareTo(b['priority'] as int));
+        if (mounted) {
+          setState(() {
+            _managedZones = devices.map((d) => d['name'] as String).toList();
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _managedZones = [];
+          });
+        }
+      }
+    });
   }
 
   void _cancel() {
@@ -116,6 +200,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _emailCtrl.text = _origEmail;
       _phoneCtrl.text = _origPhone == 'N/A' || _origPhone == '+63 900 000 0000' ? '' : _origPhone;
       _designationCtrl.text = _origDesignation == 'N/A' || _origDesignation == 'Official Administrator' ? '' : _origDesignation;
+      _deptCtrl.text = _origDept == 'N/A' || _origDept == 'Disaster Response Team – CEA' ? '' : _origDept;
       _isEditing = false;
       _hasChanges = false;
     });
@@ -144,6 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         
         final finalPhone = _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim();
         final finalDesignation = _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim();
+        final finalDept = _deptCtrl.text.trim().isEmpty ? 'N/A' : _deptCtrl.text.trim();
 
         final payload = json.encode({
           'name': _nameCtrl.text.trim(),
@@ -151,6 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'email': _emailCtrl.text.trim(),
           'phone': finalPhone,
           'designation': finalDesignation,
+          'department': finalDept,
         });
 
         final response = await http.patch(updateUrl, body: payload);
@@ -165,6 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'email': _emailCtrl.text.trim(),
           'phone': finalPhone,
           'designation': finalDesignation,
+          'department': finalDept,
         });
         
         setState(() {
@@ -173,6 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _origEmail = _emailCtrl.text.trim();
           _origPhone = finalPhone;
           _origDesignation = finalDesignation;
+          _origDept = finalDept;
           _hasChanges = false;
         });
         
@@ -376,7 +465,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ? _EditField(label: 'Official Designation', controller: _designationCtrl, accentColor: _accentBlue, hint: 'N/A')
                 : _StaticRow(icon: Icons.work_outline_rounded, label: 'Official Designation', value: _designationCtrl.text.trim().isEmpty ? 'N/A' : _designationCtrl.text.trim(), colorScheme: cs),
             const _Divider(),
-            _StaticRow(icon: Icons.corporate_fare_rounded, label: 'Department / Unit', value: 'Disaster Response Team – CEA', colorScheme: cs),
+            _isEditing
+                ? _EditField(label: 'Department / Unit', controller: _deptCtrl, accentColor: _accentBlue, hint: 'N/A')
+                : _StaticRow(icon: Icons.corporate_fare_rounded, label: 'Department / Unit', value: _deptCtrl.text.trim().isEmpty ? 'N/A' : _deptCtrl.text.trim(), colorScheme: cs),
           ]),
           const SizedBox(height: 20),
 
@@ -395,7 +486,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   : AppColors.statusWarning,
             ),
             const _Divider(),
-            _PermissionsRow(permissions: _permissions, colorScheme: cs),
+            _PermissionsRow(permissions: _rolePermissions, colorScheme: cs),
             const _Divider(),
             _ZonesRow(zones: _managedZones, colorScheme: cs),
           ]),
@@ -424,32 +515,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     hint: '+63 XXX XXX XXXX',
                     inputFormatters: [PhilippinePhoneFormatter()],
                   )
-                : _StaticRow(icon: Icons.phone_outlined, label: 'Emergency Contact Number', value: _phoneCtrl.text.trim().isEmpty ? 'N/A' : _phoneCtrl.text.trim(), colorScheme: cs),
-            const _Divider(),
-            _StaticRow(icon: Icons.person_pin_outlined, label: 'Emergency Escalation Path', value: 'Backup: Shift Lead B – H. Llarinas', colorScheme: cs),
-            const _Divider(),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: Icon(Icons.campaign_outlined, size: 18, color: cs.primary),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('Preferred Alert Channel', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
-                  DropdownButton<String>(
-                    value: _alertChannel,
-                    underline: const SizedBox(),
-                    dropdownColor: cs.surface,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: cs.primary, fontSize: 13),
-                    items: _alertChannels.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                    onChanged: (val) => setState(() => _alertChannel = val!),
-                  ),
-                ],
-              ),
-            ),
+                : _StaticRow(
+                    icon: Icons.phone_outlined,
+                    label: 'Emergency Contact Number',
+                    value: _phoneCtrl.text.trim().isEmpty
+                        ? 'N/A'
+                        : _phoneCtrl.text.trim(),
+                    colorScheme: cs),
           ]),
           const SizedBox(height: 20),
 
@@ -461,15 +533,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.access_time_rounded,
               label: 'Last Login',
               value: _formatLastLogin(context.watch<UserProvider>().lastLogin),
-              colorScheme: cs,
-            ),
-            const _Divider(),
-            _StaticRow(
-              icon: Icons.language_rounded,
-              label: 'Last IP Address',
-              value: context.watch<UserProvider>().lastIp == 'Unknown'
-                  ? 'Determining...'
-                  : context.watch<UserProvider>().lastIp,
               colorScheme: cs,
             ),
             const _Divider(),
@@ -579,87 +642,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            const _Divider(),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.devices_rounded, size: 18, color: cs.primary),
-                ),
-                const SizedBox(width: 12),
-                Text('Active Sessions', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: cs.onSurface)),
-              ]),
-              const SizedBox(height: 10),
-              ..._activeSessions.map((s) => Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 4),
-                child: Row(children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF2E7D32))),
-                  const SizedBox(width: 8),
-                  Text('${s['device']}', style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                    child: const Text('Active', style: TextStyle(fontSize: 10, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
-                  ),
-                ]),
-              )),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _showLogoutAllSessionsDialog,
-                  icon: const Icon(Icons.logout_rounded, size: 16),
-                  label: const Text('Log Out of All Other Sessions'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.statusDanger,
-                    side: const BorderSide(color: AppColors.statusDanger),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ]),
           ]),
-          const SizedBox(height: 20),
-
-          // ─── SECTION 5: System Activity & Performance ────────────────────
-          _SectionLabel(label: '5. System Activity & Performance'),
-          const SizedBox(height: 10),
-
-          // Device health mini-stats
-          Row(children: [
-            _StatChip(label: 'Online', value: _deviceHealth['Online']!, color: const Color(0xFF2E7D32), colorScheme: cs),
-            const SizedBox(width: 10),
-            _StatChip(label: 'Critical', value: _deviceHealth['Critical']!, color: AppColors.statusDanger, colorScheme: cs),
-            const SizedBox(width: 10),
-            _StatChip(label: 'Offline', value: _deviceHealth['Offline']!, color: cs.onSurfaceVariant, colorScheme: cs),
-          ]),
-          const SizedBox(height: 12),
-
-          _ProfileCard(colorScheme: cs, isDark: isDark, children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.history_rounded, size: 18, color: cs.primary),
-              ),
-              const SizedBox(width: 12),
-              Text('Recent Actions Log', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: cs.onSurface)),
-            ]),
-            const SizedBox(height: 12),
-            ..._recentActions.asMap().entries.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${e.key + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.primary)),
-                const SizedBox(width: 10),
-                Expanded(child: Text(e.value, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.4))),
-              ]),
-            )),
-          ]),
-          const SizedBox(height: 32),
+          const SizedBox(height: 80),
         ],
       ),
       bottomNavigationBar: _isEditing

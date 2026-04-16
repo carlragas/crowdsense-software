@@ -338,6 +338,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                _deviceDataMap.putIfAbsent(mac, () => {});
                _deviceDataMap[mac]!['location'] = data['name']?.toString() ?? 'Unknown';
                
+               int priority = 999;
+               if (data.containsKey('priority')) {
+                   priority = data['priority'] is int ? data['priority'] : int.tryParse(data['priority'].toString()) ?? 999;
+               } else if (data.containsKey('config') && data['config'] is Map && data['config'].containsKey('priority')) {
+                   final c = data['config'] as Map;
+                   priority = c['priority'] is int ? c['priority'] : int.tryParse(c['priority'].toString()) ?? 999;
+               }
+               _deviceDataMap[mac]!['priority'] = priority;
+               
                if (data.containsKey('heartbeat') && data['heartbeat'] is Map) {
                    final hbMap = data['heartbeat'] as Map;
                    _deviceDataMap[mac]!['last_seen'] = hbMap['last_seen'];
@@ -448,8 +457,16 @@ class _DashboardScreenState extends State<DashboardScreen>
            'connectionState': connState,
            'last_updated': v['last_updated'],
            'last_reset_hour': v['last_reset_hour'],
+           'priority': v['priority'] ?? 999,
         };
     }).toList();
+    
+    _deviceData.sort((a, b) {
+       final pA = a['priority'] as int;
+       final pB = b['priority'] as int;
+       return pA.compareTo(pB);
+    });
+    
     if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
        _selectedLocation = _deviceData.first['location'];
     }

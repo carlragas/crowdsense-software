@@ -106,6 +106,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       await _dbRef.child('prototype_units').child(mac).set({
         "name": name,
         "status": "online",
+        "priority": _devices.length,
         "config": {
           "temp_threshold": 35.0,
           "smoke_threshold": 300.0,

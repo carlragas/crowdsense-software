@@ -25,6 +25,7 @@ class UserProvider extends ChangeNotifier {
   String get designation => _userData?['designation'] ?? 'Official Administrator';
   String get lastLogin => _userData?['lastLogin'] ?? '';
   String get lastIp => _userData?['lastIp'] ?? 'Unknown';
+  String get department => _userData?['department'] ?? 'N/A';
 
   void setUser(User? user, Map<String, dynamic>? data) {
     _authUser = user;

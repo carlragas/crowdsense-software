@@ -91,6 +91,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           'phone': d['phone']?.toString() ?? '',
           'role': d['role']?.toString() ?? 'User',
           'designation': d['designation']?.toString() ?? 'N/A',
+          'department': d['department']?.toString() ?? 'N/A',
           'isOnline': d['isOnline'] == true || d['isOnline'] == 1,
           'createdAt': _parseCreatedAt(d['createdAt']),
         });
@@ -848,6 +849,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     final emailCtrl = TextEditingController();
     final usernameCtrl = TextEditingController();
     final designationCtrl = TextEditingController(); // Optional
+    final deptCtrl = TextEditingController(); // Optional
     String selectedRole =
         'Facilitator'; // Default since it's restricted to Admin/Facilitator
     String? errorMessage;
@@ -989,6 +991,13 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                         _buildDialogTextInput(designationCtrl,
                             "Enter official designation...", isSaving, isDark,
                             icon: Icons.badge_outlined),
+                        const SizedBox(height: 16),
+
+                        _buildDialogFieldLabel(
+                            "Department / Unit (Optional)", isDark),
+                        _buildDialogTextInput(deptCtrl,
+                            "Enter department or unit...", isSaving, isDark,
+                            icon: Icons.corporate_fare_rounded),
                         const SizedBox(height: 20),
 
                         // Temporary password notice
@@ -1149,6 +1158,10 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                                       designationCtrl.text.trim().isEmpty
                                           ? 'N/A'
                                           : designationCtrl.text.trim(),
+                                  'department':
+                                      deptCtrl.text.trim().isEmpty
+                                          ? 'N/A'
+                                          : deptCtrl.text.trim(),
                                   'isOnline': false,
                                   'createdAt': createdAtUnix,
                                 };
