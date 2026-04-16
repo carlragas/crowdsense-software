@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/widgets/page_title.dart';
+import '../../../../core/providers/user_provider.dart';
+import '../../auth/services/auth_service.dart';
 import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -117,13 +119,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: const Text("Cancel"),
                           ),
                           TextButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.of(context).pop();
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                '/login',
-                                (route) => false,
-                              );
+                              if (context.mounted) {
+                                await context.read<UserProvider>().clearUser();
+                              }
+                              await AuthService().logout();
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/login',
+                                  (route) => false,
+                                );
+                              }
                             },
                             child: const Text(
                               "Log Out",
