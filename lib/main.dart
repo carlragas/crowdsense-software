@@ -28,7 +28,8 @@ void main() async {
 
   try {
     await dotenv.load(fileName: ".env");
-    debugPrint('[CrowdSense] .env loaded successfully. DB URL: ${dotenv.env['FIREBASE_DATABASE_URL']}');
+    debugPrint(
+        '[CrowdSense] .env loaded successfully. DB URL: ${dotenv.env['FIREBASE_DATABASE_URL']}');
   } catch (e) {
     debugPrint('[CrowdSense] WARNING: Failed to load .env file: $e');
   }
@@ -46,10 +47,10 @@ void main() async {
 
   // Explicitly set the RTDB URL to the correct asia-southeast1 region
   // This prevents the "Database lives in a different region" error on Android
-  final dbUrl = dotenv.env['FIREBASE_DATABASE_URL'] ?? 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
+  final dbUrl = dotenv.env['FIREBASE_DATABASE_URL'] ??
+      'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
   FirebaseDatabase.instance.databaseURL = dbUrl;
   debugPrint('[CrowdSense] Firebase RTDB URL set to: $dbUrl');
-
 
   // Catch the firebase_auth Windows threading bug at the zone level
   // so it doesn't hard-crash the "Lost connection to device"
@@ -136,7 +137,6 @@ class CrowdSenseApp extends StatelessWidget {
                           icon: sirenProvider.activeSirenIcon!,
                           color: sirenProvider.activeSirenColor!,
                           onTap: () {
-                            // Use the global navigatorKey context to show the dialog
                             final navContext = navigatorKey.currentContext;
                             if (navContext != null) {
                               SirenActiveDialog.show(navContext, sirenProvider);
