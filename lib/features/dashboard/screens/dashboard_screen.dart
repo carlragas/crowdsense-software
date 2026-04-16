@@ -906,143 +906,143 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: _currentIndex == 2 ? 1.0 : 0.0, end: _currentIndex == 2 ? 1.0 : 0.0),
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    builder: (context, value, child) {
-                      return CustomPaint(
-                        size: Size(MediaQuery.of(context).size.width - 32, 90),
-                        painter: _AnimatedNavBarPainter(context, value),
-                      );
-                    },
-                  ),
-                  Positioned.fill(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
-                        _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 1),
-                        SizedBox(
-                          width: 80, 
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              const SizedBox(height: 50),
-                              Text(
-                                "ALERTS", 
-                                style: TextStyle(
-                                  fontSize: 9, 
-                                  fontWeight: FontWeight.w900, 
-                                  letterSpacing: 1.2,
-                                  color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.6),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              // Integrated Active Indicator for Alerts
-                              AnimatedOpacity(
-                                duration: const Duration(milliseconds: 300),
-                                opacity: _currentIndex == 2 ? 1.0 : 0.0,
-                                child: AnimatedScale(
-                                  scale: _currentIndex == 2 ? 1.0 : 0.5,
-                                  duration: const Duration(milliseconds: 300),
-                                  child: Container(
-                                    width: 20,
-                                    height: 2.5,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: AppColors.primaryBlue,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.primaryBlue.withValues(alpha: 0.6),
-                                          blurRadius: 8,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: _currentIndex == 2 ? 1.0 : 0.0, end: _currentIndex == 2 ? 1.0 : 0.0),
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return CustomPaint(
+                    size: Size(MediaQuery.of(context).size.width - 32, 90),
+                    painter: _AnimatedNavBarPainter(context, value),
+                  );
+                },
+              ),
+              Positioned.fill(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
+                    _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 1),
+                    SizedBox(
+                      width: 80, 
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const SizedBox(height: 50),
+                          Text(
+                            "ALERTS", 
+                            style: TextStyle(
+                              fontSize: 9, 
+                              fontWeight: FontWeight.w900, 
+                              letterSpacing: 1.2,
+                              color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.6),
+                            ),
                           ),
-                        ),
-                        _buildNavItem(icon: Icons.devices_other, label: "Devices", index: 3),
-                        _buildNavItem(icon: Icons.settings_outlined, label: "Settings", index: 4),
-                      ],
+                          const SizedBox(height: 6),
+                          // Integrated Active Indicator for Alerts
+                          AnimatedOpacity(
+                            duration: const Duration(milliseconds: 300),
+                            opacity: _currentIndex == 2 ? 1.0 : 0.0,
+                            child: AnimatedScale(
+                              scale: _currentIndex == 2 ? 1.0 : 0.5,
+                              duration: const Duration(milliseconds: 300),
+                              child: Container(
+                                width: 20,
+                                height: 2.5,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  color: AppColors.primaryBlue,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primaryBlue.withValues(alpha: 0.6),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    top: -10,
-                    left: MediaQuery.of(context).size.width / 2 - 16 - 32, // Parent is margin 16 left -> Center visually
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
-                      },
-                      child: AnimatedScale(
-                        scale: _currentIndex == 2 ? 1.12 : 1.0,
+                    _buildNavItem(icon: Icons.devices_other, label: "Devices", index: 3),
+                    _buildNavItem(icon: Icons.settings_outlined, label: "Settings", index: 4),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: -10,
+                left: MediaQuery.of(context).size.width / 2 - 16 - 32, // Parent is margin 16 left -> Center visually
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() { _currentIndex = 2; _showNotificationsPanel = false; });
+                  },
+                    child: AnimatedScale(
+                      scale: _currentIndex == 2 ? 1.12 : 1.0,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      child: AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
                         curve: Curves.easeInOut,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeInOut,
-                          width: 70, // Slightly larger
-                          height: 70,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                AppColors.accentBlue.withValues(alpha: 0.9),
-                                AppColors.primaryBlue,
-                                const Color(0xFF2563EB), // Darker shade of primaryBlue
-                              ],
-                              center: const Alignment(0, -0.2),
-                              radius: 1.0,
-                            ),
-                            boxShadow: [
-                              // Main shadow
-                              BoxShadow(
-                                color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.6 : 0.4),
-                                blurRadius: _currentIndex == 2 ? 24 : 14,
-                                offset: const Offset(0, 6),
-                                spreadRadius: _currentIndex == 2 ? 2 : 0,
-                              ),
-                              // Bloom glow (Animated smoothly via AnimatedContainer)
-                              BoxShadow(
-                                color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.35 : 0.0),
-                                blurRadius: _currentIndex == 2 ? 40 : 20,
-                                spreadRadius: _currentIndex == 2 ? 8 : 0,
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.25),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              )
+                        width: 70, // Slightly larger
+                        height: 70,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              AppColors.accentBlue.withValues(alpha: 0.9),
+                              AppColors.primaryBlue,
+                              const Color(0xFF2563EB), // Darker shade of primaryBlue
                             ],
+                            center: const Alignment(0, -0.2),
+                            radius: 1.0,
                           ),
-                          child: Center(
-                            child: Container(
-                              width: 58,
-                              height: 58,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.25),
-                                  width: 1.5,
-                                ),
+                          boxShadow: [
+                            // Main shadow
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.6 : 0.4),
+                              blurRadius: _currentIndex == 2 ? 24 : 14,
+                              offset: const Offset(0, 6),
+                              spreadRadius: _currentIndex == 2 ? 2 : 0,
+                            ),
+                            // Bloom glow (Animated smoothly via AnimatedContainer)
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withValues(alpha: _currentIndex == 2 ? 0.35 : 0.0),
+                              blurRadius: _currentIndex == 2 ? 40 : 20,
+                              spreadRadius: _currentIndex == 2 ? 8 : 0,
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 58,
+                            height: 58,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.25),
+                                width: 1.5,
                               ),
-                              child: const Icon(
-                                Icons.notifications_active_rounded,
-                                color: Colors.white,
-                                size: 32,
-                              ),
+                            ),
+                            child: const Icon(
+                              Icons.notifications_active_rounded,
+                              color: Colors.white,
+                              size: 32,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
             ),
           ),
         ],
@@ -1054,16 +1054,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     final isSelected = _currentIndex == index;
     final color = isSelected ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.9);
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentIndex = index;
-          _showNotificationsPanel = false;
-        });
-      },
-      behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: 75, // Increased from 65 to prevent text wrapping
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _currentIndex = index;
+            _showNotificationsPanel = false;
+          });
+        },
+        behavior: HitTestBehavior.translucent,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

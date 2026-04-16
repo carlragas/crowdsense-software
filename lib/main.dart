@@ -29,9 +29,16 @@ void main() async {
 
   await dotenv.load(fileName: ".env");
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    // If it's already initialized, ignore the exception
+    if (!e.toString().contains('duplicate-app')) {
+      rethrow;
+    }
+  }
 
   // Catch the firebase_auth Windows threading bug at the zone level
   // so it doesn't hard-crash the "Lost connection to device"

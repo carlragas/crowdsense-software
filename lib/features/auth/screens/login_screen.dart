@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
-  
+
   bool _isPasswordVisible = false;
 
   @override
@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
-  
+
   void _handleLogin() {
     final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
@@ -50,18 +50,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final userProvider = context.read<UserProvider>();
 
     // ── Smart Auth Future ────────────────────────────────────────────────────
-    // We define the future here but DON'T await it. We pass it to the Splash 
+    // We define the future here but DON'T await it. We pass it to the Splash
     // screen, which will handle the pulse-and-sync loop.
     final authFuture = () async {
       // 1. Perform the authentication handshake
       final payload = await _authService.login(identifier, password);
-      
+
       // 2. Set the global UserProvider state using the captured reference
       // (Safe even after widget is gone — we use the variable, not context)
       userProvider.setUser(payload['user'], payload['userData']);
 
       final userData = payload['userData'] as Map<String, dynamic>;
-      final bool requiresPasswordChange = userData['requiresPasswordChange'] == true;
+      final bool requiresPasswordChange =
+          userData['requiresPasswordChange'] == true;
 
       // 3. Return the target destination for the Splash screen to navigate to
       if (requiresPasswordChange) {
@@ -79,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       context,
       '/splash',
       arguments: {
-        'authFuture': authFuture, 
+        'authFuture': authFuture,
       },
     );
   }
@@ -90,9 +91,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ? FadeInDown(duration: const Duration(milliseconds: 800), child: child)
         : child;
 
-    Widget withFadeInUp(Widget child, {Duration delay = Duration.zero}) => widget.animate
-        ? FadeInUp(duration: const Duration(milliseconds: 800), delay: delay, child: child)
-        : child;
+    Widget withFadeInUp(Widget child, {Duration delay = Duration.zero}) =>
+        widget.animate
+            ? FadeInUp(
+                duration: const Duration(milliseconds: 800),
+                delay: delay,
+                child: child)
+            : child;
 
     return Scaffold(
       body: GeometricBackground(
@@ -120,13 +125,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: AppColors.surfaceDark,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primaryBlue.withValues(alpha: 0.2),
+                                  color: AppColors.primaryBlue
+                                      .withValues(alpha: 0.2),
                                   blurRadius: 30,
                                   offset: const Offset(0, 10),
                                 ),
                               ],
                               border: Border.all(
-                                color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                                color: AppColors.primaryBlue
+                                    .withValues(alpha: 0.1),
                                 width: 1,
                               ),
                             ),
@@ -157,7 +164,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: TextStyle(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w900,
-                                    color: AppColors.textLight.withValues(alpha: 0.8),
+                                    color: AppColors.textLight
+                                        .withValues(alpha: 0.8),
                                     letterSpacing: 0,
                                   ),
                                 ),
@@ -171,19 +179,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 2.0,
-                                  fontFamily: 'Outfit'), // Ensure font consistency if possible
+                                  fontFamily:
+                                      'Outfit'), // Ensure font consistency if possible
                               children: [
                                 TextSpan(
                                   text: "DETECT. ",
-                                  style: TextStyle(color: Color(0xFFEF4C33)), // Red/Orange
+                                  style: TextStyle(
+                                      color: Color(0xFFEF4C33)), // Red/Orange
                                 ),
                                 TextSpan(
                                   text: "DIRECT. ",
-                                  style: TextStyle(color: Color(0xFFC94468)), // Pink/Magenta
+                                  style: TextStyle(
+                                      color: Color(0xFFC94468)), // Pink/Magenta
                                 ),
                                 TextSpan(
                                   text: "SECURE.",
-                                  style: TextStyle(color: Color(0xFF5D3F9D)), // Purple
+                                  style: TextStyle(
+                                      color: Color(0xFF5D3F9D)), // Purple
                                 ),
                               ],
                             ),
@@ -191,109 +203,107 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 48),
-
-                  withFadeInUp(
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceDark,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.05),
+                    withFadeInUp(
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceDark,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.05),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            "Welcome Back",
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textLight,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              "Welcome Back",
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textLight,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            "Please sign in to continue",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textGrey,
+                            const SizedBox(height: 8),
+                            const Text(
+                              "Please sign in to continue",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textGrey,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 32),
-                          
-                          TextField(
-                            controller: _identifierController,
-                            style: const TextStyle(color: AppColors.textLight),
-                            decoration: const InputDecoration(
-                              labelText: "Email or Username",
-                              prefixIcon: Icon(Icons.person_outline),
+                            const SizedBox(height: 32),
+                            TextField(
+                              controller: _identifierController,
+                              style:
+                                  const TextStyle(color: AppColors.textLight),
+                              decoration: const InputDecoration(
+                                labelText: "Email or Username",
+                                prefixIcon: Icon(Icons.person_outline),
+                              ),
+                              onSubmitted: (_) => _handleLogin(),
                             ),
-                            onSubmitted: (_) => _handleLogin(),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: !_isPasswordVisible,
-                            style: const TextStyle(color: AppColors.textLight),
-                            decoration: InputDecoration(
-                              labelText: "Password",
-                              prefixIcon: const Icon(Icons.lock_outline),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                  color: AppColors.textGrey,
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _passwordController,
+                              obscureText: !_isPasswordVisible,
+                              style:
+                                  const TextStyle(color: AppColors.textLight),
+                              decoration: InputDecoration(
+                                labelText: "Password",
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _isPasswordVisible
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                    color: AppColors.textGrey,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _isPasswordVisible = !_isPasswordVisible;
+                                    });
+                                  },
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
+                              ),
+                              onSubmitted: (_) => _handleLogin(),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: _handleLogin,
+                              child: const Text("Log In"),
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () =>
+                                  ForgotPasswordDialog.show(context),
+                              child: Text(
+                                "Forgot Password?",
+                                style: TextStyle(
+                                    color: AppColors.textGrey
+                                        .withValues(alpha: 0.8)),
                               ),
                             ),
-                            onSubmitted: (_) => _handleLogin(),
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          ElevatedButton(
-                            onPressed: _handleLogin,
-                            child: const Text("Log In"),
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          TextButton(
-                            onPressed: () => ForgotPasswordDialog.show(context),
-                            child: Text(
-                              "Forgot Password?",
-                              style: TextStyle(color: AppColors.textGrey.withValues(alpha: 0.8)),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
