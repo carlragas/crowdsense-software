@@ -72,9 +72,11 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  void clearUser() {
+  Future<void> clearUser() async {
     if (_authUser != null) {
-      _dbRef.child('users').child(_authUser!.uid).child('isOnline').set(false);
+      // Forcefully drop the websocket to trigger onDisconnect() immediately on the server.
+      // This eliminates any race conditions with FirebaseAuth signout.
+      FirebaseDatabase.instance.goOffline();
     }
     _cancelPresence();
     _authUser = null;

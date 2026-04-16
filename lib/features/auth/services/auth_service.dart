@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'email_service.dart';
 
 class AuthService {
@@ -12,6 +13,9 @@ class AuthService {
   /// Logs a user in using either their Email or their Username.
   /// Returns a Map payload containing the raw Firebase `User` object and the `userData` mapping.
   Future<Map<String, dynamic>> login(String identifier, String password) async {
+    // Re-establish RTDB connection in case it was dropped during logout
+    FirebaseDatabase.instance.goOnline();
+    
     String loginEmail = identifier.trim();
     
     if (!loginEmail.contains('@')) {
