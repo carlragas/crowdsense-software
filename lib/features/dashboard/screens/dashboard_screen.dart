@@ -1660,6 +1660,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         'isReset': false,
       },
       {
+        'title': "SAFETY ALERT",
+        'subtitle': "Activate blue visual strobe for advisory signalling",
+        'icon': Icons.light_mode_rounded,
+        'color': AppColors.primaryBlue,
+        'isReset': false,
+      },
+      {
         'title': "RESET ALL ALARMS",
         'subtitle': "Cancel all active sirens and visual alerts",
         'icon': Icons.refresh_rounded,
@@ -2715,7 +2722,9 @@ class _TacticalDialButtonState extends State<_TacticalDialButton> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        GestureDetector(
+        FittedBox(
+          fit: BoxFit.contain,
+          child: GestureDetector(
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
@@ -2877,9 +2886,10 @@ class _TacticalDialButtonState extends State<_TacticalDialButton> {
             ),
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 }
 
 class _PulsingDot extends StatefulWidget {
