@@ -49,6 +49,11 @@ void main() async {
   // This prevents the "Database lives in a different region" error on Android
   final dbUrl = dotenv.env['FIREBASE_DATABASE_URL'] ??
       'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
+  // Go offline BEFORE setting the URL to prevent the C++ RTDB SDK assertion
+  // (connection_state_ == kDisconnected). The SDK auto-connects after
+  // initializeApp, so setting databaseURL while connected can trigger abort().
+  // The login flow will call goOnline() after authentication completes.
+  FirebaseDatabase.instance.goOffline();
   FirebaseDatabase.instance.databaseURL = dbUrl;
   debugPrint('[CrowdSense] Firebase RTDB URL set to: $dbUrl');
 
