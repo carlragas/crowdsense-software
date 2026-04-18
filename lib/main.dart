@@ -53,7 +53,12 @@ void main() async {
   // (connection_state_ == kDisconnected). The SDK auto-connects after
   // initializeApp, so setting databaseURL while connected can trigger abort().
   // The login flow will call goOnline() after authentication completes.
-  FirebaseDatabase.instance.goOffline();
+  // NOTE: This workaround is ONLY needed on desktop (Windows/Linux/macOS).
+  // On mobile (Android/iOS), the native SDK handles this correctly and
+  // goOffline() would prevent RTDB listeners from ever receiving data.
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    FirebaseDatabase.instance.goOffline();
+  }
   FirebaseDatabase.instance.databaseURL = dbUrl;
   debugPrint('[CrowdSense] Firebase RTDB URL set to: $dbUrl');
 
