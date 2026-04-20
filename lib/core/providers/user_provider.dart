@@ -8,6 +8,7 @@ class UserProvider extends ChangeNotifier {
   Map<String, dynamic>? _userData;
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
   StreamSubscription? _presenceSubscription;
+  Timer? _heartbeatTimer;
 
   User? get authUser => _authUser;
   Map<String, dynamic>? get userData => _userData;
@@ -56,6 +57,20 @@ class UserProvider extends ChangeNotifier {
         presenceRef.set(true);
         // On disconnect, set isOnline to false
         presenceRef.onDisconnect().set(false);
+        
+        // Immediate heartbeat on connection
+        _dbRef.child('users').child(userUid).update({
+          'lastActive': ServerValue.timestamp,
+        });
+      }
+    });
+
+    // Start periodic heartbeat every 1 minute
+    _heartbeatTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (_authUser != null) {
+        _dbRef.child('users').child(_authUser!.uid).update({
+          'lastActive': ServerValue.timestamp,
+        });
       }
     });
   }
@@ -63,6 +78,8 @@ class UserProvider extends ChangeNotifier {
   void _cancelPresence() {
     _presenceSubscription?.cancel();
     _presenceSubscription = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
   }
 
   void updateProfile(Map<String, dynamic> updatedData) {
@@ -74,7 +91,19 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> clearUser() async {
     if (_authUser != null) {
-      // Forcefully drop the websocket to trigger onDisconnect() immediately on the server.
+      final String userUid = _authUser!.uid;
+      // 1. Explicitly notify the server that we are going offline
+      // Doing this before goOffline() ensures immediate state synchronization.
+      try {
+        await _dbRef.child('users').child(userUid).update({
+          'isOnline': false,
+          'lastActive': ServerValue.timestamp,
+        });
+      } catch (e) {
+        debugPrint('[UserProvider] Explicit presence clear failed: $e');
+      }
+
+      // 2. Forcefully drop the websocket to trigger onDisconnect() immediately on the server.
       // This eliminates any race conditions with FirebaseAuth signout.
       FirebaseDatabase.instance.goOffline();
     }
