@@ -26,9 +26,9 @@ class PeopleCounterCard extends StatelessWidget {
     final String connectionState = currentData['connectionState'] ?? 'NEVER SEEN';
     
     Color statusColor;
-    if (connectionState == 'CONNECTED') {
+    if (connectionState == 'ONLINE') {
       statusColor = AppColors.statusSafe;
-    } else if (connectionState == 'DISCONNECTED') {
+    } else if (connectionState == 'OFFLINE') {
       statusColor = AppColors.statusDanger;
     } else {
       statusColor = Theme.of(context).colorScheme.onSurfaceVariant; // Gray color for never seen

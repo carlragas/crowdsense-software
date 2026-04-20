@@ -432,18 +432,20 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _syncDeviceDataList() {
     _deviceData = _deviceDataMap.values.map((v) {
-        // Use last_updated from sensor_data as the heartbeat indicator.
-        // Arduino's uploadData() writes this every 90 seconds.
+        // Use explicit device_status and last_updated from sensor_data as the heartbeat indicator.
         bool isLive = false;
         String connState = "NEVER SEEN";
         final lastUpdated = v['last_updated'];
-        if (lastUpdated != null) {
+        final ds = v['device_status'];
+        final explicitDeviceFalse = ds == false || ds == "false";
+
+        if (!explicitDeviceFalse && lastUpdated != null) {
             final ts = DateTime.fromMillisecondsSinceEpoch(
               (lastUpdated is int) ? lastUpdated : (lastUpdated as num).toInt(),
             );
-            isLive = DateTime.now().difference(ts).inSeconds < 120; // 90s send interval + 30s buffer
-            connState = isLive ? "CONNECTED" : "DISCONNECTED";
+            isLive = DateTime.now().difference(ts).inSeconds < 30; // 30s timeout
         }
+        connState = isLive ? "ONLINE" : "OFFLINE";
 
         return {
            'location': v['location'] ?? 'Unknown Node',

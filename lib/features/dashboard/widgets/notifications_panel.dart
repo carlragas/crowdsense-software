@@ -99,7 +99,7 @@ class _NotificationsPanelState extends State<NotificationsPanel>
     return GestureDetector(
       onTap: _close,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
         child: Container(
           color: Colors.black.withValues(alpha: 0.35),
           alignment: Alignment.topCenter,
@@ -118,8 +118,8 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                     ),
                     decoration: ShapeDecoration(
                       color: isDark
-                          ? const Color(0xFF1A1A2E).withValues(alpha: 0.97)
-                          : Colors.white.withValues(alpha: 0.97),
+                          ? const Color(0xFF010614).withValues(alpha: 0.95)
+                          : Colors.white.withValues(alpha: 0.95),
                       shape: _ChatBubbleBorder(
                         borderRadius: 24.0,
                         arrowWidth: 18.0,
@@ -127,8 +127,8 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                         arrowOffset: 58.0,
                         side: BorderSide(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.black.withValues(alpha: 0.08),
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.black.withValues(alpha: 0.05),
                         ),
                       ),
                       shadows: [
@@ -158,10 +158,11 @@ class _NotificationsPanelState extends State<NotificationsPanel>
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                'Notifications',
+                                'NOTIFICATIONS',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5,
                                   color: Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
@@ -262,15 +263,28 @@ class _NotificationsPanelState extends State<NotificationsPanel>
 
   Widget _sectionLabel(String label, Color color) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 2),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.0,
-          color: color,
-        ),
+      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+              color: color.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -321,18 +335,24 @@ class _NotificationTile extends StatelessWidget {
         ? AppColors.statusDanger.withValues(alpha: 0.4)
         : notification.iconColor.withValues(alpha: 0.2);
     final bgColor = isUrgent
-        ? AppColors.statusDanger.withValues(alpha: isDark ? 0.08 : 0.05)
-        : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.02));
+        ? AppColors.statusDanger.withValues(alpha: isDark ? 0.04 : 0.02)
+        : (isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.01));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark 
+              ? borderColor.withValues(alpha: 0.1) 
+              : borderColor.withValues(alpha: 0.15)
+        ),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -410,40 +430,23 @@ class _NotificationTile extends StatelessWidget {
                     ),
                     // Resolve button for urgent only
                     if (isUrgent && onResolve != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: onResolve,
-                            icon: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.check_rounded, size: 12, color: AppColors.statusSafe),
-                            ),
-                            label: const Text('Mark Resolved', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              backgroundColor: AppColors.statusSafe,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: onResolve,
+                          icon: Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.statusSafe),
+                          label: const Text('MARK RESOLVED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.statusSafe,
+                            side: BorderSide(color: AppColors.statusSafe.withValues(alpha: 0.5)),
+                            backgroundColor: AppColors.statusSafe.withValues(alpha: 0.05),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Tap notification to dismiss view',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ],
@@ -453,8 +456,9 @@ class _NotificationTile extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ChatBubbleBorder extends ShapeBorder {

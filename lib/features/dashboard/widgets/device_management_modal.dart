@@ -76,8 +76,10 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
             final sensorInfo = _sensorDataCache[mac];
             if (sensorInfo != null && sensorInfo is Map) {
               device['heartbeat_last_seen'] = sensorInfo['last_updated'];
+              device['device_status'] = sensorInfo['device_status'];
             } else {
               device['heartbeat_last_seen'] = null;
+              device['device_status'] = null;
             }
 
             loadedDevices.add(device);
@@ -124,6 +126,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
               final sensorInfo = _sensorDataCache[mac];
               if (sensorInfo != null && sensorInfo is Map) {
                 device['heartbeat_last_seen'] = sensorInfo['last_updated'];
+                device['device_status'] = sensorInfo['device_status'];
               }
             }
           });
@@ -673,12 +676,16 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
 
   // --- Heartbeat helpers (uses sensor_data/last_updated from Arduino) ---
   bool get _isHardwareLive {
+    final ds = widget.device['device_status'];
+    final explicitDeviceFalse = ds == false || ds == "false";
+
     final lastSeen = widget.device['heartbeat_last_seen'];
-    if (lastSeen == null) return false;
+    if (explicitDeviceFalse || lastSeen == null) return false;
+    
     final ts = DateTime.fromMillisecondsSinceEpoch(
       (lastSeen is int) ? lastSeen : (lastSeen as num).toInt(),
     );
-    return DateTime.now().difference(ts).inSeconds < 120; // Arduino sends every 90s
+    return DateTime.now().difference(ts).inSeconds < 30; // 30s timeout
   }
 
   String get _lastSeenText {
