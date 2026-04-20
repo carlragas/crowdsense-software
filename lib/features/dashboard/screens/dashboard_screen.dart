@@ -784,7 +784,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                       children: [
                         PageTitle(
                           key: ValueKey('Page_$_currentIndex'), 
-                          title: "Dashboard"
+                          title: "Dashboard",
+                          subtitle: "Welcome, ${userProv.firstName}!",
                         ),
                         const SizedBox(height: 12),
                         _buildStatsRow(),
@@ -991,7 +992,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(icon: Icons.dashboard_outlined, label: "Dashboard", index: 0),
+                    _buildNavItem(icon: Icons.home_outlined, label: "Dashboard", index: 0),
                     _buildNavItem(icon: Icons.analytics_outlined, label: "Analytics", index: 1),
                     SizedBox(
                       width: 80, 
@@ -999,16 +1000,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           const SizedBox(height: 50),
-                          Text(
-                            "ALERTS", 
-                            style: TextStyle(
-                              fontSize: 9, 
-                              fontWeight: FontWeight.w900, 
-                              letterSpacing: 1.2,
-                              color: _currentIndex == 2 ? AppColors.primaryBlue : Colors.grey.withValues(alpha: 0.6),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 10),
                           // Integrated Active Indicator for Alerts
                           AnimatedOpacity(
                             duration: const Duration(milliseconds: 300),
@@ -1142,20 +1134,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               duration: const Duration(milliseconds: 200),
               child: Icon(icon, color: color, size: 24), // Slightly smaller icons for better balance
             ),
-            const SizedBox(height: 6), // Increased spacing
-            Text(
-              label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.visible,
-              softWrap: false,
-              style: TextStyle(
-                color: color,
-                fontSize: 9, 
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                letterSpacing: 1.1, 
-              ),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 16),
             // Integrated Active Indicator
             AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
@@ -1223,7 +1202,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         const SizedBox(height: 2),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5), // Reduced padding
           decoration: BoxDecoration(
             color: hazardColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
@@ -1234,21 +1213,26 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           child: Row(
             mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start, // Align dot to the top of multi-line text
             children: [
-              _PulsingDot(color: hazardColor),
-              const SizedBox(width: 5),
+              Padding(
+                padding: const EdgeInsets.only(top: 2), // Nudge dot down slightly for alignment
+                child: _PulsingDot(color: hazardColor),
+              ),
+              const SizedBox(width: 4), 
               Flexible(
                 child: Text(
                   hazardLabel,
                   style: TextStyle(
-                    fontSize: 9.5,
+                    fontSize: 8.5,
                     fontWeight: FontWeight.w900,
                     color: hazardColor,
-                    letterSpacing: 0.3,
-                    height: 1.2,
+                    letterSpacing: 0.2,
+                    height: 1.1,
                   ),
-                  maxLines: 1,
+                  maxLines: 2, // Allow 2 lines
                   overflow: TextOverflow.ellipsis,
+                  softWrap: true, // Enable wrapping
                 ),
               ),
             ],
@@ -1337,7 +1321,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               valueWidget: headcountBadge,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6), // Reduced from 8
           Expanded(
             child: _buildGlassStatCard(
               title: "Current Hour\nExits",
@@ -1348,7 +1332,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               valueWidget: exitsBadge,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6), // Reduced from 8
           Expanded(
             child: _buildGlassStatCard(
               title: "Hazard Status",
@@ -1526,8 +1510,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     bool isTextSmall = false,
     Widget? valueWidget,
   }) {
+    final bool isNarrow = MediaQuery.of(context).size.width < 400;
     Widget cardChild = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 6 : 10, 
+        vertical: isNarrow ? 10 : 12,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: isDark ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(16),
@@ -1557,7 +1545,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               height: 1.2,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           // Use the custom valueWidget (e.g. badge) if provided, else plain text
           valueWidget ?? Text(
             value,

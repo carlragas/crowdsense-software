@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/widgets/custom_notification_modal.dart';
 
 class DeviceManagementModal extends StatefulWidget {
@@ -54,12 +52,8 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                };
             }
 
-            // Ensure status has a string representation
-            if (!device.containsKey('status') || device['status'] == null) {
-              device['status'] = 'offline';
-            } else {
-              device['status'] = device['status'].toString();
-            }
+            // No longer fetching manual 'status' field as Operation Power is removed.
+            // Heartbeat data below will handle the LIVE/OFFLINE state.
 
             // Extract heartbeat data
             if (device.containsKey('heartbeat') && device['heartbeat'] is Map) {
@@ -105,7 +99,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     try {
       await _dbRef.child('prototype_units').child(mac).set({
         "name": name,
-        "status": "online",
         "priority": _devices.length,
         "config": {
           "temp_threshold": 35.0,
@@ -145,21 +138,8 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     }
   }
 
-  void _updateDeviceConfig(String mac, Map<String, dynamic> newSensors) async {
-    try {
-      await _dbRef.child('prototype_units').child(mac).child('config').set(newSensors);
-    } catch (e) {
-      debugPrint("Error updating config: $e");
-    }
-  }
 
-  void _updateDeviceStatus(String mac, String newStatus) async {
-    try {
-      await _dbRef.child('prototype_units').child(mac).update({"status": newStatus});
-    } catch (e) {
-      debugPrint("Error updating status: $e");
-    }
-  }
+  // Removed _updateDeviceStatus as manual power control is no longer supported.
 
   void _removeDeviceFromFirebase(String mac) async {
     try {
@@ -560,7 +540,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
               index: index,
               onSave: _executeEditDevice,
               onRemove: _promptRemoveDevice,
-              onStatusToggle: _updateDeviceStatus,
+              onStatusToggle: (mac, status) {}, // No-op
             ),
           );
         },
@@ -575,6 +555,10 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final device = _devices[index];
+        // One-time cleanup: Remove 'status' field from RTDB if it exists
+        if (device.containsKey('status')) {
+           FirebaseDatabase.instance.ref().child('prototype_units').child(device['macAddress']).child('status').remove();
+        }
         return _buildDeviceTile(device, isDark, index: index);
       },
     );
@@ -589,7 +573,9 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       index: index,
       onSave: _executeEditDevice,
       onRemove: _promptRemoveDevice,
-      onStatusToggle: _updateDeviceStatus,
+      onStatusToggle: (mac, status) {
+        // No-op as Operation Power is removed. Cleanup happens in _buildDeviceList.
+      },
     );
   }
 }
@@ -683,8 +669,8 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isOnline = widget.device["status"] == "online";
     final isDark = widget.isDark;
+    final bool isLive = _isHardwareLive;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -707,12 +693,12 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (isOnline ? AppColors.primaryBlue : AppColors.textGrey).withValues(alpha: 0.1),
+              color: (isLive ? AppColors.primaryBlue : AppColors.textGrey).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.router_rounded,
-              color: isOnline ? AppColors.primaryBlue : AppColors.textGrey,
+              color: isLive ? AppColors.primaryBlue : AppColors.textGrey,
               size: 22,
             ),
           ),
@@ -724,32 +710,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
-          subtitle: Row(
-            children: [
-              _AnimatedPulsingDot(
-                color: _isHardwareLive ? AppColors.statusSafe : AppColors.textGrey,
-                size: 6,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _isHardwareLive ? 'LIVE' : 'OFFLINE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                  color: _isHardwareLive ? AppColors.statusSafe : AppColors.textGrey,
-                ),
-              ),
-              Text(
-                " · $_lastSeenText",
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
           trailing: widget.isReordering 
             ? ReorderableDragStartListener(
                 index: widget.index,
@@ -758,12 +718,38 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                   child: Icon(Icons.drag_handle_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
                 ),
               )
-            : _buildStatusBadge(isOnline),
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: (isLive ? AppColors.statusSafe : AppColors.textGrey).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (isLive ? AppColors.statusSafe : AppColors.textGrey).withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _AnimatedPulsingDot(
+                      color: isLive ? AppColors.statusSafe : AppColors.textGrey,
+                      size: 6,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isLive ? 'ONLINE' : 'OFFLINE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                        color: isLive ? AppColors.statusSafe : AppColors.textGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           children: widget.isReordering ? [] : [
             const SizedBox(height: 8),
             _buildHeartbeatCard(),
-            const SizedBox(height: 12),
-            _buildStatusToggle(isOnline),
             const SizedBox(height: 16),
             
             // Edit Fields
@@ -879,39 +865,10 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     );
   }
 
-  Widget _buildStatusBadge(bool isOnline) {
-    final color = isOnline ? AppColors.statusSafe : AppColors.textGrey;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _AnimatedPulsingDot(color: color, size: 6.0),
-          const SizedBox(width: 8),
-          Text(
-            isOnline ? "POWER ON" : "POWER OFF",
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildHeartbeatCard() {
     final hwState = _hardwareState;
     final ip = widget.device['heartbeat_ip'];
     final firmware = widget.device['heartbeat_firmware'];
-    // We are now trusting the RTDB explicit string
     final isLive = hwState == 'CONNECTED';
     final color = isLive ? AppColors.statusSafe : (hwState == 'DISCONNECTED' ? AppColors.statusDanger : AppColors.textGrey);
 
@@ -984,91 +941,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
         ),
       ],
-    );
-  }
-
-  Widget _buildStatusToggle(bool isOnline) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isOnline ? Icons.power_rounded : Icons.power_off_rounded,
-                size: 22,
-                color: isOnline ? AppColors.statusSafe : AppColors.statusDanger,
-              ),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Operation Power", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(
-                    isOnline ? "Device is currently POWERED ON" : "Device is currently POWERED OFF",
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          GestureDetector(
-            onTap: () {
-              widget.onStatusToggle(widget.device["macAddress"], isOnline ? "offline" : "online");
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 58,
-              height: 30,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: isOnline ? AppColors.statusSafe.withValues(alpha: 0.12) : AppColors.statusDanger.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isOnline ? AppColors.statusSafe.withValues(alpha: 0.3) : AppColors.statusDanger.withValues(alpha: 0.25),
-                  width: 1.5,
-                ),
-              ),
-              child: AnimatedAlign(
-                duration: const Duration(milliseconds: 250),
-                alignment: isOnline ? Alignment.centerRight : Alignment.centerLeft,
-                curve: Curves.easeOutBack,
-                child: Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: isOnline ? AppColors.statusSafe : AppColors.statusDanger,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isOnline ? AppColors.statusSafe : AppColors.statusDanger).withValues(alpha: 0.4),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      )
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.power_settings_new_rounded,
-                    size: 13,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          )
-        ],
-      ),
     );
   }
 }

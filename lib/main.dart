@@ -117,7 +117,7 @@ class CrowdSenseApp extends StatelessWidget {
           builder: (context, sirenProvider, child) {
             return MaterialApp(
               navigatorKey: navigatorKey,
-              title: 'CrowdSense',
+              title: 'CrowdSense App',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
