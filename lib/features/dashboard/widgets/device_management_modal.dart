@@ -15,15 +15,27 @@ class DeviceManagementModal extends StatefulWidget {
 class _DeviceManagementModalState extends State<DeviceManagementModal> {
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
   StreamSubscription? _devicesSubscription;
+  StreamSubscription? _sensorDataSubscription;
   List<Map<String, dynamic>> _devices = [];
+  final Map<String, dynamic> _sensorDataCache = {}; // stores last_updated per MAC
 
   final TextEditingController _macController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   bool _isReordering = false;
 
   @override
+  void dispose() {
+    _devicesSubscription?.cancel();
+    _sensorDataSubscription?.cancel();
+    _macController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    _listenToSensorData();
     _listenToDevices();
   }
 
@@ -43,27 +55,28 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                final configMap = device['config'] as Map;
                final sensorsStrMap = <String, dynamic>{};
                configMap.forEach((k, v) => sensorsStrMap[k.toString()] = v);
+               if (!sensorsStrMap.containsKey('include_in_headcount')) {
+                  sensorsStrMap['include_in_headcount'] = true;
+               }
                device['sensors'] = sensorsStrMap;
             } else if (!device.containsKey('sensors')) {
                device['sensors'] = <String, dynamic>{
                   "temp_threshold": 35.0,
                   "smoke_threshold": 300.0,
-                  "flame_threshold": 200.0
+                  "flame_threshold": 200.0,
+                  "include_in_headcount": true
                };
             }
 
             // No longer fetching manual 'status' field as Operation Power is removed.
-            // Heartbeat data below will handle the LIVE/OFFLINE state.
+            // Arduino writes last_updated to sensor_data, not a heartbeat node.
 
-            // Extract heartbeat data
-            if (device.containsKey('heartbeat') && device['heartbeat'] is Map) {
-              final hbMap = device['heartbeat'] as Map;
-              device['heartbeat_status'] = hbMap['connection_state']?.toString() ?? 'NEVER SEEN';
-              device['heartbeat_last_seen'] = hbMap['last_seen'];
-              device['heartbeat_ip'] = hbMap['ip_address']?.toString();
-              device['heartbeat_firmware'] = hbMap['firmware_version']?.toString();
+            // Merge sensor_data last_updated for ONLINE/OFFLINE detection
+            final mac = device['macAddress'];
+            final sensorInfo = _sensorDataCache[mac];
+            if (sensorInfo != null && sensorInfo is Map) {
+              device['heartbeat_last_seen'] = sensorInfo['last_updated'];
             } else {
-              device['heartbeat_status'] = 'NEVER SEEN';
               device['heartbeat_last_seen'] = null;
             }
 
@@ -95,6 +108,30 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     });
   }
 
+  void _listenToSensorData() {
+    _sensorDataSubscription = _dbRef.child('sensor_data').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+        final map = event.snapshot.value as Map;
+        _sensorDataCache.clear();
+        map.forEach((key, val) {
+          _sensorDataCache[key.toString()] = val;
+        });
+        // Re-merge into _devices if already loaded
+        if (_devices.isNotEmpty && mounted) {
+          setState(() {
+            for (final device in _devices) {
+              final mac = device['macAddress'];
+              final sensorInfo = _sensorDataCache[mac];
+              if (sensorInfo != null && sensorInfo is Map) {
+                device['heartbeat_last_seen'] = sensorInfo['last_updated'];
+              }
+            }
+          });
+        }
+      }
+    });
+  }
+
   void _addDeviceToFirebase(String mac, String name) async {
     try {
       await _dbRef.child('prototype_units').child(mac).set({
@@ -104,10 +141,11 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
           "temp_threshold": 35.0,
           "smoke_threshold": 300.0,
           "flame_threshold": 200.0,
+          "include_in_headcount": true,
           "priority": _devices.length,
         }
       });
-      // Pre-initialize sensor data logic
+      // Pre-initialize sensor data with all Arduino-written fields
       await _dbRef.child('sensor_data').child(mac).set({
         "people_inside": 0,
         "total_entries": 0,
@@ -116,6 +154,9 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
         "gas": 0,
         "flame": 0,
         "last_updated": DateTime.now().millisecondsSinceEpoch,
+        "siren_alert_active": false,
+        "siren_clear_active": false,
+        "power_status": "Unknown",
       });
     } catch (e) {
       debugPrint("Error adding device: $e");
@@ -267,14 +308,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     } catch (e) {
       debugPrint("Error editing device: $e");
     }
-  }
-
-  @override
-  void dispose() {
-    _devicesSubscription?.cancel();
-    _macController.dispose();
-    _nameController.dispose();
-    super.dispose();
   }
 
   @override
@@ -607,10 +640,11 @@ class _EditableDeviceTile extends StatefulWidget {
 class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   late TextEditingController _macCtrl;
   late TextEditingController _nameCtrl;
-  late double _tempThresh;
   Timer? _heartbeatTimer;
+  late double _tempThresh;
   late double _smokeThresh;
   late double _flameThresh;
+  late bool _includeInHeadcount;
 
   @override
   void initState() {
@@ -621,6 +655,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _tempThresh = (sensors["temp_threshold"] ?? 35.0).toDouble();
     _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble();
     _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble();
+    _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
 
     // Refresh the "ago" text every 10 seconds
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -636,23 +671,14 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     super.dispose();
   }
 
-  // --- Heartbeat helpers ---
-  String get _hardwareState {
-    final hwStatus = widget.device['heartbeat_status']?.toString() ?? 'NEVER SEEN';
-    if (hwStatus == 'CONNECTED' || hwStatus == 'DISCONNECTED') {
-        return hwStatus;
-    }
-    
-    final lastSeen = widget.device['heartbeat_last_seen'];
-    if (lastSeen != null) {
-        final ts = DateTime.fromMillisecondsSinceEpoch((lastSeen is int) ? lastSeen : (lastSeen as num).toInt());
-        return DateTime.now().difference(ts).inSeconds < 60 ? 'CONNECTED' : 'DISCONNECTED';
-    }
-    return 'NEVER SEEN';
-  }
-
+  // --- Heartbeat helpers (uses sensor_data/last_updated from Arduino) ---
   bool get _isHardwareLive {
-    return _hardwareState == 'CONNECTED';
+    final lastSeen = widget.device['heartbeat_last_seen'];
+    if (lastSeen == null) return false;
+    final ts = DateTime.fromMillisecondsSinceEpoch(
+      (lastSeen is int) ? lastSeen : (lastSeen as num).toInt(),
+    );
+    return DateTime.now().difference(ts).inSeconds < 120; // Arduino sends every 90s
   }
 
   String get _lastSeenText {
@@ -710,6 +736,14 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
+          subtitle: Text(
+            "Last seen: $_lastSeenText",
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           trailing: widget.isReordering 
             ? ReorderableDragStartListener(
                 index: widget.index,
@@ -749,7 +783,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               ),
           children: widget.isReordering ? [] : [
             const SizedBox(height: 8),
-            _buildHeartbeatCard(),
             const SizedBox(height: 16),
             
             // Edit Fields
@@ -787,6 +820,22 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             _buildThresholdSlider("Smoke", _smokeThresh, 100, 500, AppColors.primaryBlue, "PPM", (v) => setState(() => _smokeThresh = v)),
             _buildThresholdSlider("Flame", _flameThresh, 50, 500, AppColors.statusWarning, "PPM", (v) => setState(() => _flameThresh = v)),
             
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                "Include in Total Headcount",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                "Adds this device's entries/exits to dashboard totals.",
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+              ),
+              activeColor: AppColors.primaryBlue,
+              value: _includeInHeadcount,
+              onChanged: (v) => setState(() => _includeInHeadcount = v),
+            ),
+            
             const SizedBox(height: 24),
             Row(
               children: [
@@ -801,6 +850,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                             "temp_threshold": _tempThresh,
                             "smoke_threshold": _smokeThresh,
                             "flame_threshold": _flameThresh,
+                            "include_in_headcount": _includeInHeadcount,
                          }
                       );
                     },
@@ -865,84 +915,9 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     );
   }
 
-  Widget _buildHeartbeatCard() {
-    final hwState = _hardwareState;
-    final ip = widget.device['heartbeat_ip'];
-    final firmware = widget.device['heartbeat_firmware'];
-    final isLive = hwState == 'CONNECTED';
-    final color = isLive ? AppColors.statusSafe : (hwState == 'DISCONNECTED' ? AppColors.statusDanger : AppColors.textGrey);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isLive ? Icons.sensors : Icons.sensors_off,
-                size: 18,
-                color: color,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                "ESP32 Hardware",
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: color),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  hwState.toUpperCase(),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _heartbeatDetail(Icons.access_time, 'Last Seen', _lastSeenText),
-              if (ip != null) ...[const SizedBox(width: 16), _heartbeatDetail(Icons.lan, 'IP', ip)],
-              if (firmware != null) ...[const SizedBox(width: 16), _heartbeatDetail(Icons.memory, 'FW', firmware)],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _heartbeatDetail(IconData icon, String label, String value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
-        const SizedBox(width: 4),
-        Text(
-          '$label: ',
-          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
-        ),
-        Text(
-          value,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
-        ),
-      ],
-    );
-  }
+
 }
 
 class _AnimatedPulsingDot extends StatefulWidget {

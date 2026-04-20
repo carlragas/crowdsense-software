@@ -347,12 +347,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                }
                _deviceDataMap[mac]!['priority'] = priority;
                
-               if (data.containsKey('heartbeat') && data['heartbeat'] is Map) {
-                   final hbMap = data['heartbeat'] as Map;
-                   _deviceDataMap[mac]!['last_seen'] = hbMap['last_seen'];
-               } else {
-                   _deviceDataMap[mac]!['last_seen'] = null;
+               bool includeInHeadcount = true;
+               if (data.containsKey('config') && data['config'] is Map && data['config'].containsKey('include_in_headcount')) {
+                   includeInHeadcount = data['config']['include_in_headcount'] == true;
                }
+               _deviceDataMap[mac]!['include_in_headcount'] = includeInHeadcount;
+
+               // NOTE: Arduino does NOT write a 'heartbeat' node under prototype_units.
+               // Online/offline detection uses 'last_updated' from sensor_data instead.
             });
             _syncDeviceDataList();
          });
@@ -430,21 +432,17 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _syncDeviceDataList() {
     _deviceData = _deviceDataMap.values.map((v) {
-        String connState = v['connection_state']?.toString() ?? "NEVER SEEN";
+        // Use last_updated from sensor_data as the heartbeat indicator.
+        // Arduino's uploadData() writes this every 90 seconds.
         bool isLive = false;
-
-        if (connState == "CONNECTED") {
-            isLive = true;
-        } else if (connState == "DISCONNECTED") {
-            isLive = false;
-        } else {
-            // Fallback for older firmware without explicit connection_state
-            final lastSeen = v['last_seen'];
-            if (lastSeen != null) {
-                final ts = DateTime.fromMillisecondsSinceEpoch((lastSeen is int) ? lastSeen : (lastSeen as num).toInt());
-                isLive = DateTime.now().difference(ts).inSeconds < 60;
-                connState = isLive ? "CONNECTED" : "DISCONNECTED";
-            }
+        String connState = "NEVER SEEN";
+        final lastUpdated = v['last_updated'];
+        if (lastUpdated != null) {
+            final ts = DateTime.fromMillisecondsSinceEpoch(
+              (lastUpdated is int) ? lastUpdated : (lastUpdated as num).toInt(),
+            );
+            isLive = DateTime.now().difference(ts).inSeconds < 120; // 90s send interval + 30s buffer
+            connState = isLive ? "CONNECTED" : "DISCONNECTED";
         }
 
         return {
@@ -458,6 +456,7 @@ class _DashboardScreenState extends State<DashboardScreen>
            'last_updated': v['last_updated'],
            'last_reset_hour': v['last_reset_hour'],
            'priority': v['priority'] ?? 999,
+           'include_in_headcount': v['include_in_headcount'] ?? true,
         };
     }).toList();
     
@@ -543,9 +542,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  // Computed total across all sensors
-  int get _totalEntries => _deviceData.fold(0, (sum, d) => sum + ((d['entries'] as num?)?.toInt() ?? 0));
-  int get _totalExits => _deviceData.fold(0, (sum, d) => sum + ((d['exits'] as num?)?.toInt() ?? 0));
+  // Computed total across all sensors (respecting include_in_headcount)
+  int get _totalEntries => _deviceData
+    .where((d) => d['include_in_headcount'] == true)
+    .fold(0, (sum, d) => sum + ((d['entries'] as num?)?.toInt() ?? 0));
+    
+  int get _totalExits => _deviceData
+    .where((d) => d['include_in_headcount'] == true)
+    .fold(0, (sum, d) => sum + ((d['exits'] as num?)?.toInt() ?? 0));
+    
   int get _totalPeopleInside => (_totalEntries - _totalExits).clamp(0, 99999);
 
   @override

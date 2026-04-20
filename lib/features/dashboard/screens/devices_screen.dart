@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart'; // Added for date formatting later
 import 'package:provider/provider.dart';
 import '../../../../core/providers/user_provider.dart';
@@ -1194,19 +1195,54 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text("LOCATION", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
-                                  Text(title.toLowerCase().contains('power') ? "BATTERY %" : "STATUS", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
+                                  Text(title.toLowerCase().contains('power') ? "POWER" : "STATUS", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
                                 ],
                               ),
                               Divider(height: 32, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
 
                               if (title.toLowerCase().contains('power')) ...[
-                                _buildDeviceBatteryRow("Main Entrance", "87%"),
-                                const SizedBox(height: 10),
-                                _buildDeviceBatteryRow("Central Stairs", "20%"),
-                                const SizedBox(height: 10),
-                                _buildDeviceBatteryRow("Parking Entrance", "41%"),
-                                const SizedBox(height: 10),
-                                _buildDeviceBatteryRow("Parking Side", "N/A"),
+                                StreamBuilder<DatabaseEvent>(
+                                  stream: FirebaseDatabase.instance.ref().child('prototype_units').onValue,
+                                  builder: (context, protoSnap) {
+                                    return StreamBuilder<DatabaseEvent>(
+                                      stream: FirebaseDatabase.instance.ref().child('sensor_data').onValue,
+                                      builder: (context, sensorSnap) {
+                                        if (!protoSnap.hasData || !sensorSnap.hasData) {
+                                          return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(strokeWidth: 2)));
+                                        }
+                                        final protoMap = protoSnap.data!.snapshot.value as Map? ?? {};
+                                        final sensorMap = sensorSnap.data!.snapshot.value as Map? ?? {};
+
+                                        // Build sorted device list
+                                        final devices = <Map<String, dynamic>>[];
+                                        protoMap.forEach((mac, val) {
+                                          if (val is Map) {
+                                            final name = val['name']?.toString() ?? mac.toString();
+                                            int priority = 999;
+                                            if (val.containsKey('priority')) priority = (val['priority'] is int) ? val['priority'] : int.tryParse(val['priority'].toString()) ?? 999;
+                                            final sensorVal = sensorMap[mac];
+                                            final powerStatus = (sensorVal is Map) ? (sensorVal['power_status']?.toString() ?? 'Unknown') : 'Unknown';
+                                            devices.add({'name': name, 'power_status': powerStatus, 'priority': priority});
+                                          }
+                                        });
+                                        devices.sort((a, b) => (a['priority'] as int).compareTo(b['priority'] as int));
+
+                                        if (devices.isEmpty) {
+                                          return Center(child: Text("No devices configured", style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5))));
+                                        }
+
+                                        return Column(
+                                          children: [
+                                            for (int i = 0; i < devices.length; i++) ...[
+                                              if (i > 0) const SizedBox(height: 10),
+                                              _buildDevicePowerRow(devices[i]['name'], devices[i]['power_status']),
+                                            ],
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
                               ] else ...[
                                 _buildDeviceStatusRow("Main Entrance", true),
                                 const SizedBox(height: 10),
@@ -1220,7 +1256,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               const SizedBox(height: 32),
                               Center(
                                 child: Text(
-                                  "Last sync: 2026/02/24 00:20",
+                                  "Live · Auto-refreshing",
                                   style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4), fontSize: 11, fontWeight: FontWeight.w600),
                                 ),
                               ),
@@ -1295,99 +1331,62 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
 
-  Widget _buildDeviceBatteryRow(String location, String batteryStr) {
-    int? batteryLevel;
-    if (batteryStr.endsWith('%')) {
-      batteryLevel = int.tryParse(batteryStr.substring(0, batteryStr.length - 1));
-    }
-
+  Widget _buildDevicePowerRow(String location, String powerStatus) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
-    Color batteryColor;
-    if (batteryLevel == null) {
-      batteryColor = colorScheme.onSurfaceVariant;
-    } else if (batteryLevel >= 80) {
-      batteryColor = AppColors.statusSafe;
-    } else if (batteryLevel >= 40) {
-      batteryColor = AppColors.statusWarning;
-    } else {
-      batteryColor = AppColors.statusDanger;
+    Color statusColor;
+    IconData statusIcon;
+    bool isLow = false;
+
+    switch (powerStatus.toLowerCase()) {
+      case 'high':
+        statusColor = AppColors.statusSafe;
+        statusIcon = Icons.bolt_rounded;
+        break;
+      case 'adequate':
+        statusColor = AppColors.statusWarning;
+        statusIcon = Icons.bolt_rounded;
+        break;
+      case 'low':
+        statusColor = AppColors.statusDanger;
+        statusIcon = Icons.warning_amber_rounded;
+        isLow = true;
+        break;
+      default:
+        statusColor = colorScheme.onSurfaceVariant;
+        statusIcon = Icons.help_outline_rounded;
+        break;
     }
 
-    Widget batteryIndicator;
-    bool needsCharging = batteryLevel == 0 || batteryLevel == null;
+    Widget badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusIcon, size: 13, color: statusColor),
+          const SizedBox(width: 4),
+          Text(
+            powerStatus.toUpperCase(),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 10,
+              letterSpacing: 0.5,
+              color: statusColor,
+            ),
+          ),
+        ],
+      ),
+    );
 
-    if (needsCharging) {
-      batteryIndicator = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 44,
-            height: 20,
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.statusDanger.withValues(alpha: 0.5), width: 1.5),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            padding: const EdgeInsets.all(2),
-            child: const Center(
-              child: _BlinkingLightningIcon(),
-            ),
-          ),
-          Container(
-            width: 2,
-            height: 8,
-            decoration: BoxDecoration(
-              color: AppColors.statusDanger.withValues(alpha: 0.5),
-              borderRadius: const BorderRadius.only(topRight: Radius.circular(2), bottomRight: Radius.circular(2)),
-            ),
-          ),
-        ],
-      );
-    } else {
-      batteryIndicator = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 44,
-            height: 20,
-            decoration: BoxDecoration(
-              border: Border.all(color: batteryColor.withValues(alpha: 0.5), width: 1.5),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            padding: const EdgeInsets.all(2),
-            child: Stack(
-              children: [
-                Container(
-                  width: 38 * (batteryLevel / 100).clamp(0.0, 1.0),
-                  decoration: BoxDecoration(
-                    color: batteryColor.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Center(
-                  child: Text(
-                    batteryStr,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 9,
-                      color: batteryColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 2,
-            height: 8,
-            decoration: BoxDecoration(
-              color: batteryColor.withValues(alpha: 0.5),
-              borderRadius: const BorderRadius.only(topRight: Radius.circular(2), bottomRight: Radius.circular(2)),
-            ),
-          ),
-        ],
-      );
+    // Wrap in blinking animation for LOW
+    if (isLow) {
+      badge = _BlinkingWidget(child: badge);
     }
 
     return Container(
@@ -1402,15 +1401,19 @@ class _DevicesScreenState extends State<DevicesScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            location,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-              color: colorScheme.onSurface,
+          Expanded(
+            child: Text(
+              location,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: colorScheme.onSurface,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          batteryIndicator,
+          const SizedBox(width: 8),
+          badge,
         ],
       ),
     );
@@ -1910,6 +1913,46 @@ class _BlinkingLightningIconState extends State<_BlinkingLightningIcon> with Sin
             color: Colors.red,
             size: 16,
           ),
+        );
+      },
+    );
+  }
+}
+
+class _BlinkingWidget extends StatefulWidget {
+  final Widget child;
+  const _BlinkingWidget({required this.child});
+
+  @override
+  State<_BlinkingWidget> createState() => _BlinkingWidgetState();
+}
+
+class _BlinkingWidgetState extends State<_BlinkingWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: 0.3 + (_controller.value * 0.7),
+          child: widget.child,
         );
       },
     );
