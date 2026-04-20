@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/user_provider.dart';
+import '../../../../core/providers/emergency_provider.dart';
 import '../../auth/services/auth_service.dart';
 import '../widgets/people_counter_card.dart';
 import 'users_management_screen.dart';
@@ -44,8 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _hazardLevel = 0; // 0 = Nominal, 1 = Caution, 2 = Critical (Mock ESP32 data)
   Timer? _heartbeatTimer;
 
-  int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
-  int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
+  // Removed local getters in favor of EmergencyProvider global synchronization.
 
   // --- User Presence State ---
   StreamSubscription? _usersSubscription;
@@ -57,6 +57,16 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.initState();
     _listenToDeviceStreams();
     _listenToUserPresence();
+
+    // Intensive status sync timer: ensures online/offline status reflects reality 
+    // even when no Firebase data is actively changing (detects timeouts).
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        setState(() {
+          _syncDeviceDataList();
+        });
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -332,6 +342,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (event.snapshot.value is Map) {
          final map = event.snapshot.value as Map;
          setState(() {
+            // Prune local memory for deleted devices
+            final snapshotMacs = map.keys.map((k) => k.toString()).toSet();
+            _deviceDataMap.removeWhere((mac, _) => !snapshotMacs.contains(mac));
+
             map.forEach((key, val) {
                final mac = key.toString();
                final data = val as Map;
@@ -372,8 +386,10 @@ class _DashboardScreenState extends State<DashboardScreen>
          setState(() {
             map.forEach((key, val) {
                final mac = key.toString();
+               // IMPORTANT: Only process data for devices present in prototype_units
+               if (!_deviceDataMap.containsKey(mac)) return;
+
                final data = val as Map;
-               _deviceDataMap.putIfAbsent(mac, () => {});
                _deviceDataMap[mac]!['mac'] = mac;
                _deviceDataMap[mac]!['count'] = data['people_inside'] ?? 0;
                _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
@@ -484,6 +500,26 @@ class _DashboardScreenState extends State<DashboardScreen>
          initialPage: 1000 * _deviceData.length + (realIndex != -1 ? realIndex : 0),
        );
     }
+
+    // Update Emergency Provider with latest situational metrics
+    // Uses addPostFrameCallback to avoid rebuild during current frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final emergency = context.read<EmergencyProvider>();
+        
+        // 1. Sync Headcount
+        emergency.updateCurrentOccupancy(_totalPeopleInside);
+        
+        // 2. Sync Device Online/Offline Metrics (Node Management sync)
+        final online = _deviceData.where((d) => d['isOnline'] == true).length;
+        final offline = _deviceData.where((d) => d['isOnline'] == false).length;
+        emergency.updateDeviceMetrics(online, offline);
+      }
+    });
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   // --- Automated Hourly Reset Logic ---
@@ -564,6 +600,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final userProv = context.watch<UserProvider>();
+    final emergencyProv = context.watch<EmergencyProvider>();
     
     return Scaffold(
       extendBody: true,
@@ -792,79 +829,92 @@ class _DashboardScreenState extends State<DashboardScreen>
                 // Index 0: Dashboard Content
                 _buildTabScrollWrapper(
                   index: 0,
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        PageTitle(
-                          key: ValueKey('Page_$_currentIndex'), 
-                          title: "Dashboard",
-                          subtitle: "Welcome, ${userProv.firstName}!",
-                        ),
-                        const SizedBox(height: 12),
-                        _buildStatsRow(),
-                        const SizedBox(height: 12),
-                        _deviceData.isEmpty 
-                          ? Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).brightness == Brightness.dark 
-                                    ? Colors.white.withValues(alpha: 0.05) 
-                                    : Colors.black.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                    Icon(Icons.sensors_off_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                    const SizedBox(height: 16),
-                                    Text("No Devices Connected", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                                    const SizedBox(height: 8),
-                                    Text("Add your ESP32 prototype units\nin the Device Management tab to see live data.", textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                                ]
-                              ),
-                            )
-                          : Builder(builder: (context) {
-                          final int realIndex = _deviceData.indexWhere(
-                              (data) => data['location'] == _selectedLocation);
-                          return PeopleCounterCard(
-                            deviceData: _deviceData,
-                            currentIndex: realIndex != -1 ? realIndex : 0,
-                            pageController: _pageController!,
-                            onPageChanged: (index) {
-                              setState(() {
-                                _selectedLocation =
-                                    _deviceData[index % _deviceData.length]['location'];
-                              });
-                            },
-                            onPrevious: () {
-                              _pageController!.previousPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            onNext: () {
-                              _pageController!.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                          );
-                        }),
-                        const SizedBox(height: 12),
-                        _buildCrowdCountList(),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(child: _buildRoleCard(context, "Admins Online", _adminsOnline, Icons.admin_panel_settings, AppColors.statusDanger)), // Red
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildRoleCard(context, "Facilitators Online", _facilitatorsOnline, Icons.support_agent, AppColors.statusWarning)), // Orange
+                  child: Consumer<EmergencyProvider>(
+                    builder: (context, ep, _) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          PageTitle(
+                            key: ValueKey('Page_$_currentIndex'),
+                            title: "Dashboard",
+                            subtitle: "Welcome, ${userProv.firstName}!",
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTacticalToggle(context, ep),
+                          if (ep.isEmergencyActive) ...[
+                            _buildEvacuationProgressBar(context, ep),
+                            const SizedBox(height: 16),
                           ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildShowUsersButton(context),
-                      ],
-                    ),
+                          _buildLevel1StatsRow(ep),
+                          const SizedBox(height: 12),
+                          if (ep.isEmergencyActive) ...[
+                            _buildLevel2TacticalGrid(),
+                            const SizedBox(height: 24),
+                          ] else 
+                          _deviceData.isEmpty 
+                            ? Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).brightness == Brightness.dark 
+                                      ? Colors.white.withValues(alpha: 0.05) 
+                                      : Colors.black.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                      Icon(Icons.sensors_off_rounded, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                      const SizedBox(height: 16),
+                                      Text("No Devices Connected", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                                      const SizedBox(height: 8),
+                                      Text("Add your ESP32 prototype units\nin the Device Management tab to see live data.", textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                                  ]
+                                ),
+                              )
+                            : Builder(builder: (context) {
+                            final int realIndex = _deviceData.indexWhere(
+                                (data) => data['location'] == _selectedLocation);
+                            return PeopleCounterCard(
+                              deviceData: _deviceData,
+                              currentIndex: realIndex != -1 ? realIndex : 0,
+                              pageController: _pageController!,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _selectedLocation =
+                                      _deviceData[index % _deviceData.length]['location'];
+                                });
+                              },
+                              onPrevious: () {
+                                _pageController!.previousPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              },
+                              onNext: () {
+                                _pageController!.nextPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              },
+                            );
+                          }),
+                          const SizedBox(height: 12),
+                          _buildCrowdCountList(),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(child: _buildRoleCard(context, "Admins Online", _adminsOnline, Icons.admin_panel_settings, AppColors.statusDanger)), // Red
+                              const SizedBox(width: 12),
+                              Expanded(child: _buildRoleCard(context, "Facilitators Online", _facilitatorsOnline, Icons.support_agent, AppColors.statusWarning)), // Orange
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildShowUsersButton(context),
+                        ],
+                      );
+                    }
+                  ),
                 ),
                 // Index 1: Analytics
                 _buildTabScrollWrapper(
@@ -934,14 +984,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 _buildTabScrollWrapper(
                   index: 3,
-                  child: DevicesScreen(
-                    logs: _deviceLogs,
-                    highlightedLogId: _highlightedLogId,
-                    highlightedItemKey: _highlightedItemKey,
-                    parentScrollController: _tabScrollControllers[3],
-                    onlineCount: _onlineCount,
-                    offlineCount: _offlineCount,
-                    activeIndex: _currentIndex,
+                  child: Consumer<EmergencyProvider>(
+                    builder: (context, emergency, child) {
+                      return DevicesScreen(
+                        logs: _deviceLogs,
+                        highlightedLogId: _highlightedLogId,
+                        highlightedItemKey: _highlightedItemKey,
+                        parentScrollController: _tabScrollControllers[3],
+                        onlineCount: emergency.onlineCount,
+                        offlineCount: emergency.offlineCount,
+                        activeIndex: _currentIndex,
+                      );
+                    },
                   ),
                 ),
                 // Index 4: Settings
@@ -1175,6 +1229,289 @@ class _DashboardScreenState extends State<DashboardScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTacticalToggle(BuildContext context, EmergencyProvider ep) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: ep.isEmergencyActive 
+            ? AppColors.pulseRed.withValues(alpha: 0.1) 
+            : Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white.withValues(alpha: 0.05) 
+                : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ep.isEmergencyActive ? AppColors.pulseRed.withValues(alpha: 0.3) : Colors.transparent,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ep.isEmergencyActive ? Icons.warning_amber_rounded : Icons.shield_outlined,
+                color: ep.isEmergencyActive ? AppColors.pulseRed : AppColors.primaryBlue,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                ep.isEmergencyActive ? "TACTICAL EVACUATION MODE" : "STANDARD MONITORING",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: ep.isEmergencyActive ? AppColors.pulseRed : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          Transform.scale(
+            scale: 0.7,
+            child: Switch(
+              value: ep.isEmergencyActive,
+              activeColor: AppColors.pulseRed,
+              onChanged: (val) => ep.toggleEmergency(val, _totalPeopleInside),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEvacuationProgressBar(BuildContext context, EmergencyProvider ep) {
+    final progress = ep.evacuationProgress;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "EVACUATION COMPLETION",
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                color: AppColors.pulseRed.withValues(alpha: 0.7),
+              ),
+            ),
+            Text(
+              "${(progress * 100).toStringAsFixed(0)}%",
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: AppColors.pulseRed,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: AppColors.pulseRed.withValues(alpha: 0.1),
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.pulseRed),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "${ep.evacuatedCount} / ${ep.initialOccupancy} PEOPLE EXITED",
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLevel1StatsRow(EmergencyProvider ep) {
+    final int occupancy = _totalPeopleInside;
+    final bool isClear = occupancy == 0;
+    
+    // Count threats based on thresholds
+    int threats = 0;
+    _deviceDataMap.forEach((_, data) {
+        final temp = (data['temp'] as num?)?.toDouble() ?? 0.0;
+        final flame = (data['flame'] as num?)?.toInt() ?? 0;
+        if (temp > 45 || flame > 200) threats++;
+    });
+
+    return Row(
+      children: [
+        // Net Occupancy KPI
+        Expanded(
+          child: _buildTacticalKpiCard(
+            title: "NET OCCUPANCY",
+            value: occupancy.toString(),
+            status: isClear ? "BUILDING CLEAR" : "BUILDING OCCUPIED",
+            color: isClear ? AppColors.neonGreen : AppColors.pulseRed,
+            icon: isClear ? Icons.check_circle_outline : Icons.people_outline,
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Active Threats KPI
+        Expanded(
+          child: _buildTacticalKpiCard(
+            title: "ACTIVE THREATS",
+            value: threats.toString(),
+            status: threats == 0 ? "NO HAZARDS" : "$threats SENSORS TRIPPED",
+            color: threats == 0 ? AppColors.neonGreen : AppColors.statusWarning,
+            icon: threats == 0 ? Icons.security_outlined : Icons.report_problem_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTacticalKpiCard({
+    required String title,
+    required String value,
+    required String status,
+    required Color color,
+    required IconData icon,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          if (color == AppColors.pulseRed) 
+            BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 15, spreadRadius: 2),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+                ),
+              ),
+              Icon(icon, color: color, size: 16),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLevel2TacticalGrid() {
+    // Spatial Awareness: Stylized Grid of Zones
+    final sensors = _deviceData;
+    if (sensors.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.map_outlined, size: 14, color: AppColors.primaryBlue.withValues(alpha: 0.6)),
+            const SizedBox(width: 8),
+            Text(
+              "TACTICAL ZONE OVERVIEW",
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 2.5,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: sensors.length,
+          itemBuilder: (context, index) {
+            final data = sensors[index];
+            final location = data['location'] ?? "Unknown Zone";
+            final mac = data['mac'] ?? "";
+            
+            // Get threat state from Map
+            final sensorMap = _deviceDataMap[mac] ?? {};
+            final temp = (sensorMap['temp'] as num?)?.toDouble() ?? 0.0;
+            final isThreat = temp > 45; // Threshold
+            final color = isThreat ? AppColors.pulseRed : AppColors.neonGreen;
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  _PulsingDot(color: color),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          location.toString().toUpperCase(),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          isThreat ? "HIGH TEMPERATURE" : "ZONE SECURE",
+                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color.withValues(alpha: 0.7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 

@@ -28,6 +28,10 @@ class AppColors {
   static const Color statusDanger = Color(0xFFEF4444);  // Red
   static const Color statusInactive = Color(0xFF6B7280); // Gray
 
+  // Tactical Colors
+  static const Color pulseRed = Color(0xFFFF3131);     // Emergency Pulse Red
+  static const Color neonGreen = Color(0xFF39FF14);    // Tactical Safety Green
+
   // Gradients
   static const LinearGradient brandGradient = LinearGradient(
     colors: [primaryBlue, accentBlue],

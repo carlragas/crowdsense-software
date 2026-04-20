@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/providers/settings_provider.dart';
 import 'core/providers/user_provider.dart';
+import 'core/providers/emergency_provider.dart';
 import 'core/providers/siren_provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -97,6 +98,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => SirenProvider()),
+        ChangeNotifierProvider(create: (_) => EmergencyProvider()),
       ],
       child: const CrowdSenseApp(),
     ),
