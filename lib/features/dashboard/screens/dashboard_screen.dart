@@ -400,8 +400,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           if (value is Map) {
             final bool isOnline = value['isOnline'] == true || value['isOnline'] == 1;
             final String role = (value['role']?.toString() ?? '').toLowerCase();
+            final int lastActive = value['lastActive'] is int ? value['lastActive'] : 0;
+            
+            // Liveness check: Only count as online if isOnline is true 
+            // AND they've been active in the last 5 minutes (300,000 ms).
+            // This handles cases where the user closed the app without logging out.
+            final bool isLive = isOnline && (DateTime.now().millisecondsSinceEpoch - lastActive < 300000);
 
-            if (isOnline) {
+            if (isLive) {
               if (role == 'admin') {
                 admins++;
               } else if (role == 'facilitator') {
