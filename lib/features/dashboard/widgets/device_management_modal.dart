@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/custom_notification_modal.dart';
@@ -210,8 +211,20 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
 
     if (_isProcessing) return;
 
-    final String mac = _macController.text.trim();
+    final String mac = _macController.text.trim().toUpperCase();
     final String name = _nameController.text.trim();
+
+    // Strict MAC Address Validation (XX:XX:XX:XX:XX:XX)
+    final macRegex = RegExp(r'^([0-9A-F]{2}[:]){5}([0-9A-F]{2})$');
+    if (!macRegex.hasMatch(mac)) {
+      CustomNotificationModal.show(
+        context: context,
+        title: "Invalid MAC Address",
+        message: "Please use the format XX:XX:XX:XX:XX:XX (e.g., 00:1B:44:11:3A:B7).",
+        isSuccess: false,
+      );
+      return;
+    }
 
     setState(() => _isProcessing = true);
 
@@ -522,6 +535,9 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
           TextField(
             controller: _macController,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(17),
+            ],
             decoration: InputDecoration(
               labelText: "MAC ADDRESS",
               labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.85)),
@@ -841,6 +857,9 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             TextField(
               controller: _macCtrl,
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(17),
+              ],
               decoration: InputDecoration(
                 labelText: "MAC Address",
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
@@ -892,9 +911,23 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
+                      final newMac = _macCtrl.text.trim().toUpperCase();
+                      
+                      // Strict MAC Address Validation (XX:XX:XX:XX:XX:XX)
+                      final macRegex = RegExp(r'^([0-9A-F]{2}[:]){5}([0-9A-F]{2})$');
+                      if (!macRegex.hasMatch(newMac)) {
+                        CustomNotificationModal.show(
+                          context: context,
+                          title: "Invalid MAC Address",
+                          message: "Please use the format XX:XX:XX:XX:XX:XX (e.g., 00:1B:44:11:3A:B7).",
+                          isSuccess: false,
+                        );
+                        return;
+                      }
+
                       widget.onSave(
                          widget.device["macAddress"], 
-                         _macCtrl.text.trim(), 
+                         newMac, 
                          _nameCtrl.text.trim(), 
                          {
                             "temp_threshold": _tempThresh,
