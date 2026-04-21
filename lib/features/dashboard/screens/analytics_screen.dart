@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/providers/emergency_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
 import '../../../../core/providers/settings_provider.dart';
@@ -18,156 +17,159 @@ class AnalyticsScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final settings = context.watch<SettingsProvider>();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 100),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PageTitle(
-            key: ValueKey('Page_$activeIndex'),
-            title: "Tactical Analytics",
-          ),
-          const SizedBox(height: 24),
-          
-          // --- NEW: LEVEL 1 & 2 SUMMARY (THREAT LEVEL) ---
-          _buildThreatSummary(context),
-          const SizedBox(height: 32),
-
-          // --- LEVEL 3: TREND VS THRESHOLD (CHARTS) ---
-          _buildSectionTitle(context, "LEVEL 3: TREND ANALYSIS"),
-          const SizedBox(height: 24),
-          
-          // --- 3.1 BI-DIRECTIONAL TOF FLOW ---
-          _buildSubHeader(context, "ToF Flow Dynamics (In vs Out)", Icons.swap_calls_rounded),
-          Container(
-            height: 220,
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.all(20),
-            decoration: _cardDecoration(context),
-            child: _buildBiDirectionalToFChart(),
-          ),
-          const SizedBox(height: 32),
-
-          // --- 3.2 HEAT INTENSITY OVERLAY ---
-          _buildSubHeader(context, "Multi-Sensor Heat Intensity Overlay", Icons.query_stats_rounded),
-          Container(
-            height: 260,
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.all(20),
-            decoration: _cardDecoration(context),
-            child: _buildHeatIntensityChart(settings.temperatureThreshold),
-          ),
-          const SizedBox(height: 32),
-
-          // --- 3.3 RADIAL HAZARD GAUGES ---
-          _buildSubHeader(context, "Environmental Hazard Zonation", Icons.radar_rounded),
-          _buildHorizontalSensorRow(
-            context,
-            children: [
-              _buildChartCard(
-                context: context,
-                title: "Smoke Sensor - Hallway A",
-                subtitle: "Threshold: ${settings.smokeThreshold} PPM",
-                icon: Icons.cloud_outlined,
-                color: AppColors.primaryBlue,
-                child: _buildSmokeGauge(context, settings.smokeThreshold),
-              ),
-              const SizedBox(width: 16),
-              _buildChartCard(
-                context: context,
-                title: "Flame Sensor - Main Entrance",
-                subtitle: "Threshold: ${settings.flameThreshold} IR",
-                icon: Icons.local_fire_department_outlined,
-                color: AppColors.statusDanger,
-                child: _buildFlameGauge(context, settings.flameThreshold),
-              ),
-              const SizedBox(width: 16),
-              _buildChartCard(
-                context: context,
-                title: "Server Room Node",
-                subtitle: "Multi-Sensor Cluster",
-                icon: Icons.hub_outlined,
-                color: AppColors.statusWarning,
-                child: _buildSmokeGauge(context, 400.0),
-              ),
-              const SizedBox(width: 20),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  BoxDecoration _cardDecoration(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildThreatSummary(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.statusWarning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.statusWarning.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.security_rounded, color: AppColors.statusWarning, size: 20),
-              const SizedBox(width: 12),
-              Text(
-                "THREAT LEVEL: MODERATE",
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  color: AppColors.statusWarning.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildThreatItem("Main Entrance", "Smoke detected (290 PPM)", AppColors.statusWarning),
-          const SizedBox(height: 8),
-          _buildThreatItem("Server Room", "System Normal (22°C)", AppColors.neonGreen),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThreatItem(String location, String status, Color color) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(width: 4, height: 4, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 12),
-        Text(
-          "$location: ".toUpperCase(),
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey),
+        PageTitle(
+          key: ValueKey('Page_$activeIndex'),
+          title: "Analytics"
         ),
-        Text(
-          status,
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        const SizedBox(height: 24),
+        
+        // --- SECTION 1: Emergency Sensor Trends ---
+        _buildSectionTitle(context, "EMERGENCY SENSOR TRENDS"),
+        const SizedBox(height: 24),
+        
+        // --- 1.1 TEMPERATURE READINGS ---
+        _buildSubHeader(context, "Temperature Readings", Icons.thermostat_rounded),
+        _buildHorizontalSensorRow(
+          context,
+          children: [
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Server Room",
+              subtitle: "Critical Infrastructure Path",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusDanger,
+              child: _buildTemperatureChart(settings.temperatureThreshold),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Hallway A",
+              subtitle: "Public Zone Monitoring",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusSafe,
+              child: _buildTemperatureChart(40.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Flame Sensor - Main Entrance",
+              subtitle: "Combined Safety Node",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusSafe,
+              child: _buildTemperatureChart(36.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "ToF - Parking Entrance",
+              subtitle: "Garage Access Monitor",
+              icon: Icons.device_thermostat,
+              color: AppColors.statusSafe,
+              child: _buildTemperatureChart(35.0),
+            ),
+            const SizedBox(width: 20),
+          ],
         ),
+        
+        const SizedBox(height: 32),
+
+        // --- 1.2 SMOKE READINGS ---
+        _buildSubHeader(context, "Smoke Readings", Icons.smoking_rooms_rounded),
+        _buildHorizontalSensorRow(
+          context,
+          children: [
+            _buildChartCard(
+              context: context,
+              title: "Smoke Sensor - Hallway A",
+              subtitle: "Primary Corridor Detection",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, settings.smokeThreshold),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Server Room",
+              subtitle: "Internal Rack Monitor",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, 350.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Flame Sensor - Main Entrance",
+              subtitle: "Lobby Intake Channel",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, 280.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "ToF - Parking Entrance",
+              subtitle: "Exhaust Vent Sensor",
+              icon: Icons.cloud_outlined,
+              color: AppColors.primaryBlue,
+              child: _buildSmokeGauge(context, 400.0),
+            ),
+            const SizedBox(width: 20),
+          ],
+        ),
+
+        const SizedBox(height: 32),
+
+        // --- 1.3 FLAME READINGS ---
+        _buildSubHeader(context, "Flame Readings", Icons.local_fire_department_rounded),
+        _buildHorizontalSensorRow(
+          context,
+          children: [
+            _buildChartCard(
+              context: context,
+              title: "Flame Sensor - Main Entrance",
+              subtitle: "Primary Exit Surveillance",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, settings.flameThreshold),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Temp Sensor - Server Room",
+              subtitle: "Radiation Spike Check",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, 150.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "Smoke Sensor - Hallway A",
+              subtitle: "Duct Fire Prevention",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, 220.0),
+            ),
+            const SizedBox(width: 16),
+            _buildChartCard(
+              context: context,
+              title: "ToF - Parking Entrance",
+              subtitle: "Loading Dock IR Node",
+              icon: Icons.local_fire_department_outlined,
+              color: AppColors.statusDanger,
+              child: _buildFlameGauge(context, 180.0),
+            ),
+            const SizedBox(width: 20),
+          ],
+        ),
+        const SizedBox(height: 40),
       ],
     );
   }
-  
+
   // --- WIDGET BUILDERS ---
 
   Widget _buildChartCard({
@@ -429,14 +431,38 @@ class AnalyticsScreen extends StatelessWidget {
 
   // --- MOCK DATA CHARTS ---
 
-  Widget _buildBiDirectionalToFChart() {
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: 20,
-        minY: -20,
-        gridData: const FlGridData(show: false),
-        borderData: FlBorderData(show: false),
+  Widget _buildTemperatureChart(double threshold) {
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 5,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1);
+          },
+        ),
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(
+              y: threshold,
+              color: AppColors.statusDanger,
+              strokeWidth: 2,
+              dashArray: [5, 5],
+              label: HorizontalLineLabel(
+                show: true,
+                alignment: Alignment.topRight,
+                padding: const EdgeInsets.only(right: 5, bottom: 5),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.statusDanger,
+                ),
+                labelResolver: (line) => 'Limit: ${threshold.toStringAsFixed(1)}°C',
+              ),
+            ),
+          ],
+        ),
         titlesData: FlTitlesData(
           show: true,
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -444,12 +470,13 @@ class AnalyticsScreen extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              reservedSize: 30,
+              interval: 6,
               getTitlesWidget: (value, meta) {
-                const labels = ['8AM', '10AM', '12PM', '2PM', '4PM', '6PM'];
-                if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                   return SideTitleWidget(meta: meta, child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 9, color: Colors.grey)));
-                }
-                return const SizedBox.shrink();
+                return SideTitleWidget(
+                  meta: meta,
+                  child: Text('${value.toInt()}h', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                );
               },
             ),
           ),
@@ -457,92 +484,43 @@ class AnalyticsScreen extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               interval: 10,
+              reservedSize: 40,
               getTitlesWidget: (value, meta) {
                 return SideTitleWidget(
                   meta: meta,
-                  child: Text(value.toInt().abs().toString(), style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                  child: Text('${value.toInt()}°C', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 );
               },
             ),
           ),
         ),
-        barGroups: [
-          _buildToFBarGroup(0, 8, -5),
-          _buildToFBarGroup(1, 12, -4),
-          _buildToFBarGroup(2, 15, -12),
-          _buildToFBarGroup(3, 10, -18),
-          _buildToFBarGroup(4, 5, -15),
-          _buildToFBarGroup(5, 2, -10),
-        ],
-      ),
-    );
-  }
-
-  BarChartGroupData _buildToFBarGroup(int x, double inVal, double outVal) {
-    return BarChartGroupData(
-      x: x,
-      barRods: [
-        BarChartRodData(
-          toY: inVal,
-          color: AppColors.primaryBlue,
-          width: 8,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(4), topRight: Radius.circular(4)),
-        ),
-        BarChartRodData(
-          toY: outVal,
-          color: AppColors.statusDanger,
-          width: 8,
-          borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(4), bottomRight: Radius.circular(4)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeatIntensityChart(double threshold) {
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 10, getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 1)),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 22, interval: 4, getTitlesWidget: (v, m) => SideTitleWidget(meta: m, child: Text('${v.toInt()}h', style: const TextStyle(fontSize: 9, color: Colors.grey))))),
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: 20, reservedSize: 30, getTitlesWidget: (v, m) => SideTitleWidget(meta: m, child: Text('${v.toInt()}°', style: const TextStyle(fontSize: 9, color: Colors.grey))))),
-        ),
         borderData: FlBorderData(show: false),
-        minX: 0, maxX: 24, minY: 0, maxY: 100,
+        minX: 0,
+        maxX: 24,
+        minY: 10,
+        maxY: threshold > 40 ? threshold + 5 : 45,
         lineBarsData: [
-          _buildHeatLine([const FlSpot(0, 20), const FlSpot(8, 25), const FlSpot(12, 65), const FlSpot(16, 45), const FlSpot(24, 25)], AppColors.statusDanger, "Server Room"),
-          _buildHeatLine([const FlSpot(0, 22), const FlSpot(8, 28), const FlSpot(12, 35), const FlSpot(16, 32), const FlSpot(24, 24)], AppColors.statusWarning, "Hallway A"),
-          _buildHeatLine([const FlSpot(0, 21), const FlSpot(8, 24), const FlSpot(12, 28), const FlSpot(16, 26), const FlSpot(24, 22)], AppColors.neonGreen, "Main Lobby"),
+          LineChartBarData(
+            spots: _getMockTempData(),
+            isCurved: true,
+            color: AppColors.statusWarning,
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: AppColors.statusWarning.withValues(alpha: 0.15),
+            ),
+          ),
         ],
-        extraLinesData: ExtraLinesData(
-          horizontalLines: [
-            HorizontalLine(y: threshold, color: AppColors.statusDanger.withValues(alpha: 0.5), strokeWidth: 1, dashArray: [5, 5]),
-          ],
-        ),
       ),
     );
   }
 
-  LineChartBarData _buildHeatLine(List<FlSpot> spots, Color color, String label) {
-    return LineChartBarData(
-      spots: spots,
-      isCurved: true,
-      color: color,
-      barWidth: 3,
-      isStrokeCapRound: true,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(show: true, color: color.withValues(alpha: 0.05)),
-    );
-  }
-
-  // --- MOCK DATA CHARTS ---
-  
   // Mock current readings
-  final double _mockSmokePPM = 290.0;   // current smoke sensor reading
-  final double _mockFlamePPM = 185.0;    // current flame IR sensor reading
-  final double _gaugeMaxPPM  = 500.0;
+  static const double _mockSmokePPM = 290.0;   // current smoke sensor reading
+  static const double _mockFlamePPM = 185.0;    // current flame IR sensor reading
+  static const double _gaugeMaxPPM  = 500.0;
 
   Widget _buildSmokeGauge(BuildContext context, double threshold) {
     return _PpmGauge(
