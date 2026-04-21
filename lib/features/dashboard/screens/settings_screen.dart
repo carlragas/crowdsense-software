@@ -4,7 +4,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/widgets/page_title.dart';
 import '../../../../core/providers/user_provider.dart';
-import '../../../../core/providers/settings_provider.dart';
 import '../../auth/services/auth_service.dart';
 import 'profile_screen.dart';
 
@@ -17,7 +16,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-// States are now managed globally via SettingsProvider
+  bool emailAlerts = false;
+  bool maintenanceMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -30,257 +30,135 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 24),
         // Settings Content
-        Consumer<SettingsProvider>(
-          builder: (context, settings, child) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Account Section
-                _buildSectionHeader("Account"),
-                _buildSettingsTile(
-                  icon: Icons.person_outline,
-                  title: "Profile Details",
-                  subtitle: "Admin",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                    );
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Account Section
+            _buildSectionHeader("Account"),
+            _buildSettingsTile(
+              icon: Icons.person_outline,
+              title: "Profile Details",
+              subtitle: "Admin",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              },
+            ),
+            
+            const SizedBox(height: 24),
+            // Preferences Section
+            _buildSectionHeader("Preferences"),
+
+            _buildSwitchTile(
+              icon: Icons.email_outlined,
+              title: "Email Alerts",
+              subtitle: "Daily logs and critical alerts",
+              value: emailAlerts,
+              onChanged: (val) => setState(() => emailAlerts = val),
+            ),
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, child) {
+                return _buildSwitchTile(
+                  icon: themeProvider.isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                  title: "Dark Mode",
+                  subtitle: themeProvider.isDarkMode ? "Enabled" : "Disabled",
+                  value: themeProvider.isDarkMode,
+                  onChanged: (val) {
+                    themeProvider.toggleTheme();
                   },
-                ),
-                
-                const SizedBox(height: 24),
-                // Preferences Section
-                _buildSectionHeader("Preferences"),
+                );
+              }
+            ),
 
-                _buildSwitchTile(
-                  icon: Icons.email_outlined,
-                  title: "Email Alerts",
-                  subtitle: "Daily logs and critical alerts",
-                  value: settings.emailAlerts,
-                  onChanged: (val) => settings.setEmailAlerts(val),
-                ),
-                Consumer<ThemeProvider>(
-                  builder: (context, themeProvider, child) {
-                    return _buildSwitchTile(
-                      icon: themeProvider.isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-                      title: "Dark Mode",
-                      subtitle: themeProvider.isDarkMode ? "Enabled" : "Disabled",
-                      value: themeProvider.isDarkMode,
-                      onChanged: (val) {
-                        themeProvider.toggleTheme();
-                      },
-                    );
-                  }
-                ),
+            const SizedBox(height: 24),
+            // System & Gateway Section
+            _buildSectionHeader("System Network"),
 
-                const SizedBox(height: 24),
-                // System & Gateway Section
-                _buildSectionHeader("System Network"),
+            _buildSwitchTile(
+              icon: Icons.build_circle_outlined,
+              title: "Maintenance Mode",
+              subtitle: "Suspend automated emergency protocols",
+              value: maintenanceMode,
+              onChanged: (val) => setState(() => maintenanceMode = val),
+            ),
 
-                _buildSwitchTile(
-                  icon: Icons.build_circle_outlined,
-                  title: "Maintenance Mode",
-                  subtitle: "Suspend automated emergency protocols",
-                  value: settings.maintenanceMode,
-                  onChanged: (val) => settings.setMaintenanceMode(val),
-                ),
+            const SizedBox(height: 24),
+            // Support & About Section
+            _buildSectionHeader("About"),
+            _buildSettingsTile(
+              icon: Icons.info_outline,
+              title: "About CrowdSense",
+              subtitle: "Version 1.0.0",
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => const _AboutCrowdSenseSheet(),
+                );
+              },
+            ),
 
-                const SizedBox(height: 24),
-                // NEW: Threshold Configuration Section
-                _buildSectionHeader("Safety Thresholds"),
-                _buildThresholdSlider(
-                  icon: Icons.thermostat_rounded,
-                  title: "Temperature Limit",
-                  subtitle: "${settings.temperatureThreshold.toStringAsFixed(1)}°C",
-                  value: settings.temperatureThreshold,
-                  min: 20,
-                  max: 80,
-                  divisions: 60,
-                  color: Colors.orange,
-                  onChanged: (val) => settings.setTemperatureThreshold(val),
-                ),
-                _buildThresholdSlider(
-                  icon: Icons.smoking_rooms_rounded,
-                  title: "Smoke Sensitivity",
-                  subtitle: "${settings.smokeThreshold.toStringAsFixed(0)} PPM",
-                  value: settings.smokeThreshold,
-                  min: 100,
-                  max: 1000,
-                  divisions: 18,
-                  color: Colors.blueGrey,
-                  onChanged: (val) => settings.setSmokeThreshold(val),
-                ),
-                _buildThresholdSlider(
-                  icon: Icons.local_fire_department_rounded,
-                  title: "Flame Sensitivity",
-                  subtitle: "Level ${settings.flameThreshold.toStringAsFixed(0)}",
-                  value: settings.flameThreshold,
-                  min: 0,
-                  max: 1024,
-                  divisions: 102,
-                  color: AppColors.statusDanger,
-                  onChanged: (val) => settings.setFlameThreshold(val),
-                ),
-
-                const SizedBox(height: 24),
-                // Support & About Section
-                _buildSectionHeader("About"),
-                _buildSettingsTile(
-                  icon: Icons.info_outline,
-                  title: "About CrowdSense",
-                  subtitle: "Version 1.0.0",
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const _AboutCrowdSenseSheet(),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 32),
-                // Logout Button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      _showLogoutDialog(context);
+            const SizedBox(height: 32),
+            // Logout Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text("Log Out"),
+                        content: const Text("Log out of your account?"),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              Navigator.of(context).pop();
+                              if (context.mounted) {
+                                await context.read<UserProvider>().clearUser();
+                              }
+                              await AuthService().logout();
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/login',
+                                  (route) => false,
+                                );
+                              }
+                            },
+                            child: const Text(
+                              "Log Out",
+                              style: TextStyle(color: AppColors.statusDanger),
+                            ),
+                          ),
+                        ],
+                      );
                     },
-                    icon: const Icon(Icons.logout, color: AppColors.statusDanger),
-                    label: const Text(
-                      "Log Out",
-                      style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: AppColors.statusDanger),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                  ),
+                  );
+                },
+                icon: const Icon(Icons.logout, color: AppColors.statusDanger),
+                label: const Text(
+                  "Log Out",
+                  style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 48), // Bottom padding
-              ],
-            );
-          }
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: const BorderSide(color: AppColors.statusDanger),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 48), // Bottom padding
+          ],
         ),
       ],
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Log Out"),
-          content: const Text("Log out of your account?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                if (context.mounted) {
-                  await context.read<UserProvider>().clearUser();
-                }
-                await AuthService().logout();
-                if (context.mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/login',
-                    (route) => false,
-                  );
-                }
-              },
-              child: const Text(
-                "Log Out",
-                style: TextStyle(color: AppColors.statusDanger),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildThresholdSlider({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required double value,
-    required double min,
-    required double max,
-    required int divisions,
-    required Color color,
-    required ValueChanged<double> onChanged,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text(subtitle, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: color,
-              inactiveTrackColor: color.withValues(alpha: 0.1),
-              thumbColor: color,
-              overlayColor: color.withValues(alpha: 0.2),
-              valueIndicatorColor: color,
-              valueIndicatorTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              label: subtitle,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
