@@ -332,6 +332,11 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (event.snapshot.value is Map) {
          final map = event.snapshot.value as Map;
          setState(() {
+            // 1. CLEANUP: Remove devices from local state that no longer exist in prototype_units
+            final currentKeys = map.keys.map((k) => k.toString()).toSet();
+            _deviceDataMap.removeWhere((key, _) => !currentKeys.contains(key));
+
+            // 2. UPDATE: Sync existing/new devices
             map.forEach((key, val) {
                final mac = key.toString();
                final data = val as Map;
@@ -352,9 +357,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                    includeInHeadcount = data['config']['include_in_headcount'] == true;
                }
                _deviceDataMap[mac]!['include_in_headcount'] = includeInHeadcount;
-
-               // NOTE: Arduino does NOT write a 'heartbeat' node under prototype_units.
-               // Online/offline detection uses 'last_updated' from sensor_data instead.
             });
             _syncDeviceDataList();
          });
@@ -370,16 +372,22 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (event.snapshot.value is Map) {
          final map = event.snapshot.value as Map;
          setState(() {
+            // 1. CLEANUP: Only keep sensor data for devices that exist in the primary source (prototype_units)
+            // But usually we can just sync what we receive. 
+            // If prototype_units listener is running, it will handle the final cleanup.
+            
             map.forEach((key, val) {
                final mac = key.toString();
                final data = val as Map;
-               _deviceDataMap.putIfAbsent(mac, () => {});
-               _deviceDataMap[mac]!['mac'] = mac;
-               _deviceDataMap[mac]!['count'] = data['people_inside'] ?? 0;
-               _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
-               _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
-               _deviceDataMap[mac]!['last_updated'] = data['last_updated'];
-               _deviceDataMap[mac]!['last_reset_hour'] = data['last_reset_hour'];
+               // Only update if it exists in our master map to avoid orphaned sensor data
+               if (_deviceDataMap.containsKey(mac)) {
+                 _deviceDataMap[mac]!['mac'] = mac;
+                 _deviceDataMap[mac]!['count'] = data['people_inside'] ?? 0;
+                 _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
+                 _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
+                 _deviceDataMap[mac]!['last_updated'] = data['last_updated'];
+                 _deviceDataMap[mac]!['last_reset_hour'] = data['last_reset_hour'];
+               }
             });
             _syncDeviceDataList();
          });
@@ -403,9 +411,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             final int lastActive = value['lastActive'] is int ? value['lastActive'] : 0;
             
             // Liveness check: Only count as online if isOnline is true 
-            // AND they've been active in the last 5 minutes (300,000 ms).
+            // AND they've been active in the last 1 minute (60,000 ms).
             // This handles cases where the user closed the app without logging out.
-            final bool isLive = isOnline && (DateTime.now().millisecondsSinceEpoch - lastActive < 300000);
+            final bool isLive = isOnline && (DateTime.now().millisecondsSinceEpoch - lastActive < 60000);
 
             if (isLive) {
               if (role == 'admin') {
@@ -686,9 +694,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 TextButton(
                                   onPressed: () async {
                                     Navigator.of(dialogContext).pop();
+                                    // 1. CLEAR PRESENCE FIRST (while still authenticated)
+                                    // We await this to ensure the server registers the logout immediately.
+                                    if (context.mounted) {
+                                      await context.read<UserProvider>().clearUser();
+                                    }
+                                    // 2. SIGN OUT
                                     await AuthService().logout();
                                     if (context.mounted) {
-                                      context.read<UserProvider>().clearUser();
                                       Navigator.pushNamedAndRemoveUntil(
                                         context,
                                         '/login',

@@ -22,6 +22,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   final TextEditingController _macController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   bool _isReordering = false;
+  bool _isProcessing = false;
 
   @override
   void dispose() {
@@ -135,7 +136,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     });
   }
 
-  void _addDeviceToFirebase(String mac, String name) async {
+  Future<void> _addDeviceToFirebase(String mac, String name) async {
     try {
       await _dbRef.child('prototype_units').child(mac).set({
         "name": name,
@@ -163,6 +164,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       });
     } catch (e) {
       debugPrint("Error adding device: $e");
+      rethrow;
     }
   }
 
@@ -185,16 +187,17 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
 
   // Removed _updateDeviceStatus as manual power control is no longer supported.
 
-  void _removeDeviceFromFirebase(String mac) async {
+  Future<void> _removeDeviceFromFirebase(String mac) async {
     try {
       await _dbRef.child('prototype_units').child(mac).remove();
       await _dbRef.child('sensor_data').child(mac).remove();
     } catch (e) {
       debugPrint("Error removing device: $e");
+      rethrow;
     }
   }
 
-  void _handleAddDevice() {
+  void _handleAddDevice() async {
     if (_macController.text.trim().isEmpty || _nameController.text.trim().isEmpty) {
       CustomNotificationModal.show(
         context: context,
@@ -205,22 +208,40 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       return;
     }
 
+    if (_isProcessing) return;
+
     final String mac = _macController.text.trim();
     final String name = _nameController.text.trim();
 
-    _addDeviceToFirebase(mac, name);
+    setState(() => _isProcessing = true);
 
-    _macController.clear();
-    _nameController.clear();
+    try {
+      await _addDeviceToFirebase(mac, name);
 
-    FocusScope.of(context).unfocus();
-    
-    CustomNotificationModal.show(
-      context: context,
-      title: "Device Added",
-      message: "Device '$name' has been added successfully.",
-      isSuccess: true,
-    );
+      _macController.clear();
+      _nameController.clear();
+      FocusScope.of(context).unfocus();
+      
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Device Added",
+          message: "Device '$name' has been added successfully.",
+          isSuccess: true,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Add Failed",
+          message: "Could not add device. Please check your connection.",
+          isSuccess: false,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   void _promptRemoveDevice(String mac, String name) {
@@ -262,16 +283,32 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
     );
   }
 
-  void _executeRemoveDevice(String mac, String name) {
-    _removeDeviceFromFirebase(mac);
-    
-    CustomNotificationModal.show(
-      context: context,
-      title: "Device Removed",
-      message: "Device '$name' has been permanently removed.",
-      isSuccess: true,
-      isDestructive: true,
-    );
+  void _executeRemoveDevice(String mac, String name) async {
+    setState(() => _isProcessing = true);
+    try {
+      await _removeDeviceFromFirebase(mac);
+      
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Device Removed",
+          message: "Device '$name' has been permanently removed.",
+          isSuccess: true,
+          isDestructive: true,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Removal Failed",
+          message: "Could not remove device.",
+          isSuccess: false,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   void _executeEditDevice(String oldMac, String newMac, String newName, Map<String, dynamic> newSensors) async {
@@ -523,14 +560,20 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_rounded, size: 20),
-                  SizedBox(width: 8),
-                  Text("Add Device", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                ],
-              ),
+              child: _isProcessing 
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_rounded, size: 20),
+                      SizedBox(width: 8),
+                      Text("Add Device", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    ],
+                  ),
             ),
           ),
         ],
