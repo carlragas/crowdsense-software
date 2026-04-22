@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'dart:ui';
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -49,6 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // --- Firestore Logging State (transition tracking) ---
   final Map<String, Map<String, dynamic>> _prevHazardState = {};
   final Map<String, bool> _prevOnlineState = {};
+  bool _sensorBaselineLoaded = false; // Skip logging on first snapshot
   final List<DeviceLog> _deviceLogs = []; // Kept empty — notification panel references this
 
   int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
@@ -269,7 +271,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       ActivityLogService.logUserLogin(
         email: user.email ?? '',
         role: userProv.role,
-        platform: Platform.isWindows ? 'Windows' : (Platform.isAndroid ? 'Android' : 'Other'),
+        platform: kIsWeb ? 'Web' : (Platform.isWindows ? 'Windows' : (Platform.isAndroid ? 'Android' : 'Other')),
       );
     }
   }
@@ -344,41 +346,45 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                // --- Hazard state transition logging ---
                final location = _deviceDataMap[mac]?['location'] ?? 'Unknown';
-               final prevHazard = _prevHazardState[mac] ?? {};
 
                final bool curFlame = data['flame_detected'] == true;
-               final bool prevFlame = prevHazard['flame_detected'] == true;
-               if (curFlame && !prevFlame) {
-                 Future.microtask(() => ActivityLogService.logFlameDetected(
-                   deviceMAC: mac, location: location,
-                   sensorType: 'backup_analog',
-                   rawValue: (data['flame'] as num?)?.toInt(),
-                 ));
-               } else if (!curFlame && prevFlame) {
-                 Future.microtask(() => ActivityLogService.logFlameCleared(deviceMAC: mac, location: location));
-               }
-
                final bool curGas = data['gas_detected'] == true;
-               final bool prevGas = prevHazard['gas_detected'] == true;
-               if (curGas && !prevGas) {
-                 Future.microtask(() => ActivityLogService.logGasDetected(
-                   deviceMAC: mac, location: location,
-                   rawValue: (data['gas'] as num?)?.toInt() ?? 0,
-                 ));
-               } else if (!curGas && prevGas) {
-                 Future.microtask(() => ActivityLogService.logGasCleared(deviceMAC: mac, location: location));
-               }
-
                final bool curSiren = data['siren_active'] == true;
-               final bool prevSiren = prevHazard['siren_active'] == true;
-               if (curSiren && !prevSiren) {
-                 Future.microtask(() => ActivityLogService.logSirenActivated(
-                   deviceMAC: mac, location: location,
-                   flameValue: (data['flame'] as num?)?.toInt() ?? 0,
-                   gasValue: (data['gas'] as num?)?.toInt() ?? 0,
-                 ));
-               } else if (!curSiren && prevSiren) {
-                 Future.microtask(() => ActivityLogService.logSirenDeactivated(deviceMAC: mac, location: location));
+
+               // Only log transitions AFTER the first snapshot baseline is set
+               if (_sensorBaselineLoaded) {
+                 final prevHazard = _prevHazardState[mac] ?? {};
+                 final bool prevFlame = prevHazard['flame_detected'] == true;
+                 if (curFlame && !prevFlame) {
+                   Future.microtask(() => ActivityLogService.logFlameDetected(
+                     deviceMAC: mac, location: location,
+                     sensorType: 'backup_analog',
+                     rawValue: (data['flame'] as num?)?.toInt(),
+                   ));
+                 } else if (!curFlame && prevFlame) {
+                   Future.microtask(() => ActivityLogService.logFlameCleared(deviceMAC: mac, location: location));
+                 }
+
+                 final bool prevGas = prevHazard['gas_detected'] == true;
+                 if (curGas && !prevGas) {
+                   Future.microtask(() => ActivityLogService.logGasDetected(
+                     deviceMAC: mac, location: location,
+                     rawValue: (data['gas'] as num?)?.toInt() ?? 0,
+                   ));
+                 } else if (!curGas && prevGas) {
+                   Future.microtask(() => ActivityLogService.logGasCleared(deviceMAC: mac, location: location));
+                 }
+
+                 final bool prevSiren = prevHazard['siren_active'] == true;
+                 if (curSiren && !prevSiren) {
+                   Future.microtask(() => ActivityLogService.logSirenActivated(
+                     deviceMAC: mac, location: location,
+                     flameValue: (data['flame'] as num?)?.toInt() ?? 0,
+                     gasValue: (data['gas'] as num?)?.toInt() ?? 0,
+                   ));
+                 } else if (!curSiren && prevSiren) {
+                   Future.microtask(() => ActivityLogService.logSirenDeactivated(deviceMAC: mac, location: location));
+                 }
                }
 
                // Save current state for next comparison
@@ -388,6 +394,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                  'siren_active': curSiren,
                };
             });
+            _sensorBaselineLoaded = true; // Future snapshots will trigger transition logs
             _syncDeviceDataList();
          });
       }
