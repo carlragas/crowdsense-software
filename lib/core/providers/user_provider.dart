@@ -65,8 +65,8 @@ class UserProvider extends ChangeNotifier {
       }
     });
 
-    // Start periodic heartbeat every 1 minute
-    _heartbeatTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+    // Start periodic heartbeat every 30 seconds
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (_authUser != null) {
         _dbRef.child('users').child(_authUser!.uid).update({
           'lastActive': ServerValue.timestamp,
@@ -93,18 +93,19 @@ class UserProvider extends ChangeNotifier {
     if (_authUser != null) {
       final String userUid = _authUser!.uid;
       // 1. Explicitly notify the server that we are going offline
-      // Doing this before goOffline() ensures immediate state synchronization.
+      // We MUST await this to ensure other clients see the status change immediately.
       try {
         await _dbRef.child('users').child(userUid).update({
           'isOnline': false,
           'lastActive': ServerValue.timestamp,
         });
+        debugPrint('[UserProvider] Explicit presence clear successful.');
       } catch (e) {
         debugPrint('[UserProvider] Explicit presence clear failed: $e');
       }
 
-      // 2. Forcefully drop the websocket to trigger onDisconnect() immediately on the server.
-      // This eliminates any race conditions with FirebaseAuth signout.
+      // 2. Forcefully drop the websocket after the update is sent.
+      // This ensures the update reaches the server before the connection is closed.
       FirebaseDatabase.instance.goOffline();
     }
     _cancelPresence();

@@ -93,7 +93,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           'designation': d['designation']?.toString() ?? 'N/A',
           'department': d['department']?.toString() ?? 'N/A',
           'isOnline': (d['isOnline'] == true || d['isOnline'] == 1) && 
-                      (DateTime.now().millisecondsSinceEpoch - (d['lastActive'] is int ? d['lastActive'] : 0) < 300000),
+                      (DateTime.now().millisecondsSinceEpoch - (d['lastActive'] is int ? d['lastActive'] : 0) < 60000),
           'createdAt': _parseCreatedAt(d['createdAt']),
         });
       });
