@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -51,7 +52,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, Map<String, dynamic>> _prevHazardState = {};
   final Map<String, bool> _prevOnlineState = {};
   bool _sensorBaselineLoaded = false; // Skip logging on first snapshot
-  final List<DeviceLog> _deviceLogs = []; // Kept empty — notification panel references this
+  final List<AppNotification> _notifications = [];
+  StreamSubscription? _urgentLogsSubscription;
 
   int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
   int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
@@ -97,6 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _prototypeUnitsSubscription?.cancel();
     _sensorDataSubscription?.cancel();
     _usersSubscription?.cancel();
+    _urgentLogsSubscription?.cancel();
     _pageController?.dispose();
     _overridePageController?.dispose();
     for (var controller in _tabScrollControllers) {
@@ -145,23 +148,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // Derived computed properties
-  List<AppNotification> get _notifications {
-    return _deviceLogs.where((log) => log.isUnread || log.currentStatus == 'Active' || log.currentStatus == 'Acknowledged').map((log) {
-      final isUrgent = log.priority == 'High';
-      return AppNotification(
-        id: log.id,
-        title: log.title,
-        body: log.message,
-        icon: log.icon,
-        iconColor: log.iconColor,
-        time: log.dateTime,
-        isUrgent: isUrgent,
-        isRead: !log.isUnread,
-        isResolved: log.currentStatus == 'Resolved',
-      );
-    }).toList();
-  }
-
   bool get _hasUrgentNotification =>
       _notifications.any((n) => n.isUrgent && !n.isResolved);
 
@@ -170,19 +156,76 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _markAsRead(String id) {
     setState(() {
-      final index = _deviceLogs.indexWhere((log) => log.id == id);
-      if (index != -1) {
-        _deviceLogs[index].isUnread = false;
-      }
+      final index = _notifications.indexWhere((n) => n.id == id);
+      if (index != -1) _notifications[index].isRead = true;
     });
   }
 
   void _resolveUrgent(String id) {
     setState(() {
-      final index = _deviceLogs.indexWhere((log) => log.id == id);
-      if (index != -1) {
-        _deviceLogs[index].currentStatus = 'Resolved';
-      }
+      final index = _notifications.indexWhere((n) => n.id == id);
+      if (index != -1) _notifications[index].isResolved = true;
+    });
+  }
+
+  // --- Initialize Delayed Firestore Stream ---
+  void _listenToUrgentAlerts() {
+    _urgentLogsSubscription = ActivityLogService.allLogs(limit: 20).snapshots().listen((snapshot) {
+      if (!mounted) return;
+      setState(() {
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final priority = data['priority']?.toString() ?? 'INFO';
+          
+          // Only sync High/Critical/Warning alerts into the bell overlay
+          if (priority != 'CRITICAL' && priority != 'WARNING') continue;
+          
+          // Double check it's not a generic user log
+          final type = data['type']?.toString() ?? '';
+          if (type == 'user') continue;
+
+          final id = doc.id;
+          final existingIndex = _notifications.indexWhere((n) => n.id == id);
+          
+          if (existingIndex == -1) {
+            // New alert detected
+            final ts = data['timestamp'] as Timestamp?;
+            final isUrgent = priority == 'CRITICAL';
+            
+            IconData icon = Icons.warning_amber_rounded;
+            Color iconColor = AppColors.statusWarning;
+            
+            if (type == 'flame') { icon = Icons.local_fire_department; iconColor = AppColors.statusDanger; }
+            else if (type == 'gas') { icon = Icons.smoking_rooms; iconColor = AppColors.statusDanger; }
+            else if (type == 'siren') { icon = Icons.campaign; iconColor = AppColors.statusDanger; }
+            else if (type == 'connectivity') { icon = Icons.wifi_off; iconColor = AppColors.statusWarning; }
+
+            // Title formatting from message
+            final message = data['message']?.toString() ?? 'Unknown Alert';
+            final title = message.contains('at') ? message.split(' at ').first.replaceAll('💨', '').replaceAll('🌡️', '').trim() : 'System Alert';
+
+            _notifications.insert(0, AppNotification(
+              id: id,
+              title: title,
+              body: message,
+              icon: icon,
+              iconColor: iconColor,
+              time: ts?.toDate() ?? DateTime.now(),
+              isUrgent: isUrgent,
+              isRead: false,
+              isResolved: false,
+            ));
+          }
+        }
+        
+        // Sort newest first
+        _notifications.sort((a, b) => b.time.compareTo(a.time));
+        
+        // Cap list size
+        if (_notifications.length > 20) {
+          _notifications.removeRange(20, _notifications.length);
+        }
+      });
     });
   }
 
@@ -274,6 +317,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         platform: kIsWeb ? 'Web' : (Platform.isWindows ? 'Windows' : (Platform.isAndroid ? 'Android' : 'Other')),
       );
     }
+    
+    // Step 8: Safely initialize the Urgent Notifications Firestore stream
+    _listenToUrgentAlerts();
   }
 
   void _listenToPrototypeUnits() {
