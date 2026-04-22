@@ -8,6 +8,7 @@ import '../../../core/providers/user_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/forgot_password_dialog.dart';
 import '../../splash/screens/splash_screen.dart';
+import '../../../core/services/activity_log_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool animate;
@@ -61,6 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
       final userData = payload['userData'] as Map<String, dynamic>;
       final bool requiresPasswordChange =
           userData['requiresPasswordChange'] == true;
+
+      // NOTE: logUserLogin() is NOT called here — it is deferred to
+      // DashboardScreen._staggeredInit() to prevent the Firestore C++ SDK
+      // from initializing concurrently with RTDB on Windows (causes crash).
 
       // 3. Define target route and args
       String targetRoute;

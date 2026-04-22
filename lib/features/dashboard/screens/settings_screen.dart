@@ -5,6 +5,7 @@ import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/widgets/page_title.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../auth/services/auth_service.dart';
+import '../../../../core/services/activity_log_service.dart';
 import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -121,9 +122,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           TextButton(
                             onPressed: () async {
                               Navigator.of(context).pop();
+                              // Capture email BEFORE clearing user state
+                              final email = context.read<UserProvider>().email ?? '';
                               if (context.mounted) {
                                 await context.read<UserProvider>().clearUser();
                               }
+                              ActivityLogService.logUserLogout(email: email);
                               await AuthService().logout();
                               if (context.mounted) {
                                 Navigator.pushNamedAndRemoveUntil(

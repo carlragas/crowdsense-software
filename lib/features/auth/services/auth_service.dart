@@ -105,10 +105,11 @@ class AuthService {
         }
       }
 
-      // Re-establish RTDB connection now that auth is fully settled.
-      // This reconnects with the new credentials so the persistent connection
-      // transitions from kDisconnected -> kConnecting -> kConnected cleanly.
-      FirebaseDatabase.instance.goOnline();
+      // NOTE: goOnline() is intentionally NOT called here.
+      // The Firebase C++ RTDB SDK on Windows fires reconnection callbacks on
+      // a non-platform thread, which crashes the app if it happens during the
+      // login→dashboard screen transition. Instead, DashboardScreen calls
+      // goOnline() after a safe delay in its initState.
 
       // Return a convenient bundle containing both the secure auth reference and UI data 
       return {

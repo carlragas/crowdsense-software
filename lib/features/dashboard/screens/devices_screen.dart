@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // Added for date formatting later
 import 'package:provider/provider.dart';
 import '../../../../core/providers/user_provider.dart';
@@ -18,17 +19,10 @@ class DeviceLog {
   bool isUnread;
   final String sensorType; // 'ToF', 'Flame', 'Smoke', 'Temp'
   final String priority; // 'High', 'Mid', 'Low'
-  // New detailed fields
-  String currentStatus; // 'Active', 'Acknowledged', 'Resolved', 'False Alarm'
-  final Duration? duration;
-  final String? peakSensorReading;
-  final String? thresholdLimit;
-  final bool isMainsPower;
-  final int? batteryPercentage;
-  final bool? relayTriggered;
+  String currentStatus; // 'Active', 'Acknowledged', 'Resolved'
   final bool? sirenActivated;
-  final List<String> networkActions;
   final String specificZone;
+  final String? powerStatus; // 'High', 'Adequate', 'Low'
 
   DeviceLog({
     required this.id,
@@ -41,20 +35,13 @@ class DeviceLog {
     required this.sensorType,
     required this.priority,
     this.currentStatus = 'Active',
-    this.duration,
-    this.peakSensorReading,
-    this.thresholdLimit,
-    this.isMainsPower = true,
-    this.batteryPercentage,
-    this.relayTriggered,
     this.sirenActivated,
-    this.networkActions = const [],
     required this.specificZone,
+    this.powerStatus,
   });
 }
 
 class DevicesScreen extends StatefulWidget {
-  final List<DeviceLog> logs;
   final String? highlightedLogId;
   final GlobalKey? highlightedItemKey;
   final ScrollController? parentScrollController;
@@ -63,7 +50,6 @@ class DevicesScreen extends StatefulWidget {
 
   const DevicesScreen({
     super.key,
-    required this.logs,
     this.highlightedLogId,
     this.highlightedItemKey,
     this.parentScrollController,
@@ -83,9 +69,142 @@ class _DevicesScreenState extends State<DevicesScreen> {
   DateTime? selectedFilterDate;
   List<String> selectedSensorTypes = [];
   List<String> selectedPriorities = [];
+
+  // Firestore-backed log list
+  List<DeviceLog> _firestoreLogs = [];
+  bool _isLoadingLogs = true;
+
   @override
   void initState() {
     super.initState();
+    // WINDOWS SAFETY: The Firebase C++ SDK on Windows crashes if multiple
+    // data channels open concurrently on background threads during login.
+    // Instead of initializing immediately, we ONLY start the Firestore stream
+    // when the user actually switches to the Devices tab (index 3).
+    if (widget.activeIndex == 3) {
+      _listenToFirestoreLogs();
+    }
+  }
+
+  @override
+  void didUpdateWidget(DevicesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.activeIndex == 3 && oldWidget.activeIndex != 3) {
+      // User just navigated to this tab
+      if (_isLoadingLogs && _firestoreLogs.isEmpty) {
+        _listenToFirestoreLogs();
+      }
+    }
+  }
+
+  void _listenToFirestoreLogs() {
+    FirebaseFirestore.instance
+        .collection('activity_logs')
+        .orderBy('timestamp', descending: true)
+        .limit(100)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      setState(() {
+        _firestoreLogs = snapshot.docs.map(_mapDocToDeviceLog).toList();
+        _isLoadingLogs = false;
+      });
+    }, onError: (_) {
+      if (mounted) setState(() => _isLoadingLogs = false);
+    });
+  }
+
+  DeviceLog _mapDocToDeviceLog(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final type = data['type']?.toString() ?? '';
+    final priority = data['priority']?.toString() ?? 'INFO';
+    final ts = data['timestamp'] as Timestamp?;
+
+    IconData icon;
+    Color iconColor;
+    String sensorType;
+    String priorityLabel;
+
+    switch (type) {
+      case 'flame':
+        icon = Icons.local_fire_department;
+        iconColor = AppColors.statusDanger;
+        sensorType = 'Flame';
+        break;
+      case 'gas':
+        icon = Icons.smoking_rooms;
+        iconColor = AppColors.statusDanger;
+        sensorType = 'Smoke';
+        break;
+      case 'temperature':
+        icon = Icons.thermostat;
+        iconColor = AppColors.statusWarning;
+        sensorType = 'Temp';
+        break;
+      case 'siren':
+        icon = Icons.warning_amber;
+        iconColor = AppColors.statusDanger;
+        sensorType = 'Siren';
+        break;
+      case 'tof':
+        icon = Icons.radar;
+        iconColor = Colors.cyanAccent;
+        sensorType = 'ToF';
+        break;
+      case 'connectivity':
+        icon = Icons.wifi;
+        iconColor = AppColors.statusWarning;
+        sensorType = 'Network';
+        break;
+      case 'power':
+        icon = Icons.battery_alert;
+        iconColor = AppColors.statusWarning;
+        sensorType = 'Power';
+        break;
+      case 'user':
+        icon = Icons.person;
+        iconColor = Colors.cyanAccent;
+        sensorType = 'User';
+        break;
+      default:
+        icon = Icons.info_outline;
+        iconColor = Colors.grey;
+        sensorType = 'System';
+    }
+
+    switch (priority) {
+      case 'CRITICAL':
+        priorityLabel = 'High';
+        break;
+      case 'WARNING':
+        priorityLabel = 'Mid';
+        break;
+      default:
+        priorityLabel = 'Low';
+    }
+
+    // Determine siren state for relevant log types
+    bool? sirenActivated;
+    if (type == 'flame' || type == 'gas' || type == 'siren') {
+      final event = data['event']?.toString() ?? '';
+      sirenActivated = event.contains('activated') || event.contains('alert');
+    }
+
+    return DeviceLog(
+      id: doc.id,
+      icon: icon,
+      title: '${sensorType} - ${data['location'] ?? data['deviceMAC'] ?? 'System'}',
+      message: data['message']?.toString() ?? '',
+      dateTime: ts?.toDate() ?? DateTime.now(),
+      iconColor: iconColor,
+      isUnread: false,
+      sensorType: sensorType,
+      priority: priorityLabel,
+      currentStatus: priority == 'CRITICAL' ? 'Active' : 'Resolved',
+      sirenActivated: sirenActivated,
+      specificZone: data['location']?.toString() ?? data['deviceMAC']?.toString() ?? 'Unknown',
+      powerStatus: data['newLevel']?.toString(),
+    );
   }
 
   @override
@@ -601,7 +720,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
  
   List<Widget> _buildFilteredLogWidgets() {
     // 1. Filter Logs
-    List<DeviceLog> filteredLogs = widget.logs.where((log) {
+    List<DeviceLog> filteredLogs = _firestoreLogs.where((log) {
       bool matchesDate = true;
       if (selectedFilterDate != null) {
         matchesDate = log.dateTime.year == selectedFilterDate!.year &&
@@ -877,6 +996,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _showLogDetailsModal(BuildContext context, DeviceLog log) {
+    final priorityColor = log.priority == 'High'
+        ? AppColors.statusDanger
+        : log.priority == 'Mid'
+            ? AppColors.statusWarning
+            : AppColors.statusSafe;
+
     showDialog(
       context: context,
       barrierColor: Colors.black45,
@@ -915,7 +1040,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Header
+                            // ── Header ──
                             Row(
                               children: [
                                 Container(
@@ -928,13 +1053,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Activity Report', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8))),
-                                      Text(log.title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface, height: 1.2)),
-                                    ],
-                                  ),
+                                  child: Text(log.title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface, height: 1.2)),
                                 ),
                                 IconButton(
                                   icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -943,7 +1062,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            // Message banner
+
+                            // ── Message banner ──
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
@@ -962,71 +1082,40 @@ class _DevicesScreenState extends State<DevicesScreen> {
                             ),
                             const SizedBox(height: 20),
 
-                            // 1. Time & Status
-                            _modalSection('Time & Status', Icons.schedule),
-                            _modalRow('Exact Timestamp', DateFormat('MMMM dd, yyyy – HH:mm:ss').format(log.dateTime)),
-                            if (log.duration != null) _modalRow('Duration', _formatDuration(log.duration!)),
+                            // ── Section 1: Event Summary ──
+                            _detailRow(context, 'Timestamp', DateFormat('MMM dd, yyyy – HH:mm:ss').format(log.dateTime)),
+                            _detailRow(context, 'Priority', log.priority.toUpperCase(), valueColor: priorityColor),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Current Status', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
+                                Text('Status', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                                 _buildSmallStatusBadge(log.currentStatus),
                               ],
                             ),
                             const Divider(height: 28),
 
-                            // 2. Telemetry Snapshot
-                            _modalSection('Telemetry Snapshot', Icons.speed),
-                            _modalRow('Peak Reading', log.peakSensorReading ?? 'N/A'),
-                            _modalRow('Threshold Limit', log.thresholdLimit ?? 'N/A'),
-                            _modalRow('Power Source', log.isMainsPower ? 'Mains (Hardwired)' : 'Battery Backup'),
-                            if (log.batteryPercentage != null) _modalRow('Battery Level', '${log.batteryPercentage}%'),
-                            const Divider(height: 28),
-
-                            // 3. Automated Responses
-                            _modalSection('Automated System Responses', Icons.precision_manufacturing),
-                            _modalRow('Relay State', log.relayTriggered == null ? 'N/A' : (log.relayTriggered! ? 'Triggered' : 'Standby'), isHighlight: log.relayTriggered == true),
-                            _modalRow('Siren State', log.sirenActivated == null ? 'N/A' : (log.sirenActivated! ? 'Activated' : 'Standby'), isHighlight: log.sirenActivated == true),
-                            const SizedBox(height: 6),
-                            Text('Network Actions:', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            if (log.networkActions.isEmpty)
-                              Text('None recorded.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontStyle: FontStyle.italic, fontSize: 13))
-                            else
-                              ...log.networkActions.map((action) => Padding(
-                                padding: const EdgeInsets.only(bottom: 4, left: 8),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.circle, size: 5, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: Text(action, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13))),
-                                  ],
-                                ),
-                              )),
-                            const Divider(height: 28),
-
-                            // 4. Location Details
-                            _modalSection('Location Details', Icons.location_on),
-                            _modalRow('Specific Zone', log.specificZone),
-                            const SizedBox(height: 12),
-                            // Map placeholder
-                            Container(
-                              height: 130,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.2)),
+                            // ── Section 2: Device Details ──
+                            _detailRow(context, 'Zone / Location', log.specificZone),
+                            _detailRow(context, 'Sensor Type', log.sensorType),
+                            if (log.sirenActivated != null)
+                              _detailRow(
+                                context,
+                                'Siren State',
+                                log.sirenActivated! ? 'Activated' : 'Standby',
+                                valueColor: log.sirenActivated! ? AppColors.statusDanger : null,
                               ),
-                              child: Stack(
-                                children: [
-                                  Center(child: Icon(Icons.map_outlined, size: 56, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.25))),
-                                  Center(child: Text('Floorplan View\n(Map integration pending)', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.bold))),
-                                  const Positioned(top: 36, left: 90, child: Icon(Icons.location_on, color: AppColors.statusDanger, size: 30)),
-                                ],
+                            if (log.powerStatus != null)
+                              _detailRow(
+                                context,
+                                'Power Status',
+                                log.powerStatus!,
+                                valueColor: log.powerStatus == 'Low'
+                                    ? AppColors.statusDanger
+                                    : log.powerStatus == 'Adequate'
+                                        ? AppColors.statusWarning
+                                        : AppColors.statusSafe,
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
@@ -1041,20 +1130,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
-  Widget _modalSection(String title, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(title.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: Theme.of(context).colorScheme.primary)),
-        ],
-      ),
-    );
-  }
-
-  Widget _modalRow(String label, String value, {bool isHighlight = false}) {
+  Widget _detailRow(BuildContext context, String label, String value, {Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1066,8 +1142,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
               value,
               textAlign: TextAlign.right,
               style: TextStyle(
-                color: isHighlight ? AppColors.statusDanger : Theme.of(context).colorScheme.onSurface,
-                fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+                color: valueColor ?? Theme.of(context).colorScheme.onSurface,
+                fontWeight: valueColor != null ? FontWeight.bold : FontWeight.w600,
                 fontSize: 13,
               ),
             ),

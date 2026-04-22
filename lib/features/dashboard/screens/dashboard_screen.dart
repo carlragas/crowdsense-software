@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'dart:ui';
 import 'dart:async';
+import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -15,6 +17,7 @@ import '../../../../core/widgets/custom_notification_modal.dart';
 import '../../../../core/widgets/siren_active_dialog.dart';
 import '../../../../core/widgets/geometric_background.dart';
 import '../../../../core/widgets/page_title.dart';
+import '../../../../core/services/activity_log_service.dart';
 import 'analytics_screen.dart';
 import 'devices_screen.dart';
 import 'settings_screen.dart';
@@ -40,9 +43,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _showNotificationsPanel = false;
   
   // --- Log State ---
-  late List<DeviceLog> _deviceLogs;
   int _hazardLevel = 0; // 0 = Nominal, 1 = Caution, 2 = Critical (Mock ESP32 data)
   Timer? _heartbeatTimer;
+
+  // --- Firestore Logging State (transition tracking) ---
+  final Map<String, Map<String, dynamic>> _prevHazardState = {};
+  final Map<String, bool> _prevOnlineState = {};
+  final List<DeviceLog> _deviceLogs = []; // Kept empty — notification panel references this
 
   int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
   int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
@@ -55,119 +62,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void initState() {
     super.initState();
-    _listenToDeviceStreams();
-    _listenToUserPresence();
+    // WINDOWS SAFETY: The Firebase C++ RTDB SDK on Windows sends platform
+    // channel messages on background threads. Opening multiple channels
+    // simultaneously can overwhelm the engine and crash. We stagger each
+    // operation with generous delays so each channel is fully initialized
+    // before the next one starts.
+    _staggeredInit();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<SirenProvider>().setBottomNavVisibility(true);
       }
     });
-
-    final now = DateTime.now();
-    _deviceLogs = [
-      // TODAY
-      DeviceLog(
-        id: 'log1',
-        icon: Icons.local_fire_department,
-        title: "Flame Sensor - Main Entrance",
-        message: "Triggered - Possible fire detected. Evacuation protocol standing by.",
-        dateTime: now.subtract(const Duration(minutes: 5)),
-        iconColor: AppColors.statusDanger,
-        isUnread: true,
-        sensorType: 'Flame',
-        priority: 'High',
-        currentStatus: 'Active',
-        duration: const Duration(minutes: 5),
-        peakSensorReading: 'Flame Detected (Digital HIGH)',
-        thresholdLimit: 'Any detection = trigger',
-        isMainsPower: true,
-        batteryPercentage: 82,
-        relayTriggered: true,
-        sirenActivated: true,
-        networkActions: ['SMS alert dispatched to Security Office', 'Email notification sent to admin@crowdsense.ph'],
-        specificZone: 'Block A, Floor 1, Node CS-F-001',
-      ),
-      DeviceLog(
-        id: 'log2',
-        icon: Icons.thermostat,
-        title: "Temp Sensor - Server Room",
-        message: "High temperature detected (42°C). Cooling system engaged automatically.",
-        dateTime: now.subtract(const Duration(minutes: 20)),
-        iconColor: AppColors.statusDanger,
-        isUnread: true,
-        sensorType: 'Temp',
-        priority: 'High',
-        currentStatus: 'Acknowledged',
-        duration: const Duration(minutes: 20),
-        peakSensorReading: '42°C',
-        thresholdLimit: '38°C (critical)',
-        isMainsPower: true,
-        batteryPercentage: 91,
-        relayTriggered: false,
-        sirenActivated: false,
-        networkActions: ['SMS alert dispatched to IT Department'],
-        specificZone: 'Block B, Floor 2, Node CS-T-007',
-      ),
-      DeviceLog(
-        id: 'log3',
-        icon: Icons.smoking_rooms,
-        title: "Smoke Sensor - Hallway A",
-        message: "Smoke detected in proximity. Investigating false positive potential.",
-        dateTime: now.subtract(const Duration(minutes: 45)),
-        iconColor: AppColors.statusWarning,
-        isUnread: false,
-        sensorType: 'Smoke',
-        priority: 'Mid',
-        currentStatus: 'Resolved',
-        duration: const Duration(minutes: 12),
-        peakSensorReading: '410 ppm (analog)',
-        thresholdLimit: '300 ppm threshold',
-        isMainsPower: false,
-        batteryPercentage: 54,
-        relayTriggered: false,
-        sirenActivated: false,
-        networkActions: [],
-        specificZone: 'Block A, Floor 3, Node CS-S-003',
-      ),
-      DeviceLog(
-        id: 'log4',
-        icon: Icons.radar,
-        title: "ToF - Parking Entrance",
-        message: "Device offline - Connection lost to gateway. Attempting automated reboot.",
-        dateTime: now.subtract(const Duration(hours: 2, minutes: 15)),
-        iconColor: AppColors.statusWarning,
-        isUnread: false,
-        sensorType: 'ToF',
-        priority: 'Mid',
-        currentStatus: 'Active',
-        peakSensorReading: 'N/A (Offline)',
-        thresholdLimit: 'N/A',
-        isMainsPower: false,
-        batteryPercentage: 18,
-        networkActions: ['Automated reboot command sent'],
-        specificZone: 'Parking Level 1, Node CS-P-002',
-      ),
-      DeviceLog(
-        id: 'log5',
-        icon: Icons.radar,
-        title: "ToF - Main Entrance 1",
-        message: "Crowd density threshold exceeded. 120 pax / min entering.",
-        dateTime: now.subtract(const Duration(hours: 5)),
-        iconColor: Colors.cyanAccent,
-        isUnread: false,
-        sensorType: 'ToF',
-        priority: 'High',
-        currentStatus: 'Resolved',
-        duration: const Duration(minutes: 38),
-        peakSensorReading: '120 pax/min',
-        thresholdLimit: '80 pax/min',
-        isMainsPower: true,
-        batteryPercentage: 95,
-        networkActions: ['SMS alert dispatched to Security Office'],
-        specificZone: 'Main Gate, Floor 1, Node CS-C-001',
-      ),
-    ];
 
 
 
@@ -325,9 +231,51 @@ class _DashboardScreenState extends State<DashboardScreen>
   StreamSubscription? _prototypeUnitsSubscription;
   StreamSubscription? _sensorDataSubscription;
 
-  void _listenToDeviceStreams() {
+  void _staggeredInit() async {
+    // Step 1: Wait for the UI transition to fully complete
+    await Future.delayed(const Duration(milliseconds: 2000));
+    if (!mounted) return;
+
+    // Step 2: Reconnect RTDB — this fires the C++ SDK's reconnection
+    FirebaseDatabase.instance.goOnline();
+
+    // Step 3: Wait for reconnection to settle before attaching listeners
+    await Future.delayed(const Duration(milliseconds: 2000));
+    if (!mounted) return;
+
+    // Step 4: Attach prototype_units listener (channel 1)
+    _listenToPrototypeUnits();
+
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+
+    // Step 5: Attach sensor_data listener (channel 2)
+    _listenToSensorData();
+
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+
+    // Step 6: Attach users listener (channel 3)
+    _listenToUserPresence();
+
+    // Step 7: NOW it is safe to wake up Firestore for the login log.
+    // All RTDB channels are fully established and idle.
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userProv = context.read<UserProvider>();
+      ActivityLogService.logUserLogin(
+        email: user.email ?? '',
+        role: userProv.role,
+        platform: Platform.isWindows ? 'Windows' : (Platform.isAndroid ? 'Android' : 'Other'),
+      );
+    }
+  }
+
+  void _listenToPrototypeUnits() {
     final dbRef = FirebaseDatabase.instance.ref();
-    
     _prototypeUnitsSubscription = dbRef.child('prototype_units').onValue.listen((event) {
       if (event.snapshot.value is Map) {
          final map = event.snapshot.value as Map;
@@ -365,7 +313,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         });
       }
     });
+  }
 
+  void _listenToSensorData() {
+    final dbRef = FirebaseDatabase.instance.ref();
     _sensorDataSubscription = dbRef.child('sensor_data').onValue.listen((event) {
       if (event.snapshot.value is Map) {
          final map = event.snapshot.value as Map;
@@ -380,6 +331,54 @@ class _DashboardScreenState extends State<DashboardScreen>
                _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
                _deviceDataMap[mac]!['last_updated'] = data['last_updated'];
                _deviceDataMap[mac]!['last_reset_hour'] = data['last_reset_hour'];
+               _deviceDataMap[mac]!['device_status'] = data['device_status'];
+               _deviceDataMap[mac]!['power_status'] = data['power_status'];
+
+               // --- Hazard state transition logging ---
+               final location = _deviceDataMap[mac]?['location'] ?? 'Unknown';
+               final prevHazard = _prevHazardState[mac] ?? {};
+
+               final bool curFlame = data['flame_detected'] == true;
+               final bool prevFlame = prevHazard['flame_detected'] == true;
+               if (curFlame && !prevFlame) {
+                 Future.microtask(() => ActivityLogService.logFlameDetected(
+                   deviceMAC: mac, location: location,
+                   sensorType: 'backup_analog',
+                   rawValue: (data['flame'] as num?)?.toInt(),
+                 ));
+               } else if (!curFlame && prevFlame) {
+                 Future.microtask(() => ActivityLogService.logFlameCleared(deviceMAC: mac, location: location));
+               }
+
+               final bool curGas = data['gas_detected'] == true;
+               final bool prevGas = prevHazard['gas_detected'] == true;
+               if (curGas && !prevGas) {
+                 Future.microtask(() => ActivityLogService.logGasDetected(
+                   deviceMAC: mac, location: location,
+                   rawValue: (data['gas'] as num?)?.toInt() ?? 0,
+                 ));
+               } else if (!curGas && prevGas) {
+                 Future.microtask(() => ActivityLogService.logGasCleared(deviceMAC: mac, location: location));
+               }
+
+               final bool curSiren = data['siren_active'] == true;
+               final bool prevSiren = prevHazard['siren_active'] == true;
+               if (curSiren && !prevSiren) {
+                 Future.microtask(() => ActivityLogService.logSirenActivated(
+                   deviceMAC: mac, location: location,
+                   flameValue: (data['flame'] as num?)?.toInt() ?? 0,
+                   gasValue: (data['gas'] as num?)?.toInt() ?? 0,
+                 ));
+               } else if (!curSiren && prevSiren) {
+                 Future.microtask(() => ActivityLogService.logSirenDeactivated(deviceMAC: mac, location: location));
+               }
+
+               // Save current state for next comparison
+               _prevHazardState[mac] = {
+                 'flame_detected': curFlame,
+                 'gas_detected': curGas,
+                 'siren_active': curSiren,
+               };
             });
             _syncDeviceDataList();
          });
@@ -453,9 +452,22 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
         connState = isLive ? "ONLINE" : "OFFLINE";
 
+        // --- Connectivity transition logging ---
+        final mac = (v['mac'] ?? '').toString();
+        final location = (v['location'] ?? 'Unknown Node').toString();
+        if (mac.isNotEmpty && _prevOnlineState.containsKey(mac)) {
+          final wasOnline = _prevOnlineState[mac]!;
+          if (isLive && !wasOnline) {
+            Future.microtask(() => ActivityLogService.logDeviceCameOnline(deviceMAC: mac, location: location));
+          } else if (!isLive && wasOnline) {
+            Future.microtask(() => ActivityLogService.logDeviceWentOffline(deviceMAC: mac, location: location));
+          }
+        }
+        if (mac.isNotEmpty) _prevOnlineState[mac] = isLive;
+
         return {
            'location': v['location'] ?? 'Unknown Node',
-           'mac': v['mac'] ?? '',
+           'mac': mac,
            'count': v['count'] ?? 0,
            'entries': v['entries'] ?? 0,
            'exits': v['exits'] ?? 0,
@@ -507,6 +519,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       // This device is online and hasn't been reset this hour yet
       _isResettingCounts = true;
       try {
+        // Log the exit count snapshot BEFORE resetting
+        final exits = (device['exits'] as num?)?.toInt() ?? 0;
+        final location = device['location']?.toString() ?? 'Unknown';
+        if (exits > 0) {
+          Future.microtask(() => ActivityLogService.logHourlySnapshot(
+            deviceMAC: mac,
+            location: location,
+            entriesThisHour: 0, // not tracked for this log
+            exitsThisHour: exits,
+            netInsideAtReset: (device['count'] as num?)?.toInt() ?? 0,
+            resetHour: currentHour,
+          ));
+        }
+
         await dbRef.child('sensor_data').child(mac).update({
           'total_entries': 0,
           'total_exits': 0,
@@ -686,6 +712,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 TextButton(
                                   onPressed: () async {
                                     Navigator.of(dialogContext).pop();
+                                    // Capture email before clearing user state
+                                    final email = context.read<UserProvider>().email ?? '';
+                                    ActivityLogService.logUserLogout(email: email);
                                     await AuthService().logout();
                                     if (context.mounted) {
                                       context.read<UserProvider>().clearUser();
@@ -935,7 +964,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                 _buildTabScrollWrapper(
                   index: 3,
                   child: DevicesScreen(
-                    logs: _deviceLogs,
                     highlightedLogId: _highlightedLogId,
                     highlightedItemKey: _highlightedItemKey,
                     parentScrollController: _tabScrollControllers[3],

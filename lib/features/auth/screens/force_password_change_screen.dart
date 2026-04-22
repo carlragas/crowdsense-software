@@ -103,9 +103,8 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
       // Update the local instance payload so it matches DB
       widget.userData['requiresPasswordChange'] = false;
       
-      // Ensure RTDB is online before navigating to dashboard
-      // (On desktop, goOffline() was called during login for C++ SDK safety)
-      FirebaseDatabase.instance.goOnline();
+      // NOTE: goOnline() is NOT called here — DashboardScreen handles it
+      // after a safe delay to avoid C++ SDK threading crashes on Windows.
 
       // Proceed to the dashboard gracefully
       Navigator.pushReplacementNamed(
