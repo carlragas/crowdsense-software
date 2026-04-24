@@ -53,7 +53,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, bool> _prevOnlineState = {};
   bool _sensorBaselineLoaded = false; // Skip logging on first snapshot
   final List<AppNotification> _notifications = [];
+  final Set<String> _clearedNotificationIds = {};
   StreamSubscription? _urgentLogsSubscription;
+  StreamSubscription? _clearedNotifsSubscription;
 
   int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
   int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
@@ -62,6 +64,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   StreamSubscription? _usersSubscription;
   int _adminsOnline = 0;
   int _facilitatorsOnline = 0;
+
+  int _serverTimeOffset = 0;
+  StreamSubscription? _offsetSubscription;
 
   @override
   void initState() {
@@ -100,6 +105,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     _sensorDataSubscription?.cancel();
     _usersSubscription?.cancel();
     _urgentLogsSubscription?.cancel();
+    _clearedNotifsSubscription?.cancel();
+    _offsetSubscription?.cancel();
     _pageController?.dispose();
     _overridePageController?.dispose();
     for (var controller in _tabScrollControllers) {
@@ -154,11 +161,27 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool get _hasAnyNotification =>
       _notifications.any((n) => (!n.isUrgent && !n.isRead) || (n.isUrgent && !n.isResolved));
 
+  Future<void> _markAsClearedInDB(String id) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await FirebaseDatabase.instance.ref()
+          .child('users')
+          .child(user.uid)
+          .child('clearedNotifications')
+          .child(id)
+          .set(true);
+    } catch (e) {
+      debugPrint('Failed to save cleared notification: $e');
+    }
+  }
+
   void _markAsRead(String id) {
     setState(() {
       final index = _notifications.indexWhere((n) => n.id == id);
       if (index != -1) _notifications[index].isRead = true;
     });
+    _markAsClearedInDB(id);
   }
 
   void _resolveUrgent(String id) {
@@ -166,9 +189,33 @@ class _DashboardScreenState extends State<DashboardScreen>
       final index = _notifications.indexWhere((n) => n.id == id);
       if (index != -1) _notifications[index].isResolved = true;
     });
+    _markAsClearedInDB(id);
   }
 
   // --- Initialize Delayed Firestore Stream ---
+  void _listenToClearedNotifications() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    
+    final dbRef = FirebaseDatabase.instance.ref().child('users').child(user.uid).child('clearedNotifications');
+    _clearedNotifsSubscription = dbRef.onValue.listen((event) {
+      if (!mounted) return;
+      if (event.snapshot.value is Map) {
+        final map = event.snapshot.value as Map;
+        setState(() {
+          _clearedNotificationIds.clear();
+          _clearedNotificationIds.addAll(map.keys.map((k) => k.toString()));
+          // Remove any already-fetched notifications that are cleared
+          _notifications.removeWhere((n) => _clearedNotificationIds.contains(n.id));
+        });
+      } else {
+         setState(() {
+            _clearedNotificationIds.clear();
+         });
+      }
+    });
+  }
+
   void _listenToUrgentAlerts() {
     _urgentLogsSubscription = ActivityLogService.allLogs(limit: 20).snapshots().listen((snapshot) {
       if (!mounted) return;
@@ -185,6 +232,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           if (type == 'user') continue;
 
           final id = doc.id;
+          if (_clearedNotificationIds.contains(id)) continue; // SKIP if already cleared by this user
+
           final existingIndex = _notifications.indexWhere((n) => n.id == id);
           
           if (existingIndex == -1) {
@@ -230,40 +279,61 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _handleNotificationTap(String id) {
+    // 1. Determine the target tab based on the notification type
+    int targetTab = 3; // Default to Devices
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      final notif = _notifications[index];
+      // Hazard alerts go to the Alerts tab (index 2)
+      if (notif.isUrgent || 
+          notif.icon == Icons.local_fire_department || 
+          notif.icon == Icons.smoking_rooms || 
+          notif.icon == Icons.campaign) {
+        targetTab = 2;
+      }
+    }
+
+    // 2. Mark as read/cleared in DB
     _markAsRead(id);
     _resolveUrgent(id);
 
     setState(() {
-      _currentIndex = 3; // Navigate to Devices tab
+      _currentIndex = targetTab; 
       _showNotificationsPanel = false;
-      _highlightedLogId = id;
-      _highlightedItemKey = GlobalKey(); // Fresh key each tap
-    });
-
-    // Give the UI a brief moment to render the newly selected tab
-    // and measure the layouts before attempting to scroll.
-    Future.delayed(const Duration(milliseconds: 150), () {
-      final keyContext = _highlightedItemKey?.currentContext;
-      if (keyContext != null) {
-        Scrollable.ensureVisible(
-          keyContext,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-          alignment: 0.5, // 0.5 = dead center
-        );
+      
+      if (targetTab == 3) {
+        _highlightedLogId = id;
+        _highlightedItemKey = GlobalKey(); // Fresh key each tap
+      } else {
+        _highlightedLogId = null;
+        _highlightedItemKey = null;
       }
     });
 
-    // Clear highlight after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          if (_highlightedLogId == id) {
-            _highlightedLogId = null;
-          }
-        });
-      }
-    });
+    // 3. Highlight/Scroll logic ONLY if going to Devices tab
+    if (targetTab == 3) {
+      Future.delayed(const Duration(milliseconds: 150), () {
+        final keyContext = _highlightedItemKey?.currentContext;
+        if (keyContext != null) {
+          Scrollable.ensureVisible(
+            keyContext,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+            alignment: 0.5,
+          );
+        }
+      });
+
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            if (_highlightedLogId == id) {
+              _highlightedLogId = null;
+            }
+          });
+        }
+      });
+    }
   }
 
   String? _highlightedLogId;
@@ -287,6 +357,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Step 3: Wait for reconnection to settle before attaching listeners
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
+
+    // Listen to Server Time Offset
+    _offsetSubscription = FirebaseDatabase.instance.ref('.info/serverTimeOffset').onValue.listen((event) {
+      if (event.snapshot.value is int) {
+        _serverTimeOffset = event.snapshot.value as int;
+      } else if (event.snapshot.value is num) {
+        _serverTimeOffset = (event.snapshot.value as num).toInt();
+      }
+    });
 
     // Step 4: Attach prototype_units listener (channel 1)
     _listenToPrototypeUnits();
@@ -318,7 +397,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
     
-    // Step 8: Safely initialize the Urgent Notifications Firestore stream
+    // Step 8: Initialize cleared notifications listener
+    _listenToClearedNotifications();
+
+    await Future.delayed(const Duration(milliseconds: 1000));
+    if (!mounted) return;
+
+    // Step 9: Safely initialize the Urgent Notifications Firestore stream
     _listenToUrgentAlerts();
   }
 
@@ -509,7 +594,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             final ts = DateTime.fromMillisecondsSinceEpoch(
               (lastUpdated is int) ? lastUpdated : (lastUpdated as num).toInt(),
             );
-            isLive = DateTime.now().difference(ts).inSeconds < 30; // 30s timeout
+            final estimatedServerTime = DateTime.now().add(Duration(milliseconds: _serverTimeOffset));
+            isLive = estimatedServerTime.difference(ts).inSeconds.abs() < 30; // 30s timeout
         }
         connState = isLive ? "ONLINE" : "OFFLINE";
 

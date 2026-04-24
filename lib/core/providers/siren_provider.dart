@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class SirenProvider with ChangeNotifier {
   String? _activeSirenTitle;
@@ -26,6 +27,21 @@ class SirenProvider with ChangeNotifier {
     _activeSirenIcon = icon;
     _activeSirenColor = color;
     notifyListeners();
+
+    // Send command to hardware via Firebase RTDB
+    // siren_alert_active = Evacuation Siren (red alert + loud buzzer)
+    // siren_clear_active = Safety Alert (blue alert, no buzzer)
+    if (title == "EVACUATION SIREN") {
+      FirebaseDatabase.instance.ref().child('sensors_data').update({
+        'siren_alert_active': true,
+        'siren_clear_active': false,
+      });
+    } else if (title == "SAFETY ALERT") {
+      FirebaseDatabase.instance.ref().child('sensors_data').update({
+        'siren_alert_active': false,
+        'siren_clear_active': true,
+      });
+    }
   }
 
   void terminateSiren() {
@@ -33,5 +49,11 @@ class SirenProvider with ChangeNotifier {
     _activeSirenIcon = null;
     _activeSirenColor = null;
     notifyListeners();
+
+    // Deactivate all sirens — set both flags to false
+    FirebaseDatabase.instance.ref().child('sensors_data').update({
+      'siren_alert_active': false,
+      'siren_clear_active': false,
+    });
   }
 }

@@ -17,8 +17,11 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
   StreamSubscription? _devicesSubscription;
   StreamSubscription? _sensorDataSubscription;
+  StreamSubscription? _offsetSubscription;
   List<Map<String, dynamic>> _devices = [];
   final Map<String, dynamic> _sensorDataCache = {}; // stores last_updated per MAC
+
+  int _serverTimeOffset = 0;
 
   final TextEditingController _macController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -29,6 +32,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   void dispose() {
     _devicesSubscription?.cancel();
     _sensorDataSubscription?.cancel();
+    _offsetSubscription?.cancel();
     _macController.dispose();
     _nameController.dispose();
     super.dispose();
@@ -37,6 +41,17 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   @override
   void initState() {
     super.initState();
+    _offsetSubscription = FirebaseDatabase.instance.ref('.info/serverTimeOffset').onValue.listen((event) {
+      if (mounted) {
+        setState(() {
+          if (event.snapshot.value is int) {
+            _serverTimeOffset = event.snapshot.value as int;
+          } else if (event.snapshot.value is num) {
+            _serverTimeOffset = (event.snapshot.value as num).toInt();
+          }
+        });
+      }
+    });
     _listenToSensorData();
     _listenToDevices();
   }
@@ -633,6 +648,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
               isDark: isDark,
               isReordering: _isReordering,
               index: index,
+              serverTimeOffset: _serverTimeOffset,
               onSave: _executeEditDevice,
               onRemove: _promptRemoveDevice,
               onStatusToggle: (mac, status) {}, // No-op
@@ -666,6 +682,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       isDark: isDark,
       isReordering: _isReordering,
       index: index,
+      serverTimeOffset: _serverTimeOffset,
       onSave: _executeEditDevice,
       onRemove: _promptRemoveDevice,
       onStatusToggle: (mac, status) {
@@ -680,6 +697,7 @@ class _EditableDeviceTile extends StatefulWidget {
   final bool isDark;
   final bool isReordering;
   final int index;
+  final int serverTimeOffset;
   final Function(String, String, String, Map<String, dynamic>) onSave;
   final Function(String, String) onRemove;
   final Function(String, String) onStatusToggle;
@@ -690,6 +708,7 @@ class _EditableDeviceTile extends StatefulWidget {
     required this.isDark,
     this.isReordering = false,
     this.index = 0,
+    this.serverTimeOffset = 0,
     required this.onSave,
     required this.onRemove,
     required this.onStatusToggle,
@@ -744,14 +763,16 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     final ts = DateTime.fromMillisecondsSinceEpoch(
       (lastSeen is int) ? lastSeen : (lastSeen as num).toInt(),
     );
-    return DateTime.now().difference(ts).inSeconds < 30; // 30s timeout
+    final estimatedServerTime = DateTime.now().add(Duration(milliseconds: widget.serverTimeOffset));
+    return estimatedServerTime.difference(ts).inSeconds.abs() < 30; // 30s timeout
   }
 
   String get _lastSeenText {
     final lastSeen = widget.device['heartbeat_last_seen'];
     if (lastSeen == null) return 'Never connected';
     final ts = DateTime.fromMillisecondsSinceEpoch((lastSeen is int) ? lastSeen : (lastSeen as num).toInt());
-    final diff = DateTime.now().difference(ts);
+    final estimatedServerTime = DateTime.now().add(Duration(milliseconds: widget.serverTimeOffset));
+    final diff = estimatedServerTime.difference(ts).abs();
     if (diff.inSeconds < 5) return 'Just now';
     if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';

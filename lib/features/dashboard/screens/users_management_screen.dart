@@ -34,6 +34,10 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   int _offlineCount = 0;
   StreamSubscription? _usersSubscription;
 
+  // ─── Pagination State ────────────────────────────────────────────────────────
+  int _currentPage = 1;
+  int? _explicitUsersPerPage; // null = default (4)
+
   @override
   void initState() {
     super.initState();
@@ -296,7 +300,12 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : _filteredUsers.isEmpty
                         ? _buildEmptyState()
-                        : _buildGridView(isDark),
+                        : Column(
+                            children: [
+                              Expanded(child: _buildGridView(isDark)),
+                              _buildPaginationControls(),
+                            ],
+                          ),
               ),
             ],
           ),
@@ -481,9 +490,21 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   // GRID VIEW LAYOUT
   // ════════════════════════════════════════════════════════════════════════════
   Widget _buildGridView(bool isDark) {
+    final filtered = _filteredUsers;
+    final effectiveLimit = _explicitUsersPerPage ?? 4;
+    final totalUsers = filtered.length;
+    final totalPages = (totalUsers / effectiveLimit).ceil() == 0 ? 1 : (totalUsers / effectiveLimit).ceil();
+    
+    if (_currentPage > totalPages) _currentPage = totalPages;
+    
+    final startIndex = (_currentPage - 1) * effectiveLimit;
+    int endIndex = startIndex + effectiveLimit;
+    if (endIndex > totalUsers) endIndex = totalUsers;
+    
+    final paginatedUsers = filtered.isEmpty ? <Map<String, dynamic>>[] : filtered.sublist(startIndex, endIndex);
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Force single column so cards are the "same length as the screen"
         final crossAxisCount = 1;
         final spacing = 20.0;
 
@@ -494,18 +515,17 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
-                mainAxisExtent:
-                    430, // Increased to 430 to resolve the 2px overflow and provide a safe buffer
+                mainAxisExtent: 430,
                 crossAxisSpacing: spacing,
                 mainAxisSpacing: 16,
               ),
-              itemCount: _filteredUsers.length,
+              itemCount: paginatedUsers.length,
               itemBuilder: (context, index) {
                 return _UserGridCard(
-                  user: _filteredUsers[index],
+                  user: paginatedUsers[index],
                   isDark: isDark,
                   formatDate: _formatDate,
-                  onDelete: () => _confirmAndDeleteUser(_filteredUsers[index]),
+                  onDelete: () => _confirmAndDeleteUser(paginatedUsers[index]),
                   isAdmin: _isAdmin,
                 );
               },
@@ -513,6 +533,122 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPaginationControls() {
+    final filtered = _filteredUsers;
+    if (filtered.isEmpty) return const SizedBox.shrink();
+
+    final effectiveLimit = _explicitUsersPerPage ?? 4;
+    final totalUsers = filtered.length;
+    final totalPages = (totalUsers / effectiveLimit).ceil() == 0 ? 1 : (totalUsers / effectiveLimit).ceil();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24, top: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                color: _currentPage > 1 ? AppColors.primaryBlue : AppColors.textGrey.withValues(alpha: 0.5),
+                onPressed: _currentPage > 1 ? () {
+                  setState(() => _currentPage--);
+                } : null,
+                style: IconButton.styleFrom(
+                  backgroundColor: _currentPage > 1 ? AppColors.primaryBlue.withValues(alpha: 0.1) : Colors.transparent,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Text(
+                  "Page $_currentPage of $totalPages",
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                color: _currentPage < totalPages ? AppColors.primaryBlue : AppColors.textGrey.withValues(alpha: 0.5),
+                onPressed: _currentPage < totalPages ? () {
+                  setState(() => _currentPage++);
+                } : null,
+                style: IconButton.styleFrom(
+                  backgroundColor: _currentPage < totalPages ? AppColors.primaryBlue.withValues(alpha: 0.1) : Colors.transparent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Show:",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildPageSizeButton(2),
+              _buildPageSizeButton(4),
+              _buildPageSizeButton(8),
+              _buildPageSizeButton(10),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageSizeButton(int size) {
+    final isSelected = _explicitUsersPerPage == size;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _explicitUsersPerPage = null;
+          } else {
+            _explicitUsersPerPage = size;
+          }
+          _currentPage = 1;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryBlue.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryBlue : Colors.white10,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          size.toString(),
+          style: TextStyle(
+            color: isSelected ? AppColors.primaryBlue : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
     );
   }
 

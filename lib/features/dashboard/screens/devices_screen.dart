@@ -74,6 +74,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
   List<DeviceLog> _firestoreLogs = [];
   bool _isLoadingLogs = true;
 
+  // Pagination State
+  int _currentPage = 1;
+  int? _explicitLogsPerPage; // null = default (10)
+
   @override
   void initState() {
     super.initState();
@@ -101,7 +105,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     FirebaseFirestore.instance
         .collection('activity_logs')
         .orderBy('timestamp', descending: true)
-        .limit(100)
+        .limit(200)
         .snapshots()
         .listen((snapshot) {
       if (!mounted) return;
@@ -152,8 +156,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
         sensorType = 'ToF';
         break;
       case 'connectivity':
+        final event = data['event']?.toString() ?? '';
         icon = Icons.wifi;
-        iconColor = AppColors.statusWarning;
+        if (event == 'device_online') {
+          iconColor = AppColors.statusSafe;
+        } else {
+          iconColor = AppColors.statusWarning;
+        }
         sensorType = 'Network';
         break;
       case 'power':
@@ -608,17 +617,18 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       else
                         const SizedBox(height: 24),
 
-                      // 2. SENSOR TYPE FILTER
-                      Text("Sensor Type", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      // 2. LOG TYPE FILTER
+                      Text("Log Type", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: ['ToF', 'Flame', 'Smoke', 'Temp', 'Power'].map((sensor) {
+                        children: ['ToF', 'Flame', 'Smoke', 'Temp', 'Power', 'Network', 'User', 'System'].map((sensor) {
                           final isSelected = tempSensors.contains(sensor);
                           return FilterChip(
                             label: Text(sensor),
                             selected: isSelected,
+                            showCheckmark: false,
                             onSelected: (bool selected) {
                               setModalState(() {
                                 if (selected) {
@@ -629,7 +639,6 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               });
                             },
                             selectedColor: AppColors.primaryBlue.withValues(alpha: 0.3),
-                            checkmarkColor: AppColors.primaryBlue,
                             backgroundColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -656,6 +665,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                           return FilterChip(
                             label: Text(priority),
                             selected: isSelected,
+                            showCheckmark: false,
                             onSelected: (bool selected) {
                               setModalState(() {
                                 if (selected) {
@@ -666,7 +676,6 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               });
                             },
                             selectedColor: pColor.withValues(alpha: 0.2),
-                            checkmarkColor: pColor,
                             backgroundColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -688,6 +697,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               selectedFilterDate = tempDate;
                               selectedSensorTypes = List.from(tempSensors);
                               selectedPriorities = List.from(tempPriorities);
+                              _currentPage = 1;
                             });
                             Navigator.pop(context);
                           },
@@ -755,9 +765,22 @@ class _DevicesScreenState extends State<DevicesScreen> {
       ];
     }
 
+    // PAGINATION LOGIC
+    int effectiveLimit = _explicitLogsPerPage ?? 10;
+    int totalLogs = filteredLogs.length;
+    int totalPages = (totalLogs / effectiveLimit).ceil();
+    if (totalPages == 0) totalPages = 1;
+    if (_currentPage > totalPages) _currentPage = totalPages;
+
+    int startIndex = (_currentPage - 1) * effectiveLimit;
+    int endIndex = startIndex + effectiveLimit;
+    if (endIndex > totalLogs) endIndex = totalLogs;
+
+    List<DeviceLog> paginatedLogs = filteredLogs.sublist(startIndex, endIndex);
+
     // 2. Group by Date
     Map<String, List<DeviceLog>> groupedLogs = {};
-    for (var log in filteredLogs) {
+    for (var log in paginatedLogs) {
       final now = DateTime.now();
       final todayDate = DateTime(now.year, now.month, now.day);
       final logDate = DateTime(log.dateTime.year, log.dateTime.month, log.dateTime.day);
@@ -804,7 +827,119 @@ class _DevicesScreenState extends State<DevicesScreen> {
       widgets.add(const SizedBox(height: 16));
     });
 
+    // 4. Pagination Controls
+    if (totalLogs > 0) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    color: _currentPage > 1 ? AppColors.primaryBlue : AppColors.textGrey.withValues(alpha: 0.5),
+                    onPressed: _currentPage > 1 ? () {
+                      setState(() => _currentPage--);
+                    } : null,
+                    style: IconButton.styleFrom(
+                      backgroundColor: _currentPage > 1 ? AppColors.primaryBlue.withValues(alpha: 0.1) : Colors.transparent,
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Text(
+                      "Page $_currentPage of $totalPages",
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    color: _currentPage < totalPages ? AppColors.primaryBlue : AppColors.textGrey.withValues(alpha: 0.5),
+                    onPressed: _currentPage < totalPages ? () {
+                      setState(() => _currentPage++);
+                    } : null,
+                    style: IconButton.styleFrom(
+                      backgroundColor: _currentPage < totalPages ? AppColors.primaryBlue.withValues(alpha: 0.1) : Colors.transparent,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Logs per page selector
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Show:",
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPageSizeButton(5),
+                  _buildPageSizeButton(10),
+                  _buildPageSizeButton(20),
+                  _buildPageSizeButton(50),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return widgets;
+  }
+
+  Widget _buildPageSizeButton(int size) {
+    final isSelected = _explicitLogsPerPage == size;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _explicitLogsPerPage = null; // Unselect everything, goes back to 10 default
+          } else {
+            _explicitLogsPerPage = size;
+          }
+          _currentPage = 1;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryBlue.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryBlue : Colors.white10,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          size.toString(),
+          style: TextStyle(
+            color: isSelected ? AppColors.primaryBlue : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
   }
 
 
