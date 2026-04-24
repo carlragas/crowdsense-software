@@ -15,6 +15,13 @@ class SirenProvider with ChangeNotifier {
   bool _isBottomNavVisible = false;
   bool get isBottomNavVisible => _isBottomNavVisible;
 
+  /// Cached list of device MAC keys (populated by the dashboard)
+  List<String> _deviceKeys = [];
+
+  void setDeviceKeys(List<String> keys) {
+    _deviceKeys = keys;
+  }
+
   void setBottomNavVisibility(bool isVisible) {
     if (_isBottomNavVisible != isVisible) {
       _isBottomNavVisible = isVisible;
@@ -28,20 +35,13 @@ class SirenProvider with ChangeNotifier {
     _activeSirenColor = color;
     notifyListeners();
 
-    // Send command to hardware via Firebase RTDB
+    // Broadcast command to ALL devices under sensor_data/{MAC}/
     // siren_alert_active = Evacuation Siren (red alert + loud buzzer)
     // siren_clear_active = Safety Alert (blue alert, no buzzer)
-    if (title == "EVACUATION SIREN") {
-      FirebaseDatabase.instance.ref().child('sensors_data').update({
-        'siren_alert_active': true,
-        'siren_clear_active': false,
-      });
-    } else if (title == "SAFETY ALERT") {
-      FirebaseDatabase.instance.ref().child('sensors_data').update({
-        'siren_alert_active': false,
-        'siren_clear_active': true,
-      });
-    }
+    _updateAllDeviceSirens(
+      sirenAlertActive: title == "EVACUATION SIREN",
+      sirenClearActive: title == "SAFETY ALERT",
+    );
   }
 
   void terminateSiren() {
@@ -50,10 +50,30 @@ class SirenProvider with ChangeNotifier {
     _activeSirenColor = null;
     notifyListeners();
 
-    // Deactivate all sirens — set both flags to false
-    FirebaseDatabase.instance.ref().child('sensors_data').update({
-      'siren_alert_active': false,
-      'siren_clear_active': false,
-    });
+    // Deactivate all sirens on ALL devices
+    _updateAllDeviceSirens(
+      sirenAlertActive: false,
+      sirenClearActive: false,
+    );
+  }
+
+  /// Writes siren flags to every known device under sensor_data/{MAC}/.
+  /// Uses the cached _deviceKeys list so we don't need a .get() read.
+  Future<void> _updateAllDeviceSirens({
+    required bool sirenAlertActive,
+    required bool sirenClearActive,
+  }) async {
+    if (_deviceKeys.isEmpty) return;
+
+    final sensorsRef = FirebaseDatabase.instance.ref().child('sensor_data');
+
+    for (final mac in _deviceKeys) {
+      try {
+        await sensorsRef.child(mac).update({
+          'siren_alert_active': sirenAlertActive,
+          'siren_clear_active': sirenClearActive,
+        });
+      } catch (_) {}
+    }
   }
 }

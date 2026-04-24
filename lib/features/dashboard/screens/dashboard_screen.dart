@@ -643,6 +643,12 @@ class _DashboardScreenState extends State<DashboardScreen>
          initialPage: 1000 * _deviceData.length + (realIndex != -1 ? realIndex : 0),
        );
     }
+
+    // Keep SirenProvider in sync with known device MAC keys
+    final macKeys = _deviceDataMap.keys.toList();
+    if (macKeys.isNotEmpty) {
+      context.read<SirenProvider>().setDeviceKeys(macKeys);
+    }
   }
 
   // --- Automated Hourly Reset Logic ---
