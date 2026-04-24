@@ -35,13 +35,20 @@ class SirenProvider with ChangeNotifier {
     _activeSirenColor = color;
     notifyListeners();
 
-    // Broadcast command to ALL devices under sensor_data/{MAC}/
-    // siren_alert_active = Evacuation Siren (red alert + loud buzzer)
-    // siren_clear_active = Safety Alert (blue alert, no buzzer)
-    _updateAllDeviceSirens(
-      sirenAlertActive: title == "EVACUATION SIREN",
-      sirenClearActive: title == "SAFETY ALERT",
-    );
+    // Reverting to the simpler variable names as requested:
+    // EVACUATION SIREN -> siren_alert_active: true
+    // SAFETY ALERT     -> siren_clear_active: true
+    if (title == "EVACUATION SIREN") {
+      _writeToAllDevices({
+        'siren_alert_active': true,
+        'siren_clear_active': false,
+      });
+    } else if (title == "SAFETY ALERT") {
+      _writeToAllDevices({
+        'siren_alert_active': false,
+        'siren_clear_active': true,
+      });
+    }
   }
 
   void terminateSiren() {
@@ -50,29 +57,22 @@ class SirenProvider with ChangeNotifier {
     _activeSirenColor = null;
     notifyListeners();
 
-    // Deactivate all sirens on ALL devices
-    _updateAllDeviceSirens(
-      sirenAlertActive: false,
-      sirenClearActive: false,
-    );
+    // Reset both to false to deactivate
+    _writeToAllDevices({
+      'siren_alert_active': false,
+      'siren_clear_active': false,
+    });
   }
 
-  /// Writes siren flags to every known device under sensor_data/{MAC}/.
-  /// Uses the cached _deviceKeys list so we don't need a .get() read.
-  Future<void> _updateAllDeviceSirens({
-    required bool sirenAlertActive,
-    required bool sirenClearActive,
-  }) async {
+  /// Writes the given fields to every known device under sensor_data/{MAC}/.
+  Future<void> _writeToAllDevices(Map<String, dynamic> fields) async {
     if (_deviceKeys.isEmpty) return;
 
     final sensorsRef = FirebaseDatabase.instance.ref().child('sensor_data');
 
     for (final mac in _deviceKeys) {
       try {
-        await sensorsRef.child(mac).update({
-          'siren_alert_active': sirenAlertActive,
-          'siren_clear_active': sirenClearActive,
-        });
+        await sensorsRef.child(mac).update(fields);
       } catch (_) {}
     }
   }
