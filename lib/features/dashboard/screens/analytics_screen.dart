@@ -1,15 +1,173 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
 import '../../../../core/providers/settings_provider.dart';
 
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   final int activeIndex;
   const AnalyticsScreen({super.key, this.activeIndex = 1});
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+  StreamSubscription? _devicesSubscription;
+  StreamSubscription? _sensorDataSubscription;
+  StreamSubscription? _offsetSubscription;
+  Timer? _heartbeatTimer;
+  
+  List<Map<String, dynamic>> _devices = [];
+  final Map<String, dynamic> _sensorDataCache = {};
+  int _serverTimeOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // WINDOWS SAFETY: Only start streams if we are on this tab, but since Analytics is activeIndex 1, we can start them.
+    _offsetSubscription = FirebaseDatabase.instance.ref('.info/serverTimeOffset').onValue.listen((event) {
+      if (mounted) {
+        setState(() {
+          if (event.snapshot.value is int) {
+            _serverTimeOffset = event.snapshot.value as int;
+          } else if (event.snapshot.value is num) {
+            _serverTimeOffset = (event.snapshot.value as num).toInt();
+          }
+        });
+      }
+    });
+    _listenToSensorData();
+    _listenToDevices();
+
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _devicesSubscription?.cancel();
+    _sensorDataSubscription?.cancel();
+    _offsetSubscription?.cancel();
+    _heartbeatTimer?.cancel();
+    super.dispose();
+  }
+
+  void _listenToDevices() {
+    _devicesSubscription = _dbRef.child('prototype_units').onValue.listen((event) {
+      if (event.snapshot.value != null && event.snapshot.value is Map) {
+        final Map<dynamic, dynamic> devicesMap = event.snapshot.value as Map<dynamic, dynamic>;
+        final List<Map<String, dynamic>> loadedDevices = [];
+        
+        devicesMap.forEach((key, value) {
+          if (value is Map) {
+            final device = <String, dynamic>{};
+            value.forEach((k, v) => device[k.toString()] = v);
+            device['macAddress'] = key.toString();
+            
+            if (!device.containsKey('sensors') && device.containsKey('config') && device['config'] is Map) {
+               final configMap = device['config'] as Map;
+               final sensorsStrMap = <String, dynamic>{};
+               configMap.forEach((k, v) => sensorsStrMap[k.toString()] = v);
+               device['sensors'] = sensorsStrMap;
+            } else if (!device.containsKey('sensors')) {
+               device['sensors'] = <String, dynamic>{
+                  "temp_threshold": 35.0,
+                  "smoke_threshold": 300.0,
+                  "flame_threshold": 200.0,
+               };
+            }
+
+            final mac = device['macAddress'];
+            final sensorInfo = _sensorDataCache[mac];
+            if (sensorInfo != null && sensorInfo is Map) {
+              device['sensor_data'] = sensorInfo;
+            } else {
+              device['sensor_data'] = null;
+            }
+
+            loadedDevices.add(device);
+          }
+        });
+
+        loadedDevices.sort((a, b) {
+          final pA = a['priority'] ?? 999;
+          final pB = b['priority'] ?? 999;
+          return pA.compareTo(pB);
+        });
+
+        if (mounted) {
+          setState(() {
+            _devices = loadedDevices;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _devices = [];
+          });
+        }
+      }
+    });
+  }
+
+  void _listenToSensorData() {
+    _sensorDataSubscription = _dbRef.child('sensor_data').onValue.listen((event) {
+      if (event.snapshot.value is Map) {
+        final map = event.snapshot.value as Map;
+        _sensorDataCache.clear();
+        map.forEach((key, val) {
+          _sensorDataCache[key.toString()] = val;
+        });
+        
+        if (_devices.isNotEmpty && mounted) {
+          setState(() {
+            for (final device in _devices) {
+              final mac = device['macAddress'];
+              final sensorInfo = _sensorDataCache[mac];
+              if (sensorInfo != null && sensorInfo is Map) {
+                device['sensor_data'] = sensorInfo;
+              }
+            }
+          });
+        }
+      }
+    });
+  }
+
+  bool _isHardwareLive(Map<String, dynamic> device) {
+    final ds = device['sensor_data']?['device_status'];
+    final explicitDeviceFalse = ds == false || ds == "false";
+
+    final lastSeen = device['sensor_data']?['last_updated'];
+    if (explicitDeviceFalse || lastSeen == null) return false;
+    
+    final ts = DateTime.fromMillisecondsSinceEpoch(
+      (lastSeen is int) ? lastSeen : (lastSeen as num).toInt(),
+    );
+    final estimatedServerTime = DateTime.now().add(Duration(milliseconds: _serverTimeOffset));
+    return estimatedServerTime.difference(ts).inSeconds.abs() < 30; // 30s timeout
+  }
+
+  String _lastSeenText(Map<String, dynamic> device) {
+    final lastSeen = device['sensor_data']?['last_updated'];
+    if (lastSeen == null) return 'Never connected';
+    final ts = DateTime.fromMillisecondsSinceEpoch((lastSeen is int) ? lastSeen : (lastSeen as num).toInt());
+    final estimatedServerTime = DateTime.now().add(Duration(milliseconds: _serverTimeOffset));
+    final diff = estimatedServerTime.difference(ts).abs();
+    if (diff.inSeconds < 5) return 'Just now';
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +179,7 @@ class AnalyticsScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageTitle(
-          key: ValueKey('Page_$activeIndex'),
+          key: ValueKey('Page_${widget.activeIndex}'),
           title: "Analytics"
         ),
         const SizedBox(height: 24),
@@ -34,44 +192,26 @@ class AnalyticsScreen extends StatelessWidget {
         _buildSubHeader(context, "Temperature Readings", Icons.thermostat_rounded),
         _buildHorizontalSensorRow(
           context,
-          children: [
-            _buildChartCard(
-              context: context,
-              title: "Server Room",
-              subtitle: "Critical Infrastructure Path",
-              icon: Icons.device_thermostat,
-              color: AppColors.statusDanger,
-              child: _buildTemperatureChart(settings.temperatureThreshold),
-            ),
-            const SizedBox(width: 16),
-            _buildChartCard(
-              context: context,
-              title: "Hallway A",
-              subtitle: "Public Zone Monitoring",
-              icon: Icons.device_thermostat,
-              color: AppColors.statusSafe,
-              child: _buildTemperatureChart(40.0),
-            ),
-            const SizedBox(width: 16),
-            _buildChartCard(
-              context: context,
-              title: "Main Entrance",
-              subtitle: "Combined Safety Node",
-              icon: Icons.device_thermostat,
-              color: AppColors.statusSafe,
-              child: _buildTemperatureChart(36.0),
-            ),
-            const SizedBox(width: 16),
-            _buildChartCard(
-              context: context,
-              title: "Parking Garage",
-              subtitle: "Garage Access Monitor",
-              icon: Icons.device_thermostat,
-              color: AppColors.statusSafe,
-              child: _buildTemperatureChart(35.0),
-            ),
-            const SizedBox(width: 20),
-          ],
+          children: _devices.map<Widget>((device) {
+            final isLive = _isHardwareLive(device);
+            final statusTxt = isLive ? "Online" : "Seen ${_lastSeenText(device)}";
+            final sensorData = device['sensor_data'] as Map<dynamic, dynamic>? ?? {};
+            
+            final double currentTemp = (sensorData['temperature'] ?? 0.0).toDouble();
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _buildChartCard(
+                context: context,
+                title: device['name'] ?? 'Unknown Node',
+                subtitle: statusTxt,
+                icon: Icons.device_thermostat,
+                color: AppColors.primaryBlue,
+                isLive: isLive,
+                child: _buildTemperatureChart(currentTemp),
+              ),
+            );
+          }).toList()..add(const SizedBox(width: 4)),
         ),
         
         const SizedBox(height: 32),
@@ -80,44 +220,28 @@ class AnalyticsScreen extends StatelessWidget {
         _buildSubHeader(context, "Smoke Readings", Icons.smoking_rooms_rounded),
         _buildHorizontalSensorRow(
           context,
-          children: [
-            _buildChartCard(
-              context: context,
-              title: "Hallway A",
-              subtitle: "Primary Corridor Detection",
-              icon: Icons.cloud_outlined,
-              color: AppColors.primaryBlue,
-              child: _buildSmokeGauge(context, settings.smokeThreshold),
-            ),
-            const SizedBox(width: 16),
-            _buildChartCard(
-              context: context,
-              title: "Server Room",
-              subtitle: "Internal Rack Monitor",
-              icon: Icons.cloud_outlined,
-              color: AppColors.primaryBlue,
-              child: _buildSmokeGauge(context, 350.0),
-            ),
-            const SizedBox(width: 16),
-            _buildChartCard(
-              context: context,
-              title: "Main Entrance",
-              subtitle: "Lobby Intake Channel",
-              icon: Icons.cloud_outlined,
-              color: AppColors.primaryBlue,
-              child: _buildSmokeGauge(context, 280.0),
-            ),
-            const SizedBox(width: 16),
-            _buildChartCard(
-              context: context,
-              title: "Parking Garage",
-              subtitle: "Exhaust Vent Sensor",
-              icon: Icons.cloud_outlined,
-              color: AppColors.primaryBlue,
-              child: _buildSmokeGauge(context, 400.0),
-            ),
-            const SizedBox(width: 20),
-          ],
+          children: _devices.map<Widget>((device) {
+            final isLive = _isHardwareLive(device);
+            final statusTxt = isLive ? "Online" : "Seen ${_lastSeenText(device)}";
+            final sensors = device['sensors'] as Map<String, dynamic>? ?? {};
+            final sensorData = device['sensor_data'] as Map<dynamic, dynamic>? ?? {};
+            
+            final double currentGas = (sensorData['gas'] ?? 0.0).toDouble();
+            final double threshold = (sensors['smoke_threshold'] ?? settings.smokeThreshold).toDouble();
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _buildChartCard(
+                context: context,
+                title: device['name'] ?? 'Unknown Node',
+                subtitle: statusTxt,
+                icon: Icons.cloud_outlined,
+                color: AppColors.primaryBlue,
+                isLive: isLive,
+                child: _buildSmokeGauge(context, currentGas, threshold),
+              ),
+            );
+          }).toList()..add(const SizedBox(width: 4)),
         ),
 
         const SizedBox(height: 32),
@@ -127,44 +251,30 @@ class AnalyticsScreen extends StatelessWidget {
         _buildHorizontalSensorRow(
           context,
           height: 400,
-          children: [
-            _buildFlameSensorCard(
-              context: context,
-              title: "Main Entrance",
-              subtitle: "Primary Exit Surveillance",
-              mainFlameDetected: false,
-              backupPpm: 420.0,
-              backupThreshold: settings.flameThreshold,
-            ),
-            const SizedBox(width: 16),
-            _buildFlameSensorCard(
-              context: context,
-              title: "Server Room",
-              subtitle: "Radiation Spike Check",
-              mainFlameDetected: false,
-              backupPpm: 380.0,
-              backupThreshold: 150.0,
-            ),
-            const SizedBox(width: 16),
-            _buildFlameSensorCard(
-              context: context,
-              title: "Hallway A",
-              subtitle: "Duct Fire Prevention",
-              mainFlameDetected: true,
-              backupPpm: 85.0,
-              backupThreshold: 220.0,
-            ),
-            const SizedBox(width: 16),
-            _buildFlameSensorCard(
-              context: context,
-              title: "Parking Garage",
-              subtitle: "Loading Dock IR Node",
-              mainFlameDetected: false,
-              backupPpm: 450.0,
-              backupThreshold: 180.0,
-            ),
-            const SizedBox(width: 20),
-          ],
+          children: _devices.map<Widget>((device) {
+            final isLive = _isHardwareLive(device);
+            final statusTxt = isLive ? "Online" : "Seen ${_lastSeenText(device)}";
+            final sensors = device['sensors'] as Map<String, dynamic>? ?? {};
+            final sensorData = device['sensor_data'] as Map<dynamic, dynamic>? ?? {};
+            
+            // Firmware: false means flame is detected.
+            final bool mainFlameDetected = !(sensorData['main_flame'] as bool? ?? true);
+            final double backupPpm = (sensorData['backup_flame'] ?? 4095).toDouble();
+            final double backupThreshold = (sensors['flame_threshold'] ?? settings.flameThreshold).toDouble();
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _buildFlameSensorCard(
+                context: context,
+                title: device['name'] ?? 'Unknown Node',
+                subtitle: statusTxt,
+                mainFlameDetected: mainFlameDetected,
+                backupPpm: backupPpm,
+                backupThreshold: backupThreshold,
+                isLive: isLive,
+              ),
+            );
+          }).toList()..add(const SizedBox(width: 4)),
         ),
         const SizedBox(height: 40),
       ],
@@ -179,6 +289,7 @@ class AnalyticsScreen extends StatelessWidget {
     required String subtitle,
     required IconData icon,
     required Color color,
+    required bool isLive,
     required Widget child,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -214,24 +325,34 @@ class AnalyticsScreen extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 8),
+              _buildStatusBadge(isLive),
             ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
           ),
           const SizedBox(height: 24),
           Expanded(child: child),
@@ -345,7 +466,52 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
 
-    Widget _buildSensorSectionHeader(BuildContext context, String title, IconData icon) {
+  Widget _buildStatusBadge(bool isLive) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: (isLive ? AppColors.statusSafe : AppColors.statusDanger).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: (isLive ? AppColors.statusSafe : AppColors.statusDanger).withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: isLive ? AppColors.statusSafe : AppColors.statusDanger,
+              shape: BoxShape.circle,
+              boxShadow: [
+                if (isLive)
+                  BoxShadow(
+                    color: AppColors.statusSafe.withValues(alpha: 0.5),
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isLive ? "ONLINE" : "OFFLINE",
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+              color: isLive ? AppColors.statusSafe : AppColors.statusDanger,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSensorSectionHeader(BuildContext context, String title, IconData icon) {
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
@@ -451,99 +617,99 @@ class AnalyticsScreen extends StatelessWidget {
 
   // --- MOCK DATA CHARTS ---
 
-  Widget _buildTemperatureChart(double threshold) {
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 5,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1);
-          },
-        ),
-        extraLinesData: ExtraLinesData(
-          horizontalLines: [
-            HorizontalLine(
-              y: threshold,
-              color: AppColors.statusDanger,
-              strokeWidth: 2,
-              dashArray: [5, 5],
-              label: HorizontalLineLabel(
-                show: true,
-                alignment: Alignment.topRight,
-                padding: const EdgeInsets.only(right: 5, bottom: 5),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.statusDanger,
+  Widget _buildTemperatureChart(double currentTemp) {
+    return Stack(
+      children: [
+        LineChart(
+          LineChartData(
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: 5,
+              getDrawingHorizontalLine: (value) {
+                return FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1);
+              },
+            ),
+            titlesData: FlTitlesData(
+              show: true,
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 30,
+                  interval: 6,
+                  getTitlesWidget: (value, meta) {
+                    return SideTitleWidget(
+                      meta: meta,
+                      child: Text('${value.toInt()}h', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    );
+                  },
                 ),
-                labelResolver: (line) => 'Limit: ${threshold.toStringAsFixed(1)}°C',
+              ),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  interval: 10,
+                  reservedSize: 40,
+                  getTitlesWidget: (value, meta) {
+                    return SideTitleWidget(
+                      meta: meta,
+                      child: Text('${value.toInt()}°C', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    );
+                  },
+                ),
               ),
             ),
-          ],
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: 6,
-              getTitlesWidget: (value, meta) {
-                return SideTitleWidget(
-                  meta: meta,
-                  child: Text('${value.toInt()}h', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                );
-              },
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 10,
-              reservedSize: 40,
-              getTitlesWidget: (value, meta) {
-                return SideTitleWidget(
-                  meta: meta,
-                  child: Text('${value.toInt()}°C', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                );
-              },
-            ),
+            borderData: FlBorderData(show: false),
+            minX: 0,
+            maxX: 24,
+            minY: 10,
+            maxY: math.max(45.0, currentTemp + 10.0),
+            lineBarsData: [
+              LineChartBarData(
+                spots: _getMockTempData(currentTemp),
+                isCurved: true,
+                color: AppColors.primaryBlue,
+                barWidth: 3,
+                isStrokeCapRound: true,
+                dotData: const FlDotData(show: false),
+                belowBarData: BarAreaData(
+                  show: true,
+                  color: AppColors.primaryBlue.withValues(alpha: 0.15),
+                ),
+              ),
+            ],
           ),
         ),
-        borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: 24,
-        minY: 10,
-        maxY: threshold > 40 ? threshold + 5 : 45,
-        lineBarsData: [
-          LineChartBarData(
-            spots: _getMockTempData(),
-            isCurved: true,
-            color: AppColors.statusWarning,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              color: AppColors.statusWarning.withValues(alpha: 0.15),
+        Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              '${currentTemp.toStringAsFixed(1)} °C',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // Mock current readings
-  static const double _mockSmokePPM = 290.0;   // current smoke sensor reading
   static const double _gaugeMaxPPM  = 500.0;
 
-  Widget _buildSmokeGauge(BuildContext context, double threshold) {
+  Widget _buildSmokeGauge(BuildContext context, double currentPpm, double threshold) {
     return _PpmGauge(
-      value: _mockSmokePPM,
+      value: currentPpm,
       maxValue: _gaugeMaxPPM,
       threshold: threshold,
       unit: 'PPM',
@@ -560,6 +726,7 @@ class AnalyticsScreen extends StatelessWidget {
     required bool mainFlameDetected,
     required double backupPpm,
     required double backupThreshold,
+    required bool isLive,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -614,6 +781,8 @@ class AnalyticsScreen extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       subtitle,
@@ -621,10 +790,14 @@ class AnalyticsScreen extends StatelessWidget {
                         fontSize: 11,
                         color: colorScheme.onSurfaceVariant,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              _buildStatusBadge(isLive),
             ],
           ),
           const SizedBox(height: 16),
@@ -674,16 +847,16 @@ class AnalyticsScreen extends StatelessWidget {
 
   // --- MOCK DATA GENERATORS ---
 
-  List<FlSpot> _getMockTempData() {
-    return const [
-      FlSpot(0, 22.5),
-      FlSpot(4, 21.0),
-      FlSpot(8, 23.5),
-      FlSpot(12, 28.0),
-      FlSpot(14, 32.5), // Peak afternoon
-      FlSpot(16, 30.0),
-      FlSpot(20, 25.5),
-      FlSpot(24, 23.0),
+  List<FlSpot> _getMockTempData(double currentTemp) {
+    // Generate a flat line for the chart reflecting currentTemp
+    return [
+      FlSpot(0, currentTemp),
+      FlSpot(4, currentTemp),
+      FlSpot(8, currentTemp),
+      FlSpot(12, currentTemp),
+      FlSpot(16, currentTemp),
+      FlSpot(20, currentTemp),
+      FlSpot(24, currentTemp),
     ];
   }
 
