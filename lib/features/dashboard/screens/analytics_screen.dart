@@ -37,7 +37,7 @@ class AnalyticsScreen extends StatelessWidget {
           children: [
             _buildChartCard(
               context: context,
-              title: "Temp Sensor - Server Room",
+              title: "Server Room",
               subtitle: "Critical Infrastructure Path",
               icon: Icons.device_thermostat,
               color: AppColors.statusDanger,
@@ -46,7 +46,7 @@ class AnalyticsScreen extends StatelessWidget {
             const SizedBox(width: 16),
             _buildChartCard(
               context: context,
-              title: "Temp Sensor - Hallway A",
+              title: "Hallway A",
               subtitle: "Public Zone Monitoring",
               icon: Icons.device_thermostat,
               color: AppColors.statusSafe,
@@ -55,7 +55,7 @@ class AnalyticsScreen extends StatelessWidget {
             const SizedBox(width: 16),
             _buildChartCard(
               context: context,
-              title: "Flame Sensor - Main Entrance",
+              title: "Main Entrance",
               subtitle: "Combined Safety Node",
               icon: Icons.device_thermostat,
               color: AppColors.statusSafe,
@@ -64,7 +64,7 @@ class AnalyticsScreen extends StatelessWidget {
             const SizedBox(width: 16),
             _buildChartCard(
               context: context,
-              title: "ToF - Parking Entrance",
+              title: "Parking Garage",
               subtitle: "Garage Access Monitor",
               icon: Icons.device_thermostat,
               color: AppColors.statusSafe,
@@ -83,7 +83,7 @@ class AnalyticsScreen extends StatelessWidget {
           children: [
             _buildChartCard(
               context: context,
-              title: "Smoke Sensor - Hallway A",
+              title: "Hallway A",
               subtitle: "Primary Corridor Detection",
               icon: Icons.cloud_outlined,
               color: AppColors.primaryBlue,
@@ -92,7 +92,7 @@ class AnalyticsScreen extends StatelessWidget {
             const SizedBox(width: 16),
             _buildChartCard(
               context: context,
-              title: "Temp Sensor - Server Room",
+              title: "Server Room",
               subtitle: "Internal Rack Monitor",
               icon: Icons.cloud_outlined,
               color: AppColors.primaryBlue,
@@ -101,7 +101,7 @@ class AnalyticsScreen extends StatelessWidget {
             const SizedBox(width: 16),
             _buildChartCard(
               context: context,
-              title: "Flame Sensor - Main Entrance",
+              title: "Main Entrance",
               subtitle: "Lobby Intake Channel",
               icon: Icons.cloud_outlined,
               color: AppColors.primaryBlue,
@@ -110,7 +110,7 @@ class AnalyticsScreen extends StatelessWidget {
             const SizedBox(width: 16),
             _buildChartCard(
               context: context,
-              title: "ToF - Parking Entrance",
+              title: "Parking Garage",
               subtitle: "Exhaust Vent Sensor",
               icon: Icons.cloud_outlined,
               color: AppColors.primaryBlue,
@@ -126,41 +126,42 @@ class AnalyticsScreen extends StatelessWidget {
         _buildSubHeader(context, "Flame Readings", Icons.local_fire_department_rounded),
         _buildHorizontalSensorRow(
           context,
+          height: 400,
           children: [
-            _buildChartCard(
+            _buildFlameSensorCard(
               context: context,
-              title: "Flame Sensor - Main Entrance",
+              title: "Main Entrance",
               subtitle: "Primary Exit Surveillance",
-              icon: Icons.local_fire_department_outlined,
-              color: AppColors.statusDanger,
-              child: _buildFlameGauge(context, settings.flameThreshold),
+              mainFlameDetected: false,
+              backupPpm: 420.0,
+              backupThreshold: settings.flameThreshold,
             ),
             const SizedBox(width: 16),
-            _buildChartCard(
+            _buildFlameSensorCard(
               context: context,
-              title: "Temp Sensor - Server Room",
+              title: "Server Room",
               subtitle: "Radiation Spike Check",
-              icon: Icons.local_fire_department_outlined,
-              color: AppColors.statusDanger,
-              child: _buildFlameGauge(context, 150.0),
+              mainFlameDetected: false,
+              backupPpm: 380.0,
+              backupThreshold: 150.0,
             ),
             const SizedBox(width: 16),
-            _buildChartCard(
+            _buildFlameSensorCard(
               context: context,
-              title: "Smoke Sensor - Hallway A",
+              title: "Hallway A",
               subtitle: "Duct Fire Prevention",
-              icon: Icons.local_fire_department_outlined,
-              color: AppColors.statusDanger,
-              child: _buildFlameGauge(context, 220.0),
+              mainFlameDetected: true,
+              backupPpm: 85.0,
+              backupThreshold: 220.0,
             ),
             const SizedBox(width: 16),
-            _buildChartCard(
+            _buildFlameSensorCard(
               context: context,
-              title: "ToF - Parking Entrance",
+              title: "Parking Garage",
               subtitle: "Loading Dock IR Node",
-              icon: Icons.local_fire_department_outlined,
-              color: AppColors.statusDanger,
-              child: _buildFlameGauge(context, 180.0),
+              mainFlameDetected: false,
+              backupPpm: 450.0,
+              backupThreshold: 180.0,
             ),
             const SizedBox(width: 20),
           ],
@@ -262,9 +263,9 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHorizontalSensorRow(BuildContext context, {required List<Widget> children}) {
+  Widget _buildHorizontalSensorRow(BuildContext context, {required List<Widget> children, double height = 320}) {
     return SizedBox(
-      height: 320,
+      height: height,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(
           dragDevices: {
@@ -344,7 +345,26 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
 
-    Widget _buildMetricCard({
+    Widget _buildSensorSectionHeader(BuildContext context, String title, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 10, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+        const SizedBox(width: 4),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.0,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricCard({
     required BuildContext context,
     required String title,
     required String value,
@@ -519,7 +539,6 @@ class AnalyticsScreen extends StatelessWidget {
 
   // Mock current readings
   static const double _mockSmokePPM = 290.0;   // current smoke sensor reading
-  static const double _mockFlamePPM = 185.0;    // current flame IR sensor reading
   static const double _gaugeMaxPPM  = 500.0;
 
   Widget _buildSmokeGauge(BuildContext context, double threshold) {
@@ -533,14 +552,119 @@ class AnalyticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFlameGauge(BuildContext context, double threshold) {
-    return _PpmGauge(
-      value: _mockFlamePPM,
-      maxValue: _gaugeMaxPPM,
-      threshold: threshold,
-      unit: 'PPM',
-      label: 'Flame IR',
-      baseColor: AppColors.statusDanger,
+  // --- COMBINED FLAME SENSOR CARD ---
+  Widget _buildFlameSensorCard({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required bool mainFlameDetected,
+    required double backupPpm,
+    required double backupThreshold,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // If main flame detects fire, backup should also reflect danger
+    // NOTE: Backup Flame uses INVERSE logic (Low PPM = Flame Detected)
+    final effectiveBackupDanger = mainFlameDetected || backupPpm <= backupThreshold;
+
+    return Container(
+      width: 320,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: effectiveBackupDanger
+              ? AppColors.statusDanger.withValues(alpha: 0.3)
+              : isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: effectiveBackupDanger
+                ? AppColors.statusDanger.withValues(alpha: isDark ? 0.15 : 0.08)
+                : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: effectiveBackupDanger ? 16 : 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.statusDanger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.local_fire_department_outlined, color: AppColors.statusDanger, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // --- Section 1: Main Sensor ---
+          _buildSensorSectionHeader(context, "MAIN SENSOR", Icons.sensors_rounded),
+          const SizedBox(height: 6),
+          _FlameStatusIndicator(isFlameDetected: mainFlameDetected),
+          
+          const SizedBox(height: 12),
+
+          // Subtle divider
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  colorScheme.onSurface.withValues(alpha: 0.08),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // --- Section 2: Backup Sensor ---
+          _buildSensorSectionHeader(context, "BACKUP SENSOR (PPM)", Icons.settings_input_component_rounded),
+          const SizedBox(height: 4),
+          Expanded(
+            child: _BackupFlameGauge(
+              ppm: backupPpm,
+              threshold: backupThreshold,
+              maxPpm: _gaugeMaxPPM,
+              isMainFlameTriggered: mainFlameDetected,
+            ),
+          ),
+        ],
+      ),
     );
   }
   
@@ -579,6 +703,7 @@ class _PpmGauge extends StatelessWidget {
   final String unit;
   final String label;
   final Color baseColor;
+  final bool isInverse;
 
   const _PpmGauge({
     required this.value,
@@ -587,6 +712,7 @@ class _PpmGauge extends StatelessWidget {
     required this.unit,
     required this.label,
     required this.baseColor,
+    this.isInverse = false,
   });
 
   @override
@@ -595,19 +721,31 @@ class _PpmGauge extends StatelessWidget {
     final thresholdRatio = (threshold / maxValue).clamp(0.0, 1.0);
 
     Color valueColor;
-    if (ratio >= thresholdRatio) {
-      valueColor = AppColors.statusDanger;
-    } else if (ratio >= thresholdRatio * 0.75) {
-      valueColor = AppColors.statusWarning;
-    } else {
-      valueColor = baseColor;
-    }
+    String statusLabel;
 
-    final statusLabel = ratio >= thresholdRatio
-        ? 'ABOVE LIMIT'
-        : ratio >= thresholdRatio * 0.75
-            ? 'WARNING'
-            : 'NORMAL';
+    if (isInverse) {
+      if (ratio <= thresholdRatio) {
+        valueColor = AppColors.statusDanger;
+        statusLabel = 'FLAME DETECTED';
+      } else if (ratio <= thresholdRatio * 1.5) {
+        valueColor = AppColors.statusWarning;
+        statusLabel = 'WARNING';
+      } else {
+        valueColor = baseColor;
+        statusLabel = 'NORMAL';
+      }
+    } else {
+      if (ratio >= thresholdRatio) {
+        valueColor = AppColors.statusDanger;
+        statusLabel = 'ABOVE LIMIT';
+      } else if (ratio >= thresholdRatio * 0.75) {
+        valueColor = AppColors.statusWarning;
+        statusLabel = 'WARNING';
+      } else {
+        valueColor = baseColor;
+        statusLabel = 'NORMAL';
+      }
+    }
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -620,6 +758,7 @@ class _PpmGauge extends StatelessWidget {
               thresholdRatio: thresholdRatio,
               baseColor: baseColor,
               valueColor: valueColor,
+              isInverse: isInverse,
             ),
             child: Center(
               child: Column(
@@ -701,6 +840,7 @@ class _GaugePainter extends CustomPainter {
   final double thresholdRatio;
   final Color baseColor;
   final Color valueColor;
+  final bool isInverse;
 
   static const double _startDeg = 145.0;
   static const double _sweepDeg = 250.0;
@@ -711,6 +851,7 @@ class _GaugePainter extends CustomPainter {
     required this.thresholdRatio,
     required this.baseColor,
     required this.valueColor,
+    this.isInverse = false,
   });
 
   double _rad(double deg) => deg * math.pi / 180.0;
@@ -735,19 +876,35 @@ class _GaugePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Safe zone tint up to threshold
-    if (thresholdRatio > 0) {
-      canvas.drawArc(
+    // Safe zone tint
+    if (isInverse) {
+       // Zone from threshold to max is safe
+       canvas.drawArc(
         rect,
-        _rad(_startDeg),
-        _rad(_sweepDeg * thresholdRatio),
+        _rad(_startDeg + _sweepDeg * thresholdRatio),
+        _rad(_sweepDeg * (1.0 - thresholdRatio)),
         false,
         Paint()
-          ..color = baseColor.withValues(alpha: 0.22)
+          ..color = baseColor.withValues(alpha: 0.15)
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeW
           ..strokeCap = StrokeCap.round,
       );
+    } else {
+      // Zone from 0 to threshold is safe
+      if (thresholdRatio > 0) {
+        canvas.drawArc(
+          rect,
+          _rad(_startDeg),
+          _rad(_sweepDeg * thresholdRatio),
+          false,
+          Paint()
+            ..color = baseColor.withValues(alpha: 0.22)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = strokeW
+            ..strokeCap = StrokeCap.round,
+        );
+      }
     }
 
     // Gradient value arc drawn in 60 segments
@@ -758,20 +915,39 @@ class _GaugePainter extends CustomPainter {
       for (int i = 0; i < segments; i++) {
         final t = (i / (segments - 1)).clamp(0.0, 1.0);
         Color segColor;
-        if (t < thresholdRatio * 0.70) {
-          segColor = baseColor;
-        } else if (t < thresholdRatio) {
-          segColor = Color.lerp(
-            baseColor,
-            AppColors.statusWarning,
-            (t - thresholdRatio * 0.70) / (thresholdRatio * 0.30),
-          )!;
+        
+        if (isInverse) {
+          if (t < thresholdRatio) {
+            segColor = AppColors.statusDanger;
+          } else if (t < thresholdRatio * 1.5) {
+            segColor = Color.lerp(
+              AppColors.statusDanger,
+              AppColors.statusWarning,
+              (t - thresholdRatio) / (thresholdRatio * 0.5),
+            )!;
+          } else {
+            segColor = Color.lerp(
+              AppColors.statusWarning,
+              baseColor,
+              ((t - thresholdRatio * 1.5) / (1.0 - thresholdRatio * 1.5)).clamp(0.0, 1.0),
+            )!;
+          }
         } else {
-          segColor = Color.lerp(
-            AppColors.statusWarning,
-            AppColors.statusDanger,
-            ((t - thresholdRatio) / (1.0 - thresholdRatio)).clamp(0.0, 1.0),
-          )!;
+          if (t < thresholdRatio * 0.70) {
+            segColor = baseColor;
+          } else if (t < thresholdRatio) {
+            segColor = Color.lerp(
+              baseColor,
+              AppColors.statusWarning,
+              (t - thresholdRatio * 0.70) / (thresholdRatio * 0.30),
+            )!;
+          } else {
+            segColor = Color.lerp(
+              AppColors.statusWarning,
+              AppColors.statusDanger,
+              ((t - thresholdRatio) / (1.0 - thresholdRatio)).clamp(0.0, 1.0),
+            )!;
+          }
         }
         canvas.drawArc(
           rect,
@@ -862,4 +1038,138 @@ class _GaugePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GaugePainter old) =>
       old.ratio != ratio || old.thresholdRatio != thresholdRatio;
+}
+
+// ---------------------------------------------------------------------------
+// Combined Flame Sensor Components
+// ---------------------------------------------------------------------------
+
+class _FlameStatusIndicator extends StatefulWidget {
+  final bool isFlameDetected;
+  
+  const _FlameStatusIndicator({required this.isFlameDetected});
+
+  @override
+  State<_FlameStatusIndicator> createState() => _FlameStatusIndicatorState();
+}
+
+class _FlameStatusIndicatorState extends State<_FlameStatusIndicator> with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    if (widget.isFlameDetected) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_FlameStatusIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isFlameDetected != oldWidget.isFlameDetected) {
+      if (widget.isFlameDetected) {
+        _pulseController.repeat(reverse: true);
+      } else {
+        _pulseController.stop();
+        _pulseController.value = 0.0;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isFlameDetected ? AppColors.statusDanger : AppColors.statusSafe;
+    final text = widget.isFlameDetected ? 'FLAME DETECTED' : 'NO FLAME DETECTED';
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: widget.isFlameDetected ? _pulseAnimation.value : 1.0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    boxShadow: widget.isFlameDetected ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.6),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      )
+                    ] : null,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackupFlameGauge extends StatelessWidget {
+  final double ppm;
+  final double threshold;
+  final double maxPpm;
+  final bool isMainFlameTriggered;
+
+  const _BackupFlameGauge({
+    required this.ppm,
+    required this.threshold,
+    required this.maxPpm,
+    required this.isMainFlameTriggered,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _PpmGauge(
+      value: ppm,
+      maxValue: maxPpm,
+      threshold: threshold,
+      unit: 'PPM',
+      label: 'BACKUP ANALYTIC',
+      baseColor: AppColors.statusSafe, // Base is safe (greenish)
+      isInverse: true,
+    );
+  }
 }
