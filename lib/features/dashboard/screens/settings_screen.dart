@@ -17,7 +17,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool emailAlerts = false;
   bool maintenanceMode = false;
 
   @override
@@ -52,13 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Preferences Section
             _buildSectionHeader("Preferences"),
 
-            _buildSwitchTile(
-              icon: Icons.email_outlined,
-              title: "Email Alerts",
-              subtitle: "Daily logs and critical alerts",
-              value: emailAlerts,
-              onChanged: (val) => setState(() => emailAlerts = val),
-            ),
+
             Consumer<ThemeProvider>(
               builder: (context, themeProvider, child) {
                 return _buildSwitchTile(

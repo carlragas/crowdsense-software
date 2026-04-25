@@ -68,6 +68,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   // Filter State
   DateTime? selectedFilterDate;
   List<String> selectedSensorTypes = [];
+  List<String> excludedSensorTypes = [];
   List<String> selectedPriorities = [];
 
   // Firestore-backed log list
@@ -473,8 +474,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
   void _openFilterModal() {
     // Temporary variables for modal's local state before applying
     DateTime? tempDate = selectedFilterDate;
-    List<String> tempSensors = List.from(selectedSensorTypes);
-    List<String> tempPriorities = List.from(selectedPriorities);
+    List<String> tempSensors = List.from(selectedSensorTypes ?? []);
+    List<String> tempExcludedSensors = List.from(excludedSensorTypes ?? []);
+    List<String> tempPriorities = List.from(selectedPriorities ?? []);
 
     showDialog(
       context: context,
@@ -534,6 +536,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                               setModalState(() {
                                                 tempDate = null;
                                                 tempSensors.clear();
+                                                tempExcludedSensors.clear();
                                                 tempPriorities.clear();
                                               });
                                             },
@@ -633,6 +636,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               setModalState(() {
                                 if (selected) {
                                   tempSensors.add(sensor);
+                                  tempExcludedSensors.remove(sensor); // Ensure mutually exclusive
                                 } else {
                                   tempSensors.remove(sensor);
                                 }
@@ -645,6 +649,40 @@ class _DevicesScreenState extends State<DevicesScreen> {
                               side: BorderSide(color: isSelected ? AppColors.primaryBlue : Colors.white24),
                             ),
                             labelStyle: TextStyle(color: isSelected ? AppColors.primaryBlue : Theme.of(context).colorScheme.onSurfaceVariant),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 2.5 EXCLUDE LOG TYPE FILTER
+                      Text("Exclude Log Type", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ['ToF', 'Flame', 'Smoke', 'Temp', 'Power', 'Network', 'User', 'System'].map((sensor) {
+                          final isExcluded = tempExcludedSensors.contains(sensor);
+                          return FilterChip(
+                            label: Text(sensor),
+                            selected: isExcluded,
+                            showCheckmark: false,
+                            onSelected: (bool selected) {
+                              setModalState(() {
+                                if (selected) {
+                                  tempExcludedSensors.add(sensor);
+                                  tempSensors.remove(sensor); // Ensure mutually exclusive
+                                } else {
+                                  tempExcludedSensors.remove(sensor);
+                                }
+                              });
+                            },
+                            selectedColor: AppColors.statusDanger.withValues(alpha: 0.3),
+                            backgroundColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(color: isExcluded ? AppColors.statusDanger : Colors.white24),
+                            ),
+                            labelStyle: TextStyle(color: isExcluded ? AppColors.statusDanger : Theme.of(context).colorScheme.onSurfaceVariant),
                           );
                         }).toList(),
                       ),
@@ -696,6 +734,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                             setState(() {
                               selectedFilterDate = tempDate;
                               selectedSensorTypes = List.from(tempSensors);
+                              excludedSensorTypes = List.from(tempExcludedSensors);
                               selectedPriorities = List.from(tempPriorities);
                               _currentPage = 1;
                             });
@@ -739,16 +778,21 @@ class _DevicesScreenState extends State<DevicesScreen> {
       }
       
       bool matchesSensor = true;
-      if (selectedSensorTypes.isNotEmpty) {
-        matchesSensor = selectedSensorTypes.contains(log.sensorType);
+      if ((selectedSensorTypes ?? []).isNotEmpty) {
+        matchesSensor = selectedSensorTypes!.contains(log.sensorType);
+      }
+
+      bool isExcluded = false;
+      if ((excludedSensorTypes ?? []).isNotEmpty) {
+        isExcluded = excludedSensorTypes!.contains(log.sensorType);
       }
 
       bool matchesPriority = true;
-      if (selectedPriorities.isNotEmpty) {
-        matchesPriority = selectedPriorities.contains(log.priority);
+      if ((selectedPriorities ?? []).isNotEmpty) {
+        matchesPriority = selectedPriorities!.contains(log.priority);
       }
 
-      return matchesDate && matchesSensor && matchesPriority;
+      return matchesDate && matchesSensor && !isExcluded && matchesPriority;
     }).toList();
 
     if (filteredLogs.isEmpty) {
