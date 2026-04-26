@@ -153,7 +153,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       (lastSeen is int) ? lastSeen : (lastSeen as num).toInt(),
     );
     final estimatedServerTime = DateTime.now().add(Duration(milliseconds: _serverTimeOffset));
-    return estimatedServerTime.difference(ts).inSeconds.abs() < 30; // 30s timeout
+    return estimatedServerTime.difference(ts).inSeconds.abs() < 45; // 45s timeout (heartbeat is 20s)
   }
 
   String _lastSeenText(Map<String, dynamic> device) {

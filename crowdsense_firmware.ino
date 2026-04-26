@@ -9,6 +9,7 @@
 #include <WiFiUdp.h>
 #include <Firebase_ESP_Client.h>
 #include <addons/TokenHelper.h>
+
 // Pin Configurations
 #define ONE_WIRE_BUS 4
 #define BACKUP_FLAME_DIGITAL 5
@@ -92,8 +93,15 @@ void pinConfig(){
 }
 
 void getDeviceMAC(){
+  // Briefly initialize WiFi to read the hardware MAC address,
+  // then shut it down so WiFiManager can take over cleanly.
+  WiFi.mode(WIFI_STA);
   WiFi.begin();
+  delay(100);
   deviceMAC = WiFi.macAddress();
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  delay(100);
   if (deviceMAC == "00:00:00:00:00:00"){
     Serial.println("ERROR: Cannot obtain device MAC Address.");
   }
@@ -106,9 +114,8 @@ void connectNetwork(){
     // WiFi and Firebase Setup
   WiFi.mode(WIFI_STA);
   WiFiManager wm;
-  wm.resetSettings();
   Serial.println("Connecting to WiFi...");
-  bool res = wm.autoConnect("CrowdSense_Main_Ext", "12345678");
+  bool res = wm.autoConnect("CrowdSense_Main_Entry", "12345678");
   if (!res) {
     Serial.println("Failed to establish WiFi connection.");
     firebaseConnected = false;
@@ -138,6 +145,29 @@ void connectDB(){
       firebaseConnected = false;
     }
     getSensorThreshold();
+
+    // Initialize NTP and send an immediate heartbeat so the app
+    // sees this device online without waiting for the 20-second interval.
+    if (firebaseConnected) {
+      timeClient.begin();
+      timeClient.setTimeOffset(0); // Keep epoch in UTC — Flutter handles local timezone
+      Serial.println("Syncing NTP time...");
+      int ntpRetries = 0;
+      while (!timeClient.update() && ntpRetries < 10) {
+        timeClient.forceUpdate();
+        delay(500);
+        ntpRetries++;
+      }
+      unsigned long epochTime = timeClient.getEpochTime();
+      if (epochTime > 1000000) {
+        double currentEpochMillis = (double)epochTime * 1000.0;
+        Firebase.RTDB.setDouble(&fbdo, (pathBase + "last_updated").c_str(), currentEpochMillis);
+        lastHeartbeatTime = millis(); // Reset timer so next heartbeat is in 20s
+        Serial.println("Initial heartbeat sent.");
+      } else {
+        Serial.println("WARNING: NTP sync failed, first heartbeat may be delayed.");
+      }
+    }
 }
 
 void checkPowerStatus(){
@@ -368,28 +398,49 @@ void checkAppCommands() {
 // AUTO-TRIGGER — fire detection & area-clear logic
 // ═══════════════════════════════════════════════════
 void autoTriggerSirens() {
+  bool isFireDetected = (!currentMainFlameValue || currentBackupFlameValue <= flameThreshold) && (currentGasValue >= gasThreshold);
+
   // --- Auto Fire Detection ---
-  if (!sirenAlertActive) {
-    bool isFireDetected = (!currentMainFlameValue || currentBackupFlameValue <= flameThreshold) && (currentGasValue >= gasThreshold);
-    if (isFireDetected) {
-      sirenAlertActive = true;
-      emergencyMode = true;
-      digitalWrite(SIREN_2, HIGH);
-      sirenAlertDuration = millis() + 180000;
-      // Sync state back to RTDB so app can see it
-      Firebase.RTDB.setBool(&fbdo, (pathBase + "siren_alert_active").c_str(), true);
-      Serial.println("FIRE DETECTED: Emergency mode enabled.");
-    }
+  // Only trigger if no evacuation is running AND no safety alert is running.
+  // The !sirenClearActive guard prevents re-triggering during the same incident.
+  if (!sirenAlertActive && !sirenClearActive && isFireDetected) {
+    sirenAlertActive = true;
+    emergencyMode = true;
+    digitalWrite(SIREN_2, HIGH);
+    sirenAlertDuration = millis() + 180000;
+    Firebase.RTDB.setBool(&fbdo, (pathBase + "siren_alert_active").c_str(), true);
+    Serial.println("FIRE DETECTED: Evacuation siren ACTIVATED.");
   }
 
-  // --- Auto Area Clear (only during active emergency) ---
-  if (emergencyMode && totalInside == 0 && !sirenClearActive) {
-    sirenClearActive = true;
-    emergencyMode = false;
-    digitalWrite(SIREN_1, HIGH);
-    sirenClearDuration = millis() + 180000;
-    Firebase.RTDB.setBool(&fbdo, (pathBase + "siren_clear_active").c_str(), true);
-    Serial.println("AREA CLEAR: Personnel evacuated.");
+  // --- Auto Safety Alert (transition from evacuation) ---
+  // During an active evacuation, switch to safety alert if:
+  //   (a) All people have evacuated (totalInside == 0), OR
+  //   (b) Fire is no longer detected (sensors cleared)
+  if (emergencyMode && sirenAlertActive && !sirenClearActive) {
+    bool peopleClear = (totalInside == 0);
+    bool fireClear = !isFireDetected;
+
+    if (peopleClear || fireClear) {
+      // 1. Turn OFF evacuation siren first
+      sirenAlertActive = false;
+      digitalWrite(SIREN_2, LOW);
+      Firebase.RTDB.setBool(&fbdo, (pathBase + "siren_alert_active").c_str(), false);
+
+      // 2. Turn ON safety alert
+      sirenClearActive = true;
+      emergencyMode = false;
+      digitalWrite(SIREN_1, HIGH);
+      sirenClearDuration = millis() + 180000;
+      Firebase.RTDB.setBool(&fbdo, (pathBase + "siren_clear_active").c_str(), true);
+
+      if (peopleClear && fireClear) {
+        Serial.println("SAFETY ALERT: Area cleared and fire no longer detected.");
+      } else if (peopleClear) {
+        Serial.println("SAFETY ALERT: All personnel evacuated (fire still active).");
+      } else {
+        Serial.println("SAFETY ALERT: Fire no longer detected (people still inside).");
+      }
+    }
   }
 
   // --- Siren Timeouts ---
@@ -398,13 +449,13 @@ void autoTriggerSirens() {
     emergencyMode = false;
     digitalWrite(SIREN_2, LOW);
     Firebase.RTDB.setBool(&fbdo, (pathBase + "siren_alert_active").c_str(), false);
-    Serial.println("SIREN TIMEOUT: Alert siren deactivated.");
+    Serial.println("SIREN TIMEOUT: Evacuation siren deactivated.");
   }
   if (sirenClearActive && millis() >= sirenClearDuration) {
     sirenClearActive = false;
     digitalWrite(SIREN_1, LOW);
     Firebase.RTDB.setBool(&fbdo, (pathBase + "siren_clear_active").c_str(), false);
-    Serial.println("SIREN TIMEOUT: Clear siren deactivated.");
+    Serial.println("SIREN TIMEOUT: Safety alert deactivated.");
   }
 }
 
@@ -420,6 +471,8 @@ void sendHeartbeat() {
     if (epochTime > 1000000) {
       double currentEpochMillis = (double)epochTime * 1000.0;
       Firebase.RTDB.setDouble(&fbdo, (pathBase + "last_updated").c_str(), currentEpochMillis);
+      // Also sync power status during heartbeat for near real-time power monitoring
+      Firebase.RTDB.setString(&fbdo, (pathBase + "power_status").c_str(), powerStatus);
     }
   }
 }
@@ -463,8 +516,9 @@ void setup() {
   Wire.begin(I2C_SDA, I2C_SCL);
   Wire.setClock(400000); 
   pinConfig();
-  digitalWrite(SIREN_1, HIGH);
-  digitalWrite(SIREN_2, HIGH);
+  // Start sirens LOW to avoid current-spike brownouts on PCB power-up
+  digitalWrite(SIREN_1, LOW);
+  digitalWrite(SIREN_2, LOW);
   // Initialize VL53L7CX 
   sensor.begin(); // Setup I2C interface
   if (sensor.init_sensor() != 0) {
@@ -492,10 +546,26 @@ void setup() {
 }
 
 void loop() {
+  // Guard: If WiFi dropped, try to reconnect before doing anything
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi lost! Attempting reconnect...");
+    WiFi.reconnect();
+    unsigned long reconnectStart = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - reconnectStart < 10000) {
+      delay(500);
+      Serial.print(".");
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\nWiFi reconnected.");
+    } else {
+      Serial.println("\nWiFi reconnect failed. Skipping loop.");
+      return;
+    }
+  }
+
   checkPowerStatus();
   readEnvironment();
   countCrowd();
-
   // Poll app commands every 2 seconds for near-instant siren response
   checkAppCommands();
 
@@ -507,4 +577,6 @@ void loop() {
 
   // Full data upload every 15 minutes
   uploadData();
+
+  delay(10); // Give the ESP32 a breather to prevent overheating
 }

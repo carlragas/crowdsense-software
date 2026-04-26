@@ -19,83 +19,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool maintenanceMode = false;
-
-  void _showMaintenanceWarning() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: AppColors.statusDanger, size: 28),
-              const SizedBox(width: 12),
-              const Text("System Maintenance", style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: const Text(
-            "Enabling maintenance mode will put ALL configured devices into deep sleep. All monitoring functions will be halted until each device is manually reset.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Cancel", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _toggleAllDevicesDeepSleep(true);
-                CustomNotificationModal.show(
-                  context: context,
-                  title: "Maintenance Initiated",
-                  message: "All devices will be put into deep sleep in approx. 30 sec.",
-                  isSuccess: true,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.statusDanger,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text("Enable Mode", style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _toggleAllDevicesDeepSleep(bool value) async {
-    setState(() => maintenanceMode = value);
-    final dbRef = FirebaseDatabase.instance.ref();
-    
-    try {
-      final snapshot = await dbRef.child('prototype_units').get();
-      if (snapshot.exists && snapshot.value is Map) {
-        final devicesMap = snapshot.value as Map<dynamic, dynamic>;
-        
-        for (final mac in devicesMap.keys) {
-          final macStr = mac.toString();
-          
-          // Update config
-          await dbRef.child('prototype_units').child(macStr).child('config').update({
-            'enable_deep_sleep': value,
-          });
-
-          // Update device_status
-          await dbRef.child('sensor_data').child(macStr).update({
-            'device_status': !value,
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Error toggling maintenance mode deep sleep: $e");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -141,24 +64,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 );
               }
-            ),
-
-            const SizedBox(height: 24),
-            // System & Gateway Section
-            _buildSectionHeader("System Network"),
-
-            _buildSwitchTile(
-              icon: Icons.build_circle_outlined,
-              title: "Maintenance Mode",
-              subtitle: "Suspend automated emergency protocols",
-              value: maintenanceMode,
-              onChanged: (val) {
-                if (val) {
-                  _showMaintenanceWarning();
-                } else {
-                  _toggleAllDevicesDeepSleep(false);
-                }
-              },
             ),
 
             const SizedBox(height: 24),

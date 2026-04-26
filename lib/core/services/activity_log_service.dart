@@ -22,10 +22,12 @@ class ActivityLogService {
     String? deviceMAC,
     String? location,
     Map<String, dynamic> extra = const {},
+    String? docId,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      await _firestore.collection(_collection).add({
+      
+      final data = {
         'type': type,
         'priority': priority,
         'message': message,
@@ -34,7 +36,13 @@ class ActivityLogService {
         'userId': user?.uid,
         'timestamp': FieldValue.serverTimestamp(),
         ...extra,
-      });
+      };
+
+      if (docId != null) {
+        await _firestore.collection(_collection).doc(docId).set(data, SetOptions(merge: true));
+      } else {
+        await _firestore.collection(_collection).add(data);
+      }
     } catch (e) {
       // Silently fail — logging should never crash the app
       // ignore: avoid_print
@@ -343,36 +351,37 @@ class ActivityLogService {
   static Future<void> logDeviceCameOnline({
     required String deviceMAC,
     required String location,
+    required dynamic lastUpdated, // Used for deterministic ID
     int? previousOfflineSeconds,
-  }) =>
-      _write(
-        type: 'connectivity',
-        priority: 'INFO',
-        message: '$location came online${previousOfflineSeconds != null ? ' (was offline ${previousOfflineSeconds}s)' : ''}',
-        deviceMAC: deviceMAC,
-        location: location,
-        extra: {
-          'event': 'device_online',
-          if (previousOfflineSeconds != null) 'previousOfflineSeconds': previousOfflineSeconds,
-        },
-      );
+  }) {
+    final docId = 'online_${deviceMAC}_$lastUpdated';
+    return _write(
+      type: 'connectivity',
+      priority: 'INFO',
+      message: '$location came online',
+      deviceMAC: deviceMAC,
+      location: location,
+      docId: docId,
+      extra: {'event': 'device_online', if (previousOfflineSeconds != null) 'previousOfflineSeconds': previousOfflineSeconds},
+    );
+  }
 
   static Future<void> logDeviceWentOffline({
     required String deviceMAC,
     required String location,
-    int? lastSeenTimestamp,
-  }) =>
-      _write(
-        type: 'connectivity',
-        priority: 'WARNING',
-        message: '$location went offline',
-        deviceMAC: deviceMAC,
-        location: location,
-        extra: {
-          'event': 'device_offline',
-          if (lastSeenTimestamp != null) 'lastSeenTimestamp': lastSeenTimestamp,
-        },
-      );
+    required dynamic lastUpdated, // Used for deterministic ID
+  }) {
+    final docId = 'offline_${deviceMAC}_$lastUpdated';
+    return _write(
+      type: 'connectivity',
+      priority: 'WARNING',
+      message: '$location went offline',
+      deviceMAC: deviceMAC,
+      location: location,
+      docId: docId,
+      extra: {'event': 'device_offline'},
+    );
+  }
 
   // ===========================================================================
   // QUERY HELPERS (for the Activity Logs UI)

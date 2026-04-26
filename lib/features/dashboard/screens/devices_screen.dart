@@ -1523,7 +1523,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                                if (lastUpdated != null) {
                                                   final ts = (lastUpdated is int) ? lastUpdated : (lastUpdated as num).toInt();
                                                   final estimatedServerTime = DateTime.now().millisecondsSinceEpoch + widget.serverTimeOffset;
-                                                  isLive = (estimatedServerTime - ts).abs() < 30000; // 30s
+                                                  isLive = (estimatedServerTime - ts).abs() < 45000; // 45s timeout (matches dashboard)
                                                }
                                                if (isLive) {
                                                   powerStatus = sensorVal['power_status']?.toString() ?? 'Unknown';

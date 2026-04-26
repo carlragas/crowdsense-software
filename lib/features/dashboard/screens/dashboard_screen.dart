@@ -595,19 +595,25 @@ class _DashboardScreenState extends State<DashboardScreen>
               (lastUpdated is int) ? lastUpdated : (lastUpdated as num).toInt(),
             );
             final estimatedServerTime = DateTime.now().add(Duration(milliseconds: _serverTimeOffset));
-            isLive = estimatedServerTime.difference(ts).inSeconds.abs() < 30; // 30s timeout
+            isLive = estimatedServerTime.difference(ts).inSeconds.abs() < 45; // 45s timeout (heartbeat is 20s)
         }
         connState = isLive ? "ONLINE" : "OFFLINE";
 
         // --- Connectivity transition logging ---
+        // Only log transitions AFTER the sensor baseline is established to
+        // avoid false online/offline flaps during the staggered init phase.
         final mac = (v['mac'] ?? '').toString();
         final location = (v['location'] ?? 'Unknown Node').toString();
-        if (mac.isNotEmpty && _prevOnlineState.containsKey(mac)) {
+        if (_sensorBaselineLoaded && mac.isNotEmpty && _prevOnlineState.containsKey(mac)) {
           final wasOnline = _prevOnlineState[mac]!;
           if (isLive && !wasOnline) {
-            Future.microtask(() => ActivityLogService.logDeviceCameOnline(deviceMAC: mac, location: location));
+            Future.microtask(() => ActivityLogService.logDeviceCameOnline(
+              deviceMAC: mac, location: location, lastUpdated: lastUpdated ?? DateTime.now().millisecondsSinceEpoch
+            ));
           } else if (!isLive && wasOnline) {
-            Future.microtask(() => ActivityLogService.logDeviceWentOffline(deviceMAC: mac, location: location));
+            Future.microtask(() => ActivityLogService.logDeviceWentOffline(
+              deviceMAC: mac, location: location, lastUpdated: lastUpdated ?? DateTime.now().millisecondsSinceEpoch
+            ));
           }
         }
         if (mac.isNotEmpty) _prevOnlineState[mac] = isLive;
@@ -624,6 +630,7 @@ class _DashboardScreenState extends State<DashboardScreen>
            'last_reset_hour': v['last_reset_hour'],
            'priority': v['priority'] ?? 999,
            'include_in_headcount': v['include_in_headcount'] ?? true,
+           'power_status': v['power_status'],
         };
     }).toList();
     

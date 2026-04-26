@@ -727,7 +727,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   late double _smokeThresh;
   late double _flameThresh;
   late bool _includeInHeadcount;
-  late bool _enableDeepSleep;
 
   @override
   void initState() {
@@ -739,7 +738,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble();
     _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble();
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
-    _enableDeepSleep = (sensors["enable_deep_sleep"] ?? false) as bool;
 
     // Refresh the "ago" text every 10 seconds
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -757,7 +755,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
         _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble();
         _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble();
         _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
-        _enableDeepSleep = (sensors["enable_deep_sleep"] ?? false) as bool;
       });
     }
     
@@ -790,7 +787,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
       (lastSeen is int) ? lastSeen : (lastSeen as num).toInt(),
     );
     final estimatedServerTime = DateTime.now().add(Duration(milliseconds: widget.serverTimeOffset));
-    return estimatedServerTime.difference(ts).inSeconds.abs() < 30; // 30s timeout
+    return estimatedServerTime.difference(ts).inSeconds.abs() < 45; // 45s timeout (heartbeat is 20s)
   }
 
   String get _lastSeenText {
@@ -804,75 +801,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
-  }
-
-  void _showDeepSleepWarning() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: AppColors.statusDanger, size: 28),
-              const SizedBox(width: 12),
-              const Text("Deep Sleep Warning", style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: const Text(
-            "By enabling deep sleep, all device functions will be permanently halted unless the physical reset button is pressed on the microcontroller or the power cycle is reset (plugged off and then on).",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Cancel", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _updateDeepSleepInDB(true);
-                CustomNotificationModal.show(
-                  context: context,
-                  title: "Deep Sleep Initialized",
-                  message: "The device will be put into deep sleep in approx. 30 sec.",
-                  isSuccess: true,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.statusDanger,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text("Proceed", style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _updateDeepSleepInDB(bool value) async {
-    setState(() => _enableDeepSleep = value);
-    final mac = widget.device['macAddress'];
-    final dbRef = FirebaseDatabase.instance.ref();
-    
-    try {
-      // Update config
-      await dbRef.child('prototype_units').child(mac).child('config').update({
-        'enable_deep_sleep': value,
-      });
-
-      // Update device_status accordingly
-      // If enabling deep sleep, set status to offline (false).
-      // If disabling deep sleep, set status to online (true) to allow heartbeat logic to take over.
-      await dbRef.child('sensor_data').child(mac).update({
-        'device_status': !value,
-      });
-    } catch (e) {
-      debugPrint("Error updating deep sleep: $e");
-    }
   }
 
   @override
@@ -1020,27 +948,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               onChanged: (v) => setState(() => _includeInHeadcount = v),
             ),
             
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                "Enable Deep Sleep",
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                "Puts device in a low-power state. Hardware reset required to wake.",
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
-              ),
-              activeColor: AppColors.statusDanger,
-              value: _enableDeepSleep,
-              onChanged: (v) {
-                if (v) {
-                  _showDeepSleepWarning();
-                } else {
-                  _updateDeepSleepInDB(false);
-                }
-              },
-            ),
-            
             const SizedBox(height: 24),
             Row(
               children: [
@@ -1069,7 +976,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                             "smoke_threshold": _smokeThresh,
                             "flame_threshold": _flameThresh,
                             "include_in_headcount": _includeInHeadcount,
-                            "enable_deep_sleep": _enableDeepSleep,
                          }
                       );
                     },
