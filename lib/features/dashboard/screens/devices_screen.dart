@@ -47,6 +47,9 @@ class DevicesScreen extends StatefulWidget {
   final ScrollController? parentScrollController;
   final int onlineCount;
   final int offlineCount;
+  final int activeIndex;
+  final List<Map<String, dynamic>> deviceData;
+  final int serverTimeOffset;
 
   const DevicesScreen({
     super.key,
@@ -56,9 +59,9 @@ class DevicesScreen extends StatefulWidget {
     this.onlineCount = 0,
     this.offlineCount = 0,
     this.activeIndex = 3,
+    this.deviceData = const [],
+    this.serverTimeOffset = 0,
   });
-
-  final int activeIndex;
 
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
@@ -217,6 +220,30 @@ class _DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
+  String _getPowerSummary() {
+    if (widget.deviceData.isEmpty) return "No Devices Linked";
+    
+    final onlineDevices = widget.deviceData.where((d) => d['isOnline'] == true).toList();
+    if (onlineDevices.isEmpty) return "Unknown (All Offline)";
+
+    // Priority: Low > Adequate > High
+    bool hasLow = false;
+    bool hasAdequate = false;
+    bool hasHigh = false;
+
+    for (var device in onlineDevices) {
+      final status = (device['power_status']?.toString() ?? 'Unknown').toLowerCase();
+      if (status == 'low') hasLow = true;
+      else if (status == 'adequate') hasAdequate = true;
+      else if (status == 'high') hasHigh = true;
+    }
+
+    if (hasLow) return "Action Required: Low Power";
+    if (hasAdequate) return "Systems Adequate";
+    if (hasHigh) return "All Systems Nominal";
+    return "Status Unknown";
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProv = context.watch<UserProvider>();
@@ -322,7 +349,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "Status Monitor",
+                                  _getPowerSummary(),
                                   textAlign: isAdmin
                                       ? TextAlign.start
                                       : TextAlign.center,
@@ -331,8 +358,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                     color: Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant
-                                        .withValues(alpha: 0.4),
-                                    fontWeight: FontWeight.w500,
+                                        .withValues(alpha: 0.6),
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
@@ -962,6 +989,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
           }
           _currentPage = 1;
         });
+        _scrollToBottom();
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -986,6 +1014,18 @@ class _DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.parentScrollController != null && widget.parentScrollController!.hasClients) {
+        widget.parentScrollController!.animateTo(
+          widget.parentScrollController!.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
 
   Widget _buildLogItem(DeviceLog log) {
     final isHighlighted = widget.highlightedLogId == log.id;
@@ -1475,8 +1515,20 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                             final name = val['name']?.toString() ?? mac.toString();
                                             int priority = 999;
                                             if (val.containsKey('priority')) priority = (val['priority'] is int) ? val['priority'] : int.tryParse(val['priority'].toString()) ?? 999;
-                                            final sensorVal = sensorMap[mac];
-                                            final powerStatus = (sensorVal is Map) ? (sensorVal['power_status']?.toString() ?? 'Unknown') : 'Unknown';
+                                            final sensorVal = sensorMap[mac] as Map?;
+                                            String powerStatus = 'Unknown';
+                                            if (sensorVal != null) {
+                                               final lastUpdated = sensorVal['last_updated'];
+                                               bool isLive = false;
+                                               if (lastUpdated != null) {
+                                                  final ts = (lastUpdated is int) ? lastUpdated : (lastUpdated as num).toInt();
+                                                  final estimatedServerTime = DateTime.now().millisecondsSinceEpoch + widget.serverTimeOffset;
+                                                  isLive = (estimatedServerTime - ts).abs() < 30000; // 30s
+                                               }
+                                               if (isLive) {
+                                                  powerStatus = sensorVal['power_status']?.toString() ?? 'Unknown';
+                                               }
+                                            }
                                             devices.add({'name': name, 'power_status': powerStatus, 'priority': priority});
                                           }
                                         });
