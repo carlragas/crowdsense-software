@@ -158,7 +158,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   String _lastSeenText(Map<String, dynamic> device) {
     final lastSeen = device['sensor_data']?['last_updated'];
-    if (lastSeen == null) return 'Never connected';
+    if (lastSeen == null || lastSeen == 0 || (lastSeen is num && lastSeen < 1000000)) return 'Never connected';
     final ts = DateTime.fromMillisecondsSinceEpoch((lastSeen is int) ? lastSeen : (lastSeen as num).toInt());
     final estimatedServerTime = DateTime.now().add(Duration(milliseconds: _serverTimeOffset));
     final diff = estimatedServerTime.difference(ts).abs();
@@ -208,7 +208,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 icon: Icons.device_thermostat,
                 color: AppColors.primaryBlue,
                 isLive: isLive,
-                child: _buildTemperatureChart(currentTemp),
+                child: _buildTemperatureChart(currentTemp, isLive),
               ),
             );
           }).toList()..add(const SizedBox(width: 4)),
@@ -617,7 +617,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   // --- MOCK DATA CHARTS ---
 
-  Widget _buildTemperatureChart(double currentTemp) {
+  Widget _buildTemperatureChart(double currentTemp, bool isLive) {
+    // Hide sensor error values (-127) or uninitialized values (0.0) when offline
+    final bool hasError = currentTemp == -127.0 || (currentTemp == 0.0 && !isLive);
+    final String displayTemp = (isLive && !hasError) 
+        ? '${currentTemp.toStringAsFixed(1)} °C' 
+        : '---';
+
     return Stack(
       children: [
         LineChart(
@@ -664,11 +670,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             borderData: FlBorderData(show: false),
             minX: 0,
             maxX: 24,
-            minY: 10,
-            maxY: math.max(45.0, currentTemp + 10.0),
+            minY: 0,
+            maxY: math.max(50.0, currentTemp + 10.0),
             lineBarsData: [
               LineChartBarData(
-                spots: _getMockTempData(currentTemp),
+                spots: hasError ? [] : _getMockTempData(currentTemp),
                 isCurved: true,
                 color: AppColors.primaryBlue,
                 barWidth: 3,
@@ -692,7 +698,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.5)),
             ),
             child: Text(
-              '${currentTemp.toStringAsFixed(1)} °C',
+              displayTemp,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -848,6 +854,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   // --- MOCK DATA GENERATORS ---
 
   List<FlSpot> _getMockTempData(double currentTemp) {
+    // If it's a sensor error value, don't show the line
+    if (currentTemp <= -100 || currentTemp == 0.0) return [];
+    
     // Generate a flat line for the chart reflecting currentTemp
     return [
       FlSpot(0, currentTemp),

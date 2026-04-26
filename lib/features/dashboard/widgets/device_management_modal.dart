@@ -78,8 +78,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                device['sensors'] = sensorsStrMap;
             } else if (!device.containsKey('sensors')) {
                device['sensors'] = <String, dynamic>{
-                  "temp_threshold": 35.0,
-                  "smoke_threshold": 300.0,
+                   "smoke_threshold": 300.0,
                   "flame_threshold": 200.0,
                   "include_in_headcount": true
                };
@@ -158,7 +157,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
         "name": name,
         "priority": _devices.length,
         "config": {
-          "temp_threshold": 35.0,
           "smoke_threshold": 300.0,
           "flame_threshold": 200.0,
           "include_in_headcount": true,
@@ -666,9 +664,12 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final device = _devices[index];
-        // One-time cleanup: Remove 'status' field from RTDB if it exists
+        // One-time cleanup: Remove deprecated fields from RTDB if they exist
         if (device.containsKey('status')) {
            FirebaseDatabase.instance.ref().child('prototype_units').child(device['macAddress']).child('status').remove();
+        }
+        if (device.containsKey('sensors') && (device['sensors'] as Map).containsKey('temp_threshold')) {
+           FirebaseDatabase.instance.ref().child('prototype_units').child(device['macAddress']).child('config').child('temp_threshold').remove();
         }
         return _buildDeviceTile(device, isDark, index: index);
       },
@@ -722,7 +723,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   late TextEditingController _macCtrl;
   late TextEditingController _nameCtrl;
   Timer? _heartbeatTimer;
-  late double _tempThresh;
   late double _smokeThresh;
   late double _flameThresh;
   late bool _includeInHeadcount;
@@ -734,7 +734,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _macCtrl = TextEditingController(text: widget.device["macAddress"]);
     _nameCtrl = TextEditingController(text: widget.device["name"]);
     final sensors = widget.device["sensors"] as Map<String, dynamic>;
-    _tempThresh = (sensors["temp_threshold"] ?? 35.0).toDouble();
     _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble();
     _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble();
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
@@ -1000,7 +999,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             Text("SENSOR THRESHOLDS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6))),
             const SizedBox(height: 16),
             
-            _buildThresholdSlider("Temperature", _tempThresh, 30, 60, AppColors.statusDanger, "°C", (v) => setState(() => _tempThresh = v)),
             _buildThresholdSlider("Smoke", _smokeThresh, 100, 500, AppColors.primaryBlue, "PPM", (v) => setState(() => _smokeThresh = v)),
             _buildThresholdSlider("Flame", _flameThresh, 50, 500, AppColors.statusWarning, "PPM", (v) => setState(() => _flameThresh = v)),
             
@@ -1066,7 +1064,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                          newMac, 
                          _nameCtrl.text.trim(), 
                          {
-                            "temp_threshold": _tempThresh,
                             "smoke_threshold": _smokeThresh,
                             "flame_threshold": _flameThresh,
                             "include_in_headcount": _includeInHeadcount,
@@ -1112,7 +1109,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            Text("${value.toStringAsFixed(label == 'Temperature' ? 1 : 0)} $unit", style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 13)),
+            Text("${value.toStringAsFixed(0)} $unit", style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 13)),
           ],
         ),
         SliderTheme(

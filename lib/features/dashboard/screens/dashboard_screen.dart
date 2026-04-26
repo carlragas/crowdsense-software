@@ -1127,6 +1127,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     onlineCount: _onlineCount,
                     offlineCount: _offlineCount,
                     activeIndex: _currentIndex,
+                    deviceData: _deviceData,
+                    serverTimeOffset: _serverTimeOffset,
                   ),
                 ),
                 // Index 4: Settings
