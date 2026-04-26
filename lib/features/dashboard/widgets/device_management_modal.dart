@@ -723,6 +723,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   late TextEditingController _macCtrl;
   late TextEditingController _nameCtrl;
   Timer? _heartbeatTimer;
+  late double _tempThresh;
   late double _smokeThresh;
   late double _flameThresh;
   late bool _includeInHeadcount;
@@ -734,6 +735,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _macCtrl = TextEditingController(text: widget.device["macAddress"]);
     _nameCtrl = TextEditingController(text: widget.device["name"]);
     final sensors = widget.device["sensors"] as Map<String, dynamic>;
+    _tempThresh = (sensors["temp_threshold"] ?? 35.0).toDouble();
     _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble();
     _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble();
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
