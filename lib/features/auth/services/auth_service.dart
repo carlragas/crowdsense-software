@@ -17,31 +17,19 @@ class AuthService {
     String loginEmail = identifier.trim();
     
     if (!loginEmail.contains('@')) {
-      // It's a username! We must securely look up the associated email in the database via REST
+      // It's a username! Use the public mapping node for a fast, secure lookup
       try {
-        final queryUrl = Uri.parse('$_dbBaseUrl/users.json?orderBy="username"&equalTo="${Uri.encodeQueryComponent(loginEmail)}"');
-        final response = await http.get(queryUrl);
+        final lookupUrl = Uri.parse('$_dbBaseUrl/usernames/${Uri.encodeComponent(loginEmail)}.json');
+        final response = await http.get(lookupUrl);
 
-        if (response.statusCode != 200 || response.body == 'null' || response.body.isEmpty) {
-          throw Exception('User with this username not found. (Check Firebase Rules if this is incorrect)');
+        if (response.statusCode != 200 || response.body == 'null') {
+          throw Exception('User with this username not found.');
         }
 
-        // Extract the exact email address tied to this username
-        final usersMap = json.decode(response.body) as Map<String, dynamic>;
-        
-        if (usersMap.isEmpty) {
-          throw Exception('Username search yielded zero profiles.');
-        }
-
-        final userRecord = usersMap.values.first as Map<String, dynamic>;
-        
-        if (userRecord['email'] == null) {
-          throw Exception('Account configuration error: No email attached.');
-        }
-        
-        loginEmail = userRecord['email'] as String;
+        // The response body for a single node lookup is just the string email (with quotes)
+        loginEmail = json.decode(response.body) as String;
       } catch (e) {
-        throw Exception('REST Lookup Failed: $e');
+        throw Exception('Username search failed. Please use your email.');
       }
     }
 
@@ -80,28 +68,38 @@ class AuthService {
       
       final profileResponse = await http.get(profileUrl);
       
+      if (profileResponse.statusCode != 200 || profileResponse.body == 'null') {
+        throw Exception('User profile not found in database. Contact administrator.');
+      }
+
       final rawUserData = Map<String, dynamic>.from(json.decode(profileResponse.body) as Map<String, dynamic>);
       
-      // EMAIL SYNCHRONIZATION (Free Tier Fallback)
-      // Check if the Auth email (verified) has changed compared to the DB record.
+      // EMAIL & USERNAME SYNCHRONIZATION
       final authEmail = userCredential.user!.email;
-      if (authEmail != null && authEmail != rawUserData['email']) {
-        print('[AuthService] Email mismatch detected! Auth: $authEmail, DB: ${rawUserData['email']}');
-        try {
-          // Perform a sync patch to RTDB using the authenticated UID and a fresh token
+      final dbUsername = rawUserData['username'] as String?;
+      
+      if (authEmail != null && dbUsername != null) {
+        // 1. Sync Email if mismatched
+        if (authEmail != rawUserData['email']) {
+          print('[AuthService] Email mismatch detected! Syncing...');
           final idToken = await userCredential.user!.getIdToken(true);
           final syncUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
-          final syncResponse = await http.patch(syncUrl, body: json.encode({'email': authEmail}));
-          
-          if (syncResponse.statusCode == 200) {
-            print('[AuthService] RTDB successfully synchronized with new email.');
-            // Update the local data map so the UI reflects it immediately
-            rawUserData['email'] = authEmail;
-          } else {
-            print('[AuthService] RTDB sync failed with status: ${syncResponse.statusCode}');
+          await http.patch(syncUrl, body: json.encode({'email': authEmail}));
+          rawUserData['email'] = authEmail;
+        }
+
+        // 2. Sync Username Mapping (Ensures username login works for next time)
+        try {
+          final mappingUrl = Uri.parse('$_dbBaseUrl/usernames/$dbUsername.json');
+          final mappingCheck = await http.get(mappingUrl);
+          if (mappingCheck.body == 'null') {
+            print('[AuthService] Username mapping missing. Activating...');
+            final idToken = await userCredential.user!.getIdToken(true);
+            final syncMappingUrl = Uri.parse('$_dbBaseUrl/usernames/$dbUsername.json?auth=$idToken');
+            await http.put(syncMappingUrl, body: json.encode(authEmail));
           }
         } catch (e) {
-          print('[AuthService] Email synchronization failure: $e');
+          print('[AuthService] Username mapping sync failed: $e');
         }
       }
 
@@ -180,7 +178,12 @@ class AuthService {
         throw Exception('Database Write Error: Status Code ${response.statusCode} - ${response.body}');
       }
 
-      // 5. Send custom HTML welcome email via SMTP directly from app
+      // 5. Create the public username -> email mapping for login lookups
+      final username = userData['username'] as String;
+      final mappingUrl = Uri.parse('$_dbBaseUrl/usernames/$username.json?auth=$adminToken');
+      await http.put(mappingUrl, body: json.encode(email));
+
+      // 6. Send custom HTML welcome email via SMTP directly from app
       try {
         await EmailService.sendWelcomeEmail(
           targetEmail: email,
@@ -214,12 +217,29 @@ class AuthService {
     // 1. Get Admin Token for RTDB REST authentication
     final adminToken = await currentUser.getIdToken(true);
 
-    // 2. Perform the Database Wipe (Soft Delete - Immediate ban)
+    // 2. Fetch the profile first to get the username for mapping cleanup
+    String? username;
+    try {
+      final profileUrl = Uri.parse('$_dbBaseUrl/users/$targetUid.json?auth=$adminToken');
+      final profileRes = await http.get(profileUrl);
+      if (profileRes.statusCode == 200 && profileRes.body != 'null') {
+        final data = json.decode(profileRes.body) as Map<String, dynamic>;
+        username = data['username'] as String?;
+      }
+    } catch (_) {}
+
+    // 3. Perform the Database Wipe (Soft Delete - Immediate ban)
     final profileUrl = Uri.parse('$_dbBaseUrl/users/$targetUid.json?auth=$adminToken');
     final response = await http.delete(profileUrl);
 
     if (response.statusCode != 200) {
       throw Exception('Database Deletion Failed: ${response.statusCode} - ${response.body}');
+    }
+
+    // 4. Clean up the username mapping if found
+    if (username != null) {
+      final mappingUrl = Uri.parse('$_dbBaseUrl/usernames/$username.json?auth=$adminToken');
+      await http.delete(mappingUrl);
     }
 
     // 3. Attempt the Cloud Function (Hard Delete - Auth account wipe)
