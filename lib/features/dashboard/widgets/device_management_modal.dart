@@ -87,12 +87,21 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
             // No longer fetching manual 'status' field as Operation Power is removed.
             // Arduino writes last_updated to sensor_data, not a heartbeat node.
 
-            // Merge sensor_data last_updated for ONLINE/OFFLINE detection
+            // Merge sensor_data last_updated for ONLINE/OFFLINE detection and thresholds
             final mac = device['macAddress'];
             final sensorInfo = _sensorDataCache[mac];
             if (sensorInfo != null && sensorInfo is Map) {
               device['heartbeat_last_seen'] = sensorInfo['last_updated'];
               device['device_status'] = sensorInfo['device_status'];
+              
+              final newSensors = Map<String, dynamic>.from(device['sensors'] ?? {});
+              if (sensorInfo['smoke_threshold'] != null) {
+                newSensors['smoke_threshold'] = (sensorInfo['smoke_threshold'] as num).toDouble();
+              }
+              if (sensorInfo['flame_threshold'] != null) {
+                newSensors['flame_threshold'] = (sensorInfo['flame_threshold'] as num).toDouble();
+              }
+              device['sensors'] = newSensors;
             } else {
               device['heartbeat_last_seen'] = null;
               device['device_status'] = null;
@@ -143,6 +152,15 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
               if (sensorInfo != null && sensorInfo is Map) {
                 device['heartbeat_last_seen'] = sensorInfo['last_updated'];
                 device['device_status'] = sensorInfo['device_status'];
+                
+                final newSensors = Map<String, dynamic>.from(device['sensors'] ?? {});
+                if (sensorInfo['smoke_threshold'] != null) {
+                  newSensors['smoke_threshold'] = (sensorInfo['smoke_threshold'] as num).toDouble();
+                }
+                if (sensorInfo['flame_threshold'] != null) {
+                  newSensors['flame_threshold'] = (sensorInfo['flame_threshold'] as num).toDouble();
+                }
+                device['sensors'] = newSensors;
               }
             }
           });
@@ -171,6 +189,8 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
         "temperature": 0.0,
         "gas": 0,
         "flame": 0,
+        "smoke_threshold": 300.0,
+        "flame_threshold": 200.0,
         "last_updated": DateTime.now().millisecondsSinceEpoch,
         "siren_alert_active": false,
         "siren_clear_active": false,
@@ -344,6 +364,10 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
           "name": newName,
           "config": newSensors,
         });
+        await _dbRef.child('sensor_data').child(oldMac).update({
+          "smoke_threshold": newSensors["smoke_threshold"],
+          "flame_threshold": newSensors["flame_threshold"],
+        });
       } else {
         final protoSnapshot = await _dbRef.child('prototype_units').child(oldMac).get();
         final sensorSnapshot = await _dbRef.child('sensor_data').child(oldMac).get();
@@ -356,7 +380,11 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
         }
 
         if (sensorSnapshot.exists) {
-           await _dbRef.child('sensor_data').child(newMac).set(sensorSnapshot.value);
+           final Map<dynamic, dynamic> baseSensorData = sensorSnapshot.value as Map;
+           final newSensorData = Map<String, dynamic>.from(baseSensorData);
+           newSensorData["smoke_threshold"] = newSensors["smoke_threshold"];
+           newSensorData["flame_threshold"] = newSensors["flame_threshold"];
+           await _dbRef.child('sensor_data').child(newMac).set(newSensorData);
         }
 
         await _dbRef.child('prototype_units').child(oldMac).remove();

@@ -227,7 +227,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final sensorData = device['sensor_data'] as Map<dynamic, dynamic>? ?? {};
             
             final double currentGas = (sensorData['gas'] ?? 0.0).toDouble();
-            final double threshold = (sensors['smoke_threshold'] ?? settings.smokeThreshold).toDouble();
+            final double threshold = (sensorData['smoke_threshold'] ?? sensors['smoke_threshold'] ?? settings.smokeThreshold).toDouble();
 
             return Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -260,7 +260,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             // Firmware: false means flame is detected.
             final bool mainFlameDetected = !(sensorData['main_flame'] as bool? ?? true);
             final double backupPpm = (sensorData['backup_flame'] ?? 4095).toDouble();
-            final double backupThreshold = (sensors['flame_threshold'] ?? settings.flameThreshold).toDouble();
+            final double backupThreshold = (sensorData['flame_threshold'] ?? sensors['flame_threshold'] ?? settings.flameThreshold).toDouble();
 
             return Padding(
               padding: const EdgeInsets.only(right: 16),
