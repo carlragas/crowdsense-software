@@ -226,7 +226,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final sensors = device['sensors'] as Map<String, dynamic>? ?? {};
             final sensorData = device['sensor_data'] as Map<dynamic, dynamic>? ?? {};
             
-            final double currentGas = (sensorData['gas'] ?? 0.0).toDouble();
+            final double currentGas = isLive ? (sensorData['gas'] ?? 0.0).toDouble() : 0.0;
             final double threshold = (sensorData['smoke_threshold'] ?? sensors['smoke_threshold'] ?? settings.smokeThreshold).toDouble();
 
             return Padding(
@@ -258,8 +258,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final sensorData = device['sensor_data'] as Map<dynamic, dynamic>? ?? {};
             
             // Firmware: false means flame is detected.
-            final bool mainFlameDetected = !(sensorData['main_flame'] as bool? ?? true);
-            final double backupPpm = (sensorData['backup_flame'] ?? 4095).toDouble();
+            final bool mainFlameDetected = isLive ? !(sensorData['main_flame'] as bool? ?? true) : false;
+            final double backupPpm = isLive ? (sensorData['backup_flame'] ?? 4095).toDouble() : 4095.0;
             final double backupThreshold = (sensorData['flame_threshold'] ?? sensors['flame_threshold'] ?? settings.flameThreshold).toDouble();
 
             return Padding(
@@ -619,10 +619,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildTemperatureChart(double currentTemp, bool isLive) {
     // Hide sensor error values (-127) or uninitialized values (0.0) when offline
-    final bool hasError = currentTemp == -127.0 || (currentTemp == 0.0 && !isLive);
-    final String displayTemp = (isLive && !hasError) 
+    final bool isOffline = !isLive;
+    final bool hasError = currentTemp == -127.0 || isOffline;
+    final String displayTemp = (!hasError) 
         ? '${currentTemp.toStringAsFixed(1)} °C' 
-        : '---';
+        : '-';
 
     return Stack(
       children: [
@@ -711,12 +712,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  static const double _gaugeMaxPPM  = 500.0;
-
   Widget _buildSmokeGauge(BuildContext context, double currentPpm, double threshold) {
     return _PpmGauge(
       value: currentPpm,
-      maxValue: _gaugeMaxPPM,
+      maxValue: 2000.0,
       threshold: threshold,
       unit: 'PPM',
       label: 'Smoke',
@@ -838,7 +837,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             child: _BackupFlameGauge(
               ppm: backupPpm,
               threshold: backupThreshold,
-              maxPpm: _gaugeMaxPPM,
+              maxPpm: 4095.0,
               isMainFlameTriggered: mainFlameDetected,
             ),
           ),
