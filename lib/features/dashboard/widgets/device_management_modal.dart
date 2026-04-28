@@ -763,8 +763,8 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _nameCtrl = TextEditingController(text: widget.device["name"]);
     final sensors = widget.device["sensors"] as Map<String, dynamic>;
     _tempThresh = (sensors["temp_threshold"] ?? 35.0).toDouble();
-    _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(100.0, 500.0);
-    _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(50.0, 500.0);
+    _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
+    _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
 
     // Refresh the "ago" text every 10 seconds
@@ -776,13 +776,17 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   @override
   void didUpdateWidget(_EditableDeviceTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.device['sensors'] != oldWidget.device['sensors']) {
-      final sensors = widget.device["sensors"] as Map<String, dynamic>;
+    final oldSensors = oldWidget.device["sensors"] as Map<String, dynamic>;
+    final newSensors = widget.device["sensors"] as Map<String, dynamic>;
+    
+    if (oldSensors["smoke_threshold"] != newSensors["smoke_threshold"] ||
+        oldSensors["flame_threshold"] != newSensors["flame_threshold"] ||
+        oldSensors["include_in_headcount"] != newSensors["include_in_headcount"]) {
       setState(() {
-        _tempThresh = (sensors["temp_threshold"] ?? 35.0).toDouble();
-        _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(100.0, 500.0);
-        _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(50.0, 500.0);
-        _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
+        _tempThresh = (newSensors["temp_threshold"] ?? 35.0).toDouble();
+        _smokeThresh = (newSensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
+        _flameThresh = (newSensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
+        _includeInHeadcount = (newSensors["include_in_headcount"] ?? true) as bool;
       });
     }
     
@@ -957,8 +961,8 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             Text("SENSOR THRESHOLDS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6))),
             const SizedBox(height: 16),
             
-            _buildThresholdSlider("Smoke", _smokeThresh, 100, 500, AppColors.primaryBlue, "PPM", (v) => setState(() => _smokeThresh = v)),
-            _buildThresholdSlider("Flame", _flameThresh, 50, 500, AppColors.statusWarning, "PPM", (v) => setState(() => _flameThresh = v)),
+            _buildThresholdSlider("Smoke", _smokeThresh, 0, 2000, AppColors.primaryBlue, "PPM", (v) => setState(() => _smokeThresh = v)),
+            _buildThresholdSlider("Flame", _flameThresh, 0, 4095, AppColors.statusWarning, "PPM", (v) => setState(() => _flameThresh = v)),
             
             const SizedBox(height: 12),
             SwitchListTile(
