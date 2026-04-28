@@ -119,7 +119,7 @@ class PeopleCounterCard extends StatelessWidget {
                           final String pageLocation = data['location'];
                           final int pageEntries = data['entries'] ?? 0;
                           final int pageExits = data['exits'] ?? 0;
-                          final int currentInside = (pageEntries - pageExits).clamp(0, 99999);
+                          final int currentInside = pageEntries.clamp(0, 99999);
                           final bool isNotClear = currentInside > 0;
                           final badgeColor = isNotClear ? AppColors.statusWarning : AppColors.statusSafe;
     

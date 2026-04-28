@@ -469,7 +469,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                _deviceDataMap[mac]!['mac'] = mac;
                _deviceDataMap[mac]!['count'] = data['people_inside'] ?? 0;
-               _deviceDataMap[mac]!['entries'] = data['total_entries'] ?? 0;
+               _deviceDataMap[mac]!['entries'] = data['people_inside'] ?? 0;
                _deviceDataMap[mac]!['exits'] = data['total_exits'] ?? 0;
                _deviceDataMap[mac]!['last_updated'] = data['last_updated'];
                _deviceDataMap[mac]!['last_reset_hour'] = data['last_reset_hour'];
@@ -742,7 +742,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
 
         await dbRef.child('sensor_data').child(mac).update({
-          'total_entries': 0,
           'total_exits': 0,
           'people_inside': 0,
           'last_reset_hour': currentHour,
@@ -759,7 +758,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     final currentHour = DateTime.now().hour;
     try {
       await dbRef.child('sensor_data').child(mac).update({
-        'total_entries': 0,
         'total_exits': 0,
         'people_inside': 0,
         'last_reset_hour': currentHour,
@@ -793,7 +791,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     .where((d) => d['include_in_headcount'] == true)
     .fold(0, (sum, d) => sum + ((d['exits'] as num?)?.toInt() ?? 0));
     
-  int get _totalPeopleInside => (_totalEntries - _totalExits).clamp(0, 99999);
+  int get _totalPeopleInside => _totalEntries;
 
   @override
   Widget build(BuildContext context) {
@@ -2072,20 +2070,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                             const SizedBox(width: 12),
                             ElevatedButton(
                               onPressed: () {
-                                Navigator.pop(context);
                                 if (!item['isReset']) {
+                                  Navigator.pop(context);
                                   context.read<SirenProvider>().activateSiren(item['title'], item['icon'], item['color']);
                                   SirenActiveDialog.show(context, context.read<SirenProvider>());
                                 } else {
                                   context.read<SirenProvider>().terminateSiren();
-                                  CustomNotificationModal.show(
+                                  CustomNotificationModal.showToast(
                                     context: context,
-                                    title: "SYSTEM RESET",
+                                    title: "System Reset",
                                     message: "${item['title']} has been successfully DEACTIVATED.",
-                                    isSuccess: true,
-                                    customColor: item['color'],
-                                    customIcon: item['icon'],
+                                    color: item['color'],
+                                    icon: item['icon'],
                                   );
+                                  Navigator.pop(context);
                                 }
                               },
                               style: ElevatedButton.styleFrom(
@@ -2717,7 +2715,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                                               final mac = device['mac']?.toString() ?? '';
                                               if (mac.isNotEmpty) {
                                                 await dbRef.child('sensor_data').child(mac).update({
-                                                  'total_entries': 0,
                                                   'total_exits': 0,
                                                   'people_inside': 0,
                                                   'last_reset_hour': currentHour,

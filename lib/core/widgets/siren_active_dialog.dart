@@ -29,7 +29,7 @@ class SirenActiveDialog {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.pop(dialogContext),
                     icon: Icon(Icons.close_rounded, color: isDark ? Colors.white38 : Colors.black38),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -101,16 +101,26 @@ class SirenActiveDialog {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
+                  final capturedTitle = title;
+                  final capturedColor = color;
+                  final capturedIcon = icon;
+                  // Capture overlay and theme BEFORE any pop — context is guaranteed valid here
+                  final overlayState = Overlay.of(dialogContext, rootOverlay: true);
+                  final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+
                   sirenProvider.terminateSiren();
                   Navigator.pop(dialogContext);
-                  CustomNotificationModal.show(
-                    context: context,
-                    title: "SIGNAL TERMINATED",
-                    message: "$title has been DEACTIVATED successfully.",
-                    isSuccess: true,
-                    customColor: AppColors.primaryBlue,
-                    customIcon: Icons.volume_off_rounded,
-                  );
+
+                  Future.microtask(() {
+                    CustomNotificationModal.showToastDirect(
+                      overlay: overlayState,
+                      isDark: isDark,
+                      title: "Signal Terminated",
+                      message: "$capturedTitle has been DEACTIVATED successfully.",
+                      color: capturedColor,
+                      icon: capturedIcon,
+                    );
+                  });
                 },
                 icon: const Icon(Icons.power_settings_new_rounded, size: 24),
                 label: const Text(

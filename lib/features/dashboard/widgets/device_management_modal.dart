@@ -297,7 +297,6 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       // Pre-initialize sensor data with all Arduino-written fields
       await _dbRef.child('sensor_data').child(mac).set({
         "people_inside": 0,
-        "total_entries": 0,
         "total_exits": 0,
         "temperature": 0.0,
         "gas": 0,
