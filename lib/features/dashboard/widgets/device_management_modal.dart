@@ -763,8 +763,8 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _nameCtrl = TextEditingController(text: widget.device["name"]);
     final sensors = widget.device["sensors"] as Map<String, dynamic>;
     _tempThresh = (sensors["temp_threshold"] ?? 35.0).toDouble();
-    _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble();
-    _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble();
+    _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(100.0, 500.0);
+    _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(50.0, 500.0);
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
 
     // Refresh the "ago" text every 10 seconds
@@ -780,8 +780,8 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
       final sensors = widget.device["sensors"] as Map<String, dynamic>;
       setState(() {
         _tempThresh = (sensors["temp_threshold"] ?? 35.0).toDouble();
-        _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble();
-        _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble();
+        _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(100.0, 500.0);
+        _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(50.0, 500.0);
         _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
       });
     }
@@ -1055,7 +1055,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
           ),
           child: Slider(
-            value: value,
+            value: value.clamp(min, max),
             min: min,
             max: max,
             activeColor: color,
