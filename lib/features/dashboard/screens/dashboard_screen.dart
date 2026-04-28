@@ -787,7 +787,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Computed total across all sensors (respecting include_in_headcount)
   int get _totalEntries => _deviceData
     .where((d) => d['include_in_headcount'] == true)
-    .fold(0, (sum, d) => sum + ((d['entries'] as num?)?.toInt() ?? 0));
+    .fold(0, (sum, d) => sum + (((d['count'] ?? 0) as num).toInt().clamp(0, 99999)));
     
   int get _totalExits => _deviceData
     .where((d) => d['include_in_headcount'] == true)
@@ -2237,7 +2237,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final data = _deviceData[index];
-                  final int entries = ((data['entries'] ?? 0) as num).toInt();
+                  final int entries = ((data['count'] ?? 0) as num).toInt().clamp(0, 99999);
                   final int exits = ((data['exits'] ?? 0) as num).toInt();
                   return Row(
                     children: [
@@ -2486,7 +2486,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               itemCount: _deviceData.length,
                               itemBuilder: (context, index) {
                                 final data = _deviceData[index];
-                                final int rawEntries = ((data['entries'] ?? 0) as num).toInt();
+                                final int rawEntries = ((data['count'] ?? 0) as num).toInt().clamp(0, 99999);
                                 final int rawExits = ((data['exits'] ?? 0) as num).toInt();
                                 final bool isOnline = data['isOnline'] == true;
                                 final String mac = data['mac']?.toString() ?? '';
@@ -2578,7 +2578,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                 ],
                                               ),
                                             ),
-                                            // Entry count
+                                            // Entry count (people_inside)
                                             Expanded(
                                               flex: 2,
                                               child: Column(
