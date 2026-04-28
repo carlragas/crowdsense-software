@@ -255,23 +255,27 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
         // Re-merge into _devices if already loaded
         if (_devices.isNotEmpty && mounted) {
           setState(() {
-            for (final device in _devices) {
+            _devices = _devices.map((device) {
               final mac = device['macAddress'];
               final sensorInfo = _sensorDataCache[mac];
               if (sensorInfo != null && sensorInfo is Map) {
-                device['heartbeat_last_seen'] = sensorInfo['last_updated'];
-                device['device_status'] = sensorInfo['device_status'];
+                // Create a new map to ensure references change for didUpdateWidget
+                final updatedDevice = Map<String, dynamic>.from(device);
+                updatedDevice['heartbeat_last_seen'] = sensorInfo['last_updated'];
+                updatedDevice['device_status'] = sensorInfo['device_status'];
                 
-                final newSensors = Map<String, dynamic>.from(device['sensors'] ?? {});
+                final newSensors = Map<String, dynamic>.from(updatedDevice['sensors'] ?? {});
                 if (sensorInfo['smoke_threshold'] != null) {
                   newSensors['smoke_threshold'] = (sensorInfo['smoke_threshold'] as num).toDouble();
                 }
                 if (sensorInfo['flame_threshold'] != null) {
                   newSensors['flame_threshold'] = (sensorInfo['flame_threshold'] as num).toDouble();
                 }
-                device['sensors'] = newSensors;
+                updatedDevice['sensors'] = newSensors;
+                return updatedDevice;
               }
-            }
+              return device;
+            }).toList();
           });
         }
       }
@@ -1238,7 +1242,7 @@ class _ThresholdSliderWithInputState extends State<_ThresholdSliderWithInput> {
         }
       });
     } else {
-      widget.onChange(parsed);
+      widget.onChange(parsed.roundToDouble());
       setState(() {
         _isError = false;
         _isEditing = false;
@@ -1325,12 +1329,14 @@ class _ThresholdSliderWithInputState extends State<_ThresholdSliderWithInput> {
             value: widget.value.clamp(widget.min, widget.max),
             min: widget.min,
             max: widget.max,
+            divisions: (widget.max - widget.min).toInt() > 0 ? (widget.max - widget.min).toInt() : null,
             activeColor: widget.color,
             inactiveColor: widget.color.withValues(alpha: 0.1),
             onChanged: (v) {
-               widget.onChange(v);
+               final rounded = v.roundToDouble();
+               widget.onChange(rounded);
                if (!_isEditing) {
-                 _controller.text = v.toStringAsFixed(0);
+                 _controller.text = rounded.toStringAsFixed(0);
                }
             },
           ),

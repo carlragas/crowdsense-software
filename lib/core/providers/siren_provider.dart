@@ -51,6 +51,28 @@ class SirenProvider with ChangeNotifier {
     }
   }
 
+  /// Activate siren from a REMOTE source (ESP32 auto-trigger via Firebase).
+  /// This updates the local UI state WITHOUT writing back to Firebase,
+  /// avoiding a circular write loop.
+  void activateSirenFromRemote(String title, IconData icon, Color color) {
+    // Skip if this exact siren is already active locally
+    if (_activeSirenTitle == title) return;
+    _activeSirenTitle = title;
+    _activeSirenIcon = icon;
+    _activeSirenColor = color;
+    notifyListeners();
+  }
+
+  /// Deactivate siren from a REMOTE source (ESP32 auto-deactivation via Firebase).
+  /// Only clears local UI state, does NOT write to Firebase.
+  void deactivateSirenFromRemote() {
+    if (_activeSirenTitle == null) return;
+    _activeSirenTitle = null;
+    _activeSirenIcon = null;
+    _activeSirenColor = null;
+    notifyListeners();
+  }
+
   void terminateSiren() {
     _activeSirenTitle = null;
     _activeSirenIcon = null;

@@ -5,16 +5,16 @@ import '../providers/siren_provider.dart';
 import 'custom_notification_modal.dart';
 
 class SirenActiveDialog {
-  static void show(BuildContext context, SirenProvider sirenProvider) {
+  static Future<void> show(BuildContext context, SirenProvider sirenProvider) async {
     final title = sirenProvider.activeSirenTitle ?? "EMERGENCY";
     final icon = sirenProvider.activeSirenIcon ?? Icons.campaign_rounded;
     final color = sirenProvider.activeSirenColor ?? AppColors.statusDanger;
 
-    showDialog(
+    await showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
         return AlertDialog(
           backgroundColor: isDark ? const Color(0xFF161B26) : Colors.white,
           elevation: 30,
@@ -102,7 +102,7 @@ class SirenActiveDialog {
               child: ElevatedButton.icon(
                 onPressed: () {
                   sirenProvider.terminateSiren();
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                   CustomNotificationModal.show(
                     context: context,
                     title: "SIGNAL TERMINATED",

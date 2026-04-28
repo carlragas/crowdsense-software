@@ -43,6 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   PageController? _overridePageController;
   int _currentOverrideIndex = 0;
   bool _showNotificationsPanel = false;
+  bool _isSirenDialogShowing = false;
   
   // --- Log State ---
   int _hazardLevel = 0; // 0 = Nominal, 1 = Caution, 2 = Critical (Mock ESP32 data)
@@ -528,6 +529,53 @@ class _DashboardScreenState extends State<DashboardScreen>
             _sensorBaselineLoaded = true; // Future snapshots will trigger transition logs
             _syncDeviceDataList();
          });
+
+         // --- Remote siren state sync (runs OUTSIDE setState) ---
+         // Aggregate siren flags across ALL devices to detect ESP32 auto-triggers
+         bool anyAlertActive = false;
+         map.forEach((key, val) {
+           final mac = key.toString();
+           if (!_deviceDataMap.containsKey(mac)) return;
+           final data = val as Map;
+           if (data['siren_alert_active'] == true) anyAlertActive = true;
+         });
+
+         final sirenProvider = context.read<SirenProvider>();
+
+         if (anyAlertActive && sirenProvider.activeSirenTitle != "EVACUATION SIREN") {
+           // ESP32 auto-triggered evacuation siren — show in app
+           sirenProvider.activateSirenFromRemote(
+             "EVACUATION SIREN",
+             Icons.warning_amber_rounded,
+             AppColors.statusDanger,
+           );
+           
+           if (!_isSirenDialogShowing) {
+             _isSirenDialogShowing = true;
+             // Show the siren dialog automatically
+             Future.microtask(() async {
+               if (mounted) {
+                 await SirenActiveDialog.show(context, sirenProvider);
+                 if (mounted) {
+                   setState(() {
+                     _isSirenDialogShowing = false;
+                   });
+                 }
+               } else {
+                 _isSirenDialogShowing = false;
+               }
+             });
+           }
+         } else if (!anyAlertActive && sirenProvider.activeSirenTitle == "EVACUATION SIREN") {
+           // Sirens deactivated remotely (ESP32 timeout or clear) — sync UI
+           sirenProvider.deactivateSirenFromRemote();
+           
+           // If the dialog is open, we pop it since the emergency cleared itself
+           if (_isSirenDialogShowing && mounted) {
+             Navigator.of(context, rootNavigator: true).pop();
+             _isSirenDialogShowing = false;
+           }
+         }
       }
     });
   }

@@ -396,7 +396,11 @@ void checkAppCommands() {
 // AUTO-TRIGGER — fire detection & area-clear logic
 // ═══════════════════════════════════════════════════
 void autoTriggerSirens() {
-  bool isFireDetected = (!currentMainFlameValue || currentBackupFlameValue <= flameThreshold) && (currentGasValue >= gasThreshold);
+  // MQ Gas Sensors require a warm-up period on boot where their analog output spikes.
+  // We ignore all sensor readings for the first 30 seconds to prevent false alarms.
+  bool isWarmupPhase = millis() < 30000;
+  
+  bool isFireDetected = !isWarmupPhase && (!currentMainFlameValue || currentBackupFlameValue <= flameThreshold) && (currentGasValue >= gasThreshold);
 
   // --- Auto Fire Detection ---
   // Only trigger if no evacuation is running AND no safety alert is running.

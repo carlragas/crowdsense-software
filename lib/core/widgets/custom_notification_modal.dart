@@ -22,7 +22,7 @@ class CustomNotificationModal {
           }
         });
 
-        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
         final Color surfaceColor = isDark ? const Color(0xFF1E2433) : Colors.white;
         final Color primaryColor = customColor ?? (isDestructive ? AppColors.statusDanger : (isSuccess ? AppColors.statusSafe : AppColors.statusDanger));
         final IconData primaryIcon = customIcon ?? (isDestructive ? Icons.delete_outline_rounded : (isSuccess ? Icons.check_circle_rounded : Icons.error_rounded));
