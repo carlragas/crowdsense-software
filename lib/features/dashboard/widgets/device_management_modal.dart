@@ -28,6 +28,115 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
   bool _isReordering = false;
   bool _isProcessing = false;
 
+  double _globalSmokeThresh = 500.0;
+  double _globalFlameThresh = 1000.0;
+  bool _isApplyingGlobal = false;
+
+  Future<void> _applyGlobalThresholds() async {
+    if (_devices.isEmpty) return;
+    setState(() => _isApplyingGlobal = true);
+    try {
+      for (final device in _devices) {
+        final mac = device['macAddress'];
+        
+        await _dbRef.child('prototype_units').child(mac).child('config').update({
+          "smoke_threshold": _globalSmokeThresh,
+          "flame_threshold": _globalFlameThresh,
+        });
+        await _dbRef.child('sensor_data').child(mac).update({
+          "smoke_threshold": _globalSmokeThresh,
+          "flame_threshold": _globalFlameThresh,
+        });
+      }
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Thresholds Applied",
+          message: "Global thresholds have been successfully pushed to all devices.",
+          isSuccess: true,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomNotificationModal.show(
+          context: context,
+          title: "Apply Failed",
+          message: "Could not apply global thresholds.",
+          isSuccess: false,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isApplyingGlobal = false);
+    }
+  }
+
+  Widget _buildGeneralThresholdSetter(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Set uniform sensor limits for all nodes.",
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8)),
+          ),
+          const SizedBox(height: 20),
+          _ThresholdSliderWithInput(
+            label: "Global Smoke",
+            value: _globalSmokeThresh,
+            min: 0,
+            max: 2000,
+            color: AppColors.primaryBlue,
+            unit: "PPM",
+            onChange: (v) => setState(() => _globalSmokeThresh = v),
+          ),
+          _ThresholdSliderWithInput(
+            label: "Global Flame",
+            value: _globalFlameThresh,
+            min: 0,
+            max: 4095,
+            color: AppColors.statusWarning,
+            unit: "PPM",
+            onChange: (v) => setState(() => _globalFlameThresh = v),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _devices.isEmpty || _isApplyingGlobal ? null : _applyGlobalThresholds,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: _isApplyingGlobal 
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.sync_rounded, size: 20),
+                      SizedBox(width: 8),
+                      Text("Apply to All Devices", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    ],
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _devicesSubscription?.cancel();
@@ -482,6 +591,11 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                     const SizedBox(height: 16),
                     _buildDeviceList(isDark),
                     
+                    const SizedBox(height: 32),
+                    _buildSectionTitle("GLOBAL SETTINGS"),
+                    const SizedBox(height: 16),
+                    _buildGeneralThresholdSetter(isDark),
+
                     const SizedBox(height: 64), // Extra padding at bottom
                   ],
                 ),
@@ -961,8 +1075,24 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             Text("SENSOR THRESHOLDS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6))),
             const SizedBox(height: 16),
             
-            _buildThresholdSlider("Smoke", _smokeThresh, 0, 2000, AppColors.primaryBlue, "PPM", (v) => setState(() => _smokeThresh = v)),
-            _buildThresholdSlider("Flame", _flameThresh, 0, 4095, AppColors.statusWarning, "PPM", (v) => setState(() => _flameThresh = v)),
+            _ThresholdSliderWithInput(
+              label: "Smoke", 
+              value: _smokeThresh, 
+              min: 0, 
+              max: 2000, 
+              color: AppColors.primaryBlue, 
+              unit: "PPM", 
+              onChange: (v) => setState(() => _smokeThresh = v),
+            ),
+            _ThresholdSliderWithInput(
+              label: "Flame", 
+              value: _flameThresh, 
+              min: 0, 
+              max: 4095, 
+              color: AppColors.statusWarning, 
+              unit: "PPM", 
+              onChange: (v) => setState(() => _flameThresh = v),
+            ),
             
             const SizedBox(height: 12),
             SwitchListTile(
@@ -1042,14 +1172,147 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     );
   }
 
-  Widget _buildThresholdSlider(String label, double value, double min, double max, Color color, String unit, Function(double) onChange) {
+
+
+
+
+
+}
+
+class _ThresholdSliderWithInput extends StatefulWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final Color color;
+  final String unit;
+  final Function(double) onChange;
+
+  const _ThresholdSliderWithInput({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.color,
+    required this.unit,
+    required this.onChange,
+  });
+
+  @override
+  State<_ThresholdSliderWithInput> createState() => _ThresholdSliderWithInputState();
+}
+
+class _ThresholdSliderWithInputState extends State<_ThresholdSliderWithInput> {
+  bool _isEditing = false;
+  late TextEditingController _controller;
+  bool _isError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value.toStringAsFixed(0));
+  }
+
+  @override
+  void didUpdateWidget(_ThresholdSliderWithInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isEditing && widget.value != oldWidget.value) {
+      _controller.text = widget.value.toStringAsFixed(0);
+    }
+  }
+
+  void _submit() {
+    final parsed = double.tryParse(_controller.text);
+    if (parsed == null || parsed < widget.min || parsed > widget.max) {
+      setState(() {
+        _isError = true;
+      });
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() {
+            _isError = false;
+            _controller.text = widget.value.toStringAsFixed(0);
+            _isEditing = false;
+          });
+        }
+      });
+    } else {
+      widget.onChange(parsed);
+      setState(() {
+        _isError = false;
+        _isEditing = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            Text("${value.toStringAsFixed(0)} $unit", style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 13)),
+            Text(widget.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            _isEditing 
+                ? SizedBox(
+                    width: 110,
+                    height: 32,
+                    child: TextField(
+                      controller: _controller,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900, 
+                        color: _isError ? AppColors.statusDanger : widget.color, 
+                        fontSize: 13
+                      ),
+                      textAlign: TextAlign.right,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        suffixText: " ${widget.unit}",
+                        suffixStyle: TextStyle(fontWeight: FontWeight.w900, color: _isError ? AppColors.statusDanger : widget.color, fontSize: 13),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: _isError ? AppColors.statusDanger : widget.color, width: 2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: _isError ? AppColors.statusDanger : widget.color.withValues(alpha: 0.5), width: 1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      onSubmitted: (_) => _submit(),
+                      onEditingComplete: _submit,
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: () => setState(() {
+                      _isEditing = true;
+                      _controller.text = widget.value.toStringAsFixed(0);
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: widget.color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: widget.color.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text("${widget.value.toStringAsFixed(0)} ${widget.unit}", style: TextStyle(fontWeight: FontWeight.w900, color: widget.color, fontSize: 13)),
+                          const SizedBox(width: 4),
+                          Icon(Icons.edit_rounded, size: 12, color: widget.color.withValues(alpha: 0.7)),
+                        ],
+                      ),
+                    ),
+                  ),
           ],
         ),
         SliderTheme(
@@ -1059,22 +1322,23 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
           ),
           child: Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            activeColor: color,
-            inactiveColor: color.withValues(alpha: 0.1),
-            onChanged: onChange,
+            value: widget.value.clamp(widget.min, widget.max),
+            min: widget.min,
+            max: widget.max,
+            activeColor: widget.color,
+            inactiveColor: widget.color.withValues(alpha: 0.1),
+            onChanged: (v) {
+               widget.onChange(v);
+               if (!_isEditing) {
+                 _controller.text = v.toStringAsFixed(0);
+               }
+            },
           ),
         ),
         const SizedBox(height: 8),
       ],
     );
   }
-
-
-
-
 }
 
 class _AnimatedPulsingDot extends StatefulWidget {
