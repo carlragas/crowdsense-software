@@ -43,7 +43,7 @@ String deviceMAC = "00:00:00:00:00:00";
 String pathBase;
 //ToF Variables
 bool tofSuccess = false;
-const int PERSON_THRESHOLD_MM = 1500; // Increased from 500 to 1500mm (1.5m) to detect people at normal distances
+const int PERSON_THRESHOLD_MM = 800; // Increased from 500 to 1500mm (1.5m) to detect people at normal distances
 int totalInside = 0;
 int totalEntries = 0;
 int totalExits = 0;
