@@ -56,14 +56,15 @@ class ActivityLogService {
 
   static Future<void> logUserLogin({
     required String email,
+    required String username,
     required String role,
     required String platform,
   }) =>
       _write(
         type: 'user',
         priority: 'INFO',
-        message: '$email logged in ($role) on $platform',
-        extra: {'event': 'login', 'email': email, 'role': role, 'platform': platform},
+        message: '$username logged in on $platform',
+        extra: {'event': 'login', 'email': email, 'username': username, 'role': role, 'platform': platform},
       );
 
   static Future<void> logUserLogout({required String email}) =>

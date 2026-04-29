@@ -426,6 +426,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       final userProv = context.read<UserProvider>();
       ActivityLogService.logUserLogin(
         email: user.email ?? '',
+        username: userProv.username.isNotEmpty ? userProv.username : (user.email ?? 'Unknown'),
         role: userProv.role,
         platform: kIsWeb ? 'Web' : (Platform.isWindows ? 'Windows' : (Platform.isAndroid ? 'Android' : 'Other')),
       );
@@ -788,6 +789,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     final dbRef = FirebaseDatabase.instance.ref();
     final currentHour = DateTime.now().hour;
     try {
+      // Log the exits snapshot BEFORE resetting (same as automatic hourly reset)
+      final deviceEntry = _deviceData.where((d) => d['mac']?.toString() == mac).firstOrNull;
+      final exits = (deviceEntry?['exits'] as num?)?.toInt() ?? 0;
+      if (exits > 0) {
+        Future.microtask(() => ActivityLogService.logHourlySnapshot(
+          deviceMAC: mac,
+          location: location,
+          exitsThisHour: exits,
+          resetHour: currentHour,
+        ));
+      }
+
       await dbRef.child('sensor_data').child(mac).update({
         'total_exits': 0,
         'people_inside': 0,

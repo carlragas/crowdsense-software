@@ -35,6 +35,7 @@ class DeviceLog {
   // User log extras
   final String? role;
   final String? platform;
+  final String? userEmail; // user's email for user-type logs
 
   // Connectivity resolution
   final bool isResolvable;   // true only for connectivity-offline logs
@@ -62,6 +63,7 @@ class DeviceLog {
     this.showLocation = true,
     this.role,
     this.platform,
+    this.userEmail,
     this.isResolvable = false,
     this.isResolved = false,
     this.resolvedBy,
@@ -246,7 +248,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
     // Connectivity resolution data
     final isOfflineConnectivity = type == 'connectivity' && event == 'device_offline';
-    final isResolved = data['resolved'] as bool? ?? !isOfflineConnectivity;
+    // If the 'resolved' field is absent (legacy log), treat it as resolved.
+    // Only newly-written logs have resolved: false explicitly set.
+    final isResolved = data['resolved'] as bool? ?? true;
     final resolvedBy = data['resolvedBy']?.toString();
 
     // Title formatting
@@ -287,6 +291,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
       showLocation: showLocation,
       role: data['role']?.toString(),
       platform: data['platform']?.toString(),
+      userEmail: data['email']?.toString(),
       isResolvable: isOfflineConnectivity,
       isResolved: isResolved,
       resolvedBy: resolvedBy,
@@ -761,7 +766,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: ['ToF', 'Flame', 'Smoke', 'Temp', 'Power', 'Network', 'User', 'System'].map((sensor) {
+                        children: ['People Counter', 'Flame', 'Smoke', 'Temperature', 'Power', 'Connectivity', 'User Activity', 'Emergency', 'System'].map((sensor) {
                           final isExcluded = tempExcludedSensors.contains(sensor);
                           return FilterChip(
                             label: Text(sensor),
@@ -878,14 +883,29 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       log.dateTime.day == selectedFilterDate!.day;
       }
       
+      // Map friendly chip labels → raw Firestore type values for matching
+      const chipToRawType = {
+        'People Counter': 'tof',
+        'Flame': 'flame',
+        'Smoke': 'gas',
+        'Temperature': 'temperature',
+        'Power': 'power',
+        'Connectivity': 'connectivity',
+        'User Activity': 'user',
+        'Emergency': 'siren',
+        'System': 'system',
+      };
+
       bool matchesSensor = true;
       if ((selectedSensorTypes ?? []).isNotEmpty) {
-        matchesSensor = selectedSensorTypes!.contains(log.sensorType);
+        final rawTypes = selectedSensorTypes!.map((chip) => chipToRawType[chip] ?? chip).toSet();
+        matchesSensor = rawTypes.contains(log.logTypeRaw);
       }
 
       bool isExcluded = false;
       if ((excludedSensorTypes ?? []).isNotEmpty) {
-        isExcluded = excludedSensorTypes!.contains(log.sensorType);
+        final excludedRaw = excludedSensorTypes!.map((chip) => chipToRawType[chip] ?? chip).toSet();
+        isExcluded = excludedRaw.contains(log.logTypeRaw);
       }
 
       bool matchesPriority = true;
@@ -1544,7 +1564,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                 // Log Type label (friendly sensor name)
                                 _detailRow(dialogContext, 'Log Type', log.sensorType),
 
-                                // User log extras: Role chip + Platform
+                                // User log extras: Role chip + Platform + Email
                                 if (log.logTypeRaw == 'user') ...[
                                   if (log.role != null)
                                     Padding(
@@ -1562,6 +1582,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                         ],
                                       ),
                                     ),
+                                  if (log.userEmail != null && log.userEmail!.isNotEmpty)
+                                    _detailRow(dialogContext, 'Email', log.userEmail!),
                                   if (log.platform != null)
                                     _detailRow(dialogContext, 'Platform', log.platform!),
                                 ],
