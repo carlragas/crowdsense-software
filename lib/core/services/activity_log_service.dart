@@ -272,6 +272,64 @@ class ActivityLogService {
         extra: {'event': 'siren_activated', 'triggerSource': 'flame+gas', 'flameValue': flameValue, 'gasValue': gasValue},
       );
 
+  /// Logs a manual EVACUATION SIREN trigger from the app (app-user-initiated).
+  /// Returns the Firestore document ID so the caller can later update the status.
+  static Future<String?> logEvacuationSirenTriggered({
+    required String triggeredByName,
+    required String triggeredByRole,
+    required String triggeredByEmail,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final ref = await _firestore.collection(_collection).add({
+        'type': 'siren',
+        'priority': 'CRITICAL',
+        'message': '🚨 EVACUATION SIREN TRIGGERED by $triggeredByName',
+        'location': 'All Sites',
+        'userId': user?.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+        'event': 'evacuation_siren_manual',
+        'triggerSource': 'manual_app',
+        'triggeredByName': triggeredByName,
+        'triggeredByRole': triggeredByRole,
+        'triggeredByEmail': triggeredByEmail,
+        'sirenStatus': 'Active', // Will be updated to 'Deactivated' on terminate
+      });
+      return ref.id;
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ActivityLogService] logEvacuationSirenTriggered failed: $e');
+      return null;
+    }
+  }
+
+  /// Updates the sirenStatus of an existing evacuation siren log to 'Deactivated'.
+  static Future<void> markEvacuationSirenDeactivated({String? docId}) async {
+    try {
+      if (docId != null) {
+        // Fast path: update by known doc ID
+        await _firestore.collection(_collection).doc(docId).update({
+          'sirenStatus': 'Deactivated',
+        });
+      } else {
+        // Fallback: query the most recent active evacuation siren log and update it
+        final query = await _firestore
+            .collection(_collection)
+            .where('event', isEqualTo: 'evacuation_siren_manual')
+            .where('sirenStatus', isEqualTo: 'Active')
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+        for (final doc in query.docs) {
+          await doc.reference.update({'sirenStatus': 'Deactivated'});
+        }
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ActivityLogService] markEvacuationSirenDeactivated failed: $e');
+    }
+  }
+
   static Future<void> logSirenDeactivated({
     required String deviceMAC,
     required String location,

@@ -5,7 +5,7 @@ import '../providers/siren_provider.dart';
 import 'custom_notification_modal.dart';
 
 class SirenActiveDialog {
-  static Future<void> show(BuildContext context, SirenProvider sirenProvider) async {
+  static Future<void> show(BuildContext context, SirenProvider sirenProvider, {VoidCallback? onTerminate}) async {
     final title = sirenProvider.activeSirenTitle ?? "EMERGENCY";
     final icon = sirenProvider.activeSirenIcon ?? Icons.campaign_rounded;
     final color = sirenProvider.activeSirenColor ?? AppColors.statusDanger;
@@ -108,6 +108,7 @@ class SirenActiveDialog {
                   final overlayState = Overlay.of(dialogContext, rootOverlay: true);
                   final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
 
+                  onTerminate?.call(); // e.g. mark evacuation log as Deactivated
                   sirenProvider.terminateSiren();
                   Navigator.pop(dialogContext);
 

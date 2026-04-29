@@ -37,6 +37,11 @@ class DeviceLog {
   final String? platform;
   final String? userEmail; // user's email for user-type logs
 
+  // Manual evacuation siren extras
+  final String? triggeredBy;       // display name of user who triggered
+  final String? triggeredByRole;   // role of that user
+  final String? triggeredByEmail;  // email of that user
+
   // Connectivity resolution
   final bool isResolvable;   // true only for connectivity-offline logs
   final bool isResolved;
@@ -64,6 +69,9 @@ class DeviceLog {
     this.role,
     this.platform,
     this.userEmail,
+    this.triggeredBy,
+    this.triggeredByRole,
+    this.triggeredByEmail,
     this.isResolvable = false,
     this.isResolved = false,
     this.resolvedBy,
@@ -185,6 +193,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
         icon = Icons.campaign_rounded;
         iconColor = AppColors.statusDanger;
         sensorLabel = 'Emergency Siren';
+        if (event == 'evacuation_siren_manual') showStatus = false;
         break;
       case 'tof':
         icon = Icons.people_alt_rounded;
@@ -240,8 +249,14 @@ class _DevicesScreenState extends State<DevicesScreen> {
       final resolved = data['resolved'] as bool? ?? false;
       status = resolved ? 'Resolved' : 'Unresolved';
     } else if (type == 'flame' || type == 'gas' || type == 'siren') {
-      sirenActivated = event.contains('activated') || event.contains('alert');
-      status = priority == 'CRITICAL' ? 'Active' : 'Resolved';
+      sirenActivated = event.contains('activated') || event.contains('alert') || event == 'evacuation_siren_manual';
+      // For manual evacuation siren logs, read the live sirenStatus from Firestore
+      // so it updates to 'Deactivated' when the siren is terminated.
+      if (event == 'evacuation_siren_manual' && data['sirenStatus'] != null) {
+        status = data['sirenStatus'].toString(); // 'Active' or 'Deactivated'
+      } else {
+        status = priority == 'CRITICAL' ? 'Active' : 'Resolved';
+      }
     } else {
       status = priority == 'CRITICAL' ? 'Active' : 'Resolved';
     }
@@ -292,6 +307,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
       role: data['role']?.toString(),
       platform: data['platform']?.toString(),
       userEmail: data['email']?.toString(),
+      triggeredBy: data['triggeredByName']?.toString(),
+      triggeredByRole: data['triggeredByRole']?.toString(),
+      triggeredByEmail: data['triggeredByEmail']?.toString(),
       isResolvable: isOfflineConnectivity,
       isResolved: isResolved,
       resolvedBy: resolvedBy,
@@ -1212,7 +1230,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  _buildSmallStatusBadge(log.currentStatus),
+                                  if (log.logEvent != 'evacuation_siren_manual')
+                                    _buildSmallStatusBadge(log.currentStatus),
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -1281,7 +1300,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     if (status == 'Active') {
       bgColor = AppColors.statusDanger.withValues(alpha: 0.15);
       textColor = AppColors.statusDanger;
-    } else if (status == 'Resolved' || status == 'Acknowledged') {
+    } else if (status == 'Resolved' || status == 'Acknowledged' || status == 'Deactivated') {
       bgColor = AppColors.statusSafe.withValues(alpha: 0.15);
       textColor = AppColors.statusSafe;
     } else if (status == 'Unresolved') {
@@ -1604,6 +1623,30 @@ class _DevicesScreenState extends State<DevicesScreen> {
                                     valueColor:
                                         log.sirenActivated! ? AppColors.statusDanger : null,
                                   ),
+
+                                // Manual evacuation siren — who triggered it
+                                if (log.triggeredBy != null && log.triggeredBy!.isNotEmpty) ...[
+                                  _detailRow(dialogContext, 'Triggered By', log.triggeredBy!),
+                                  if (log.triggeredByRole != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('Role',
+                                              style: TextStyle(
+                                                  color: Theme.of(dialogContext)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontSize: 13)),
+                                          _buildRoleChip(log.triggeredByRole!),
+                                        ],
+                                      ),
+                                    ),
+                                  if (log.triggeredByEmail != null &&
+                                      log.triggeredByEmail!.isNotEmpty)
+                                    _detailRow(dialogContext, 'Email', log.triggeredByEmail!),
+                                ],
 
                                 // Power extras
                                 if (log.powerStatus != null)

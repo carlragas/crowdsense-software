@@ -57,6 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Set<String> _clearedNotificationIds = {};
   StreamSubscription? _urgentLogsSubscription;
   StreamSubscription? _clearedNotifsSubscription;
+  String? _lastEvacuationLogId; // Firestore doc ID of last evacuation siren log
 
   int get _onlineCount => _deviceData.where((d) => d['isOnline'] == true).length;
   int get _offlineCount => _deviceData.where((d) => d['isOnline'] == false).length;
@@ -2117,9 +2118,39 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 if (!item['isReset']) {
                                   Navigator.pop(context);
                                   context.read<SirenProvider>().activateSiren(item['title'], item['icon'], item['color']);
-                                  SirenActiveDialog.show(context, context.read<SirenProvider>());
+                                  // Log evacuation siren manual trigger and store doc ID
+                                  if (item['title'] == 'EVACUATION SIREN') {
+                                    final userProv = context.read<UserProvider>();
+                                    ActivityLogService.logEvacuationSirenTriggered(
+                                      triggeredByName: userProv.name,
+                                      triggeredByRole: userProv.role,
+                                      triggeredByEmail: userProv.email,
+                                    ).then((docId) {
+                                      if (mounted) setState(() => _lastEvacuationLogId = docId);
+                                    });
+                                  }
+                                  SirenActiveDialog.show(
+                                    context,
+                                    context.read<SirenProvider>(),
+                                    onTerminate: () {
+                                      // Always call — uses docId fast-path or fallback query if null
+                                      ActivityLogService.markEvacuationSirenDeactivated(
+                                        docId: _lastEvacuationLogId,
+                                      );
+                                      if (mounted) setState(() => _lastEvacuationLogId = null);
+                                    },
+                                  );
                                 } else {
+                                  // If the active siren is EVACUATION SIREN, mark the log as Deactivated
+                                  final sirenTitle = context.read<SirenProvider>().activeSirenTitle;
                                   context.read<SirenProvider>().terminateSiren();
+                                  if (sirenTitle == 'EVACUATION SIREN') {
+                                    // Always call — uses docId fast-path or fallback query if null
+                                    ActivityLogService.markEvacuationSirenDeactivated(
+                                      docId: _lastEvacuationLogId,
+                                    );
+                                    if (mounted) setState(() => _lastEvacuationLogId = null);
+                                  }
                                   CustomNotificationModal.showToast(
                                     context: context,
                                     title: "System Reset",
