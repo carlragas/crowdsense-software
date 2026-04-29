@@ -348,6 +348,18 @@ void checkAppCommands() {
         Serial.println("APP COMMAND: Safety Alert DEACTIVATED.");
       }
     }
+
+    // --- Sync total_exits from Firebase (app may have reset it) ---
+    if (Firebase.RTDB.getInt(&fbdo, (pathBase + "total_exits").c_str())) {
+      int cloudExits = fbdo.intData();
+      if (cloudExits != totalExits) {
+        Serial.print("SYNC: total_exits updated from cloud: ");
+        Serial.print(totalExits);
+        Serial.print(" -> ");
+        Serial.println(cloudExits);
+        totalExits = cloudExits;
+      }
+    }
   }
 }
 

@@ -26,7 +26,7 @@ class ActivityLogService {
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      
+
       final data = {
         'type': type,
         'priority': priority,
@@ -39,7 +39,10 @@ class ActivityLogService {
       };
 
       if (docId != null) {
-        await _firestore.collection(_collection).doc(docId).set(data, SetOptions(merge: true));
+        await _firestore
+            .collection(_collection)
+            .doc(docId)
+            .set(data, SetOptions(merge: true));
       } else {
         await _firestore.collection(_collection).add(data);
       }
@@ -64,11 +67,16 @@ class ActivityLogService {
         type: 'user',
         priority: 'INFO',
         message: '$username logged in on $platform',
-        extra: {'event': 'login', 'email': email, 'username': username, 'role': role, 'platform': platform},
+        extra: {
+          'event': 'login',
+          'email': email,
+          'username': username,
+          'role': role,
+          'platform': platform
+        },
       );
 
-  static Future<void> logUserLogout({required String email}) =>
-      _write(
+  static Future<void> logUserLogout({required String email}) => _write(
         type: 'user',
         priority: 'INFO',
         message: '$email logged out',
@@ -110,7 +118,12 @@ class ActivityLogService {
         priority: 'INFO',
         message: 'Settings changed: $field ($oldValue → $newValue)',
         deviceMAC: deviceMAC,
-        extra: {'event': 'settings_changed', 'field': field, 'oldValue': '$oldValue', 'newValue': '$newValue'},
+        extra: {
+          'event': 'settings_changed',
+          'field': field,
+          'oldValue': '$oldValue',
+          'newValue': '$newValue'
+        },
       );
 
   // ===========================================================================
@@ -126,7 +139,8 @@ class ActivityLogService {
       _write(
         type: 'tof',
         priority: 'INFO',
-        message: '$location hourly snapshot: $exitsThisHour total exits happened.',
+        message:
+            '$location hourly snapshot: $exitsThisHour total exits happened.',
         deviceMAC: deviceMAC,
         location: location,
         extra: {
@@ -152,7 +166,11 @@ class ActivityLogService {
         message: '🔥 Flame detected at $location ($sensorType)',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'flame_detected', 'sensorType': sensorType, if (rawValue != null) 'rawValue': rawValue},
+        extra: {
+          'event': 'flame_detected',
+          'sensorType': sensorType,
+          if (rawValue != null) 'rawValue': rawValue
+        },
       );
 
   static Future<void> logFlameCleared({
@@ -166,7 +184,10 @@ class ActivityLogService {
         message: 'Flame cleared at $location',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'flame_cleared', if (durationSeconds != null) 'durationSeconds': durationSeconds},
+        extra: {
+          'event': 'flame_cleared',
+          if (durationSeconds != null) 'durationSeconds': durationSeconds
+        },
       );
 
   // ===========================================================================
@@ -185,7 +206,11 @@ class ActivityLogService {
         message: '💨 Gas/Smoke detected at $location (raw: $rawValue)',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'gas_detected', 'rawValue': rawValue, if (percentage != null) 'percentage': percentage},
+        extra: {
+          'event': 'gas_detected',
+          'rawValue': rawValue,
+          if (percentage != null) 'percentage': percentage
+        },
       );
 
   static Future<void> logGasCleared({
@@ -220,10 +245,15 @@ class ActivityLogService {
       _write(
         type: 'temperature',
         priority: currentTemp >= 50 ? 'CRITICAL' : 'WARNING',
-        message: '🌡️ High temp at $location: ${currentTemp.toStringAsFixed(1)}°C (threshold: ${threshold.toStringAsFixed(1)}°C)',
+        message:
+            '🌡️ High temp at $location: ${currentTemp.toStringAsFixed(1)}°C (threshold: ${threshold.toStringAsFixed(1)}°C)',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'high_temperature', 'currentTemp': currentTemp, 'threshold': threshold},
+        extra: {
+          'event': 'high_temperature',
+          'currentTemp': currentTemp,
+          'threshold': threshold
+        },
       );
 
   static Future<void> logTemperatureNormalized({
@@ -237,7 +267,10 @@ class ActivityLogService {
         message: 'Temperature normalized at $location',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'temperature_normalized', if (peakTemp != null) 'peakTemp': peakTemp},
+        extra: {
+          'event': 'temperature_normalized',
+          if (peakTemp != null) 'peakTemp': peakTemp
+        },
       );
 
   static Future<void> logSensorFault({
@@ -266,10 +299,16 @@ class ActivityLogService {
       _write(
         type: 'siren',
         priority: 'CRITICAL',
-        message: '🚨 Siren activated at $location (flame: $flameValue, gas: $gasValue)',
+        message:
+            '🚨 Siren activated at $location (flame: $flameValue, gas: $gasValue)',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'siren_activated', 'triggerSource': 'flame+gas', 'flameValue': flameValue, 'gasValue': gasValue},
+        extra: {
+          'event': 'siren_activated',
+          'triggerSource': 'flame+gas',
+          'flameValue': flameValue,
+          'gasValue': gasValue
+        },
       );
 
   /// Logs a manual EVACUATION SIREN trigger from the app (app-user-initiated).
@@ -293,7 +332,8 @@ class ActivityLogService {
         'triggeredByName': triggeredByName,
         'triggeredByRole': triggeredByRole,
         'triggeredByEmail': triggeredByEmail,
-        'sirenStatus': 'Active', // Will be updated to 'Deactivated' on terminate
+        'sirenStatus':
+            'Active', // Will be updated to 'Deactivated' on terminate
       });
       return ref.id;
     } catch (e) {
@@ -341,7 +381,11 @@ class ActivityLogService {
         message: 'Siren deactivated at $location',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'siren_deactivated', if (activeDurationSeconds != null) 'activeDurationSeconds': activeDurationSeconds},
+        extra: {
+          'event': 'siren_deactivated',
+          if (activeDurationSeconds != null)
+            'activeDurationSeconds': activeDurationSeconds
+        },
       );
 
   static Future<void> logManualSirenAlert({
@@ -376,8 +420,13 @@ class ActivityLogService {
       _write(
         type: 'siren',
         priority: 'WARNING',
-        message: 'ESP32 device restart triggered (${devicesAffected.length} devices)',
-        extra: {'event': 'device_restart', 'devicesAffected': devicesAffected, 'reason': 'manual_restart'},
+        message:
+            'ESP32 device restart triggered (${devicesAffected.length} devices)',
+        extra: {
+          'event': 'device_restart',
+          'devicesAffected': devicesAffected,
+          'reason': 'manual_restart'
+        },
       );
 
   // ===========================================================================
@@ -396,7 +445,11 @@ class ActivityLogService {
         message: 'Power changed at $location: $previousLevel → $newLevel',
         deviceMAC: deviceMAC,
         location: location,
-        extra: {'event': 'power_changed', 'previousLevel': previousLevel, 'newLevel': newLevel},
+        extra: {
+          'event': 'power_changed',
+          'previousLevel': previousLevel,
+          'newLevel': newLevel
+        },
       );
 
   // ===========================================================================
@@ -417,7 +470,11 @@ class ActivityLogService {
       deviceMAC: deviceMAC,
       location: location,
       docId: docId,
-      extra: {'event': 'device_online', if (previousOfflineSeconds != null) 'previousOfflineSeconds': previousOfflineSeconds},
+      extra: {
+        'event': 'device_online',
+        if (previousOfflineSeconds != null)
+          'previousOfflineSeconds': previousOfflineSeconds
+      },
     );
   }
 
@@ -465,26 +522,34 @@ class ActivityLogService {
   // ===========================================================================
 
   /// Returns a query for all logs, ordered by newest first.
-  static Query<Map<String, dynamic>> allLogs({int limit = 50}) =>
-      _firestore.collection(_collection).orderBy('timestamp', descending: true).limit(limit);
+  static Query<Map<String, dynamic>> allLogs({int limit = 50}) => _firestore
+      .collection(_collection)
+      .orderBy('timestamp', descending: true)
+      .limit(limit);
 
   /// Returns a query filtered by log type.
-  static Query<Map<String, dynamic>> logsByType(String type, {int limit = 50}) =>
-      _firestore.collection(_collection)
+  static Query<Map<String, dynamic>> logsByType(String type,
+          {int limit = 50}) =>
+      _firestore
+          .collection(_collection)
           .where('type', isEqualTo: type)
           .orderBy('timestamp', descending: true)
           .limit(limit);
 
   /// Returns a query filtered by priority.
-  static Query<Map<String, dynamic>> logsByPriority(String priority, {int limit = 50}) =>
-      _firestore.collection(_collection)
+  static Query<Map<String, dynamic>> logsByPriority(String priority,
+          {int limit = 50}) =>
+      _firestore
+          .collection(_collection)
           .where('priority', isEqualTo: priority)
           .orderBy('timestamp', descending: true)
           .limit(limit);
 
   /// Returns a query filtered by device MAC.
-  static Query<Map<String, dynamic>> logsByDevice(String deviceMAC, {int limit = 50}) =>
-      _firestore.collection(_collection)
+  static Query<Map<String, dynamic>> logsByDevice(String deviceMAC,
+          {int limit = 50}) =>
+      _firestore
+          .collection(_collection)
           .where('deviceMAC', isEqualTo: deviceMAC)
           .orderBy('timestamp', descending: true)
           .limit(limit);

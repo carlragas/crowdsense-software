@@ -184,12 +184,16 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
                if (!sensorsStrMap.containsKey('include_in_headcount')) {
                   sensorsStrMap['include_in_headcount'] = true;
                }
+               if (!sensorsStrMap.containsKey('sync_count')) {
+                  sensorsStrMap['sync_count'] = false;
+               }
                device['sensors'] = sensorsStrMap;
             } else if (!device.containsKey('sensors')) {
                device['sensors'] = <String, dynamic>{
                    "smoke_threshold": 300.0,
                   "flame_threshold": 200.0,
-                  "include_in_headcount": true
+                  "include_in_headcount": true,
+                  "sync_count": false
                };
             }
 
@@ -287,12 +291,13 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       await _dbRef.child('prototype_units').child(mac).set({
         "name": name,
         "priority": _devices.length,
-        "config": {
-          "smoke_threshold": 300.0,
-          "flame_threshold": 200.0,
-          "include_in_headcount": true,
-          "priority": _devices.length,
-        }
+         "config": {
+           "smoke_threshold": 300.0,
+           "flame_threshold": 200.0,
+           "include_in_headcount": true,
+           "sync_count": false,
+           "priority": _devices.length,
+         }
       });
       // Pre-initialize sensor data with all Arduino-written fields
       await _dbRef.child('sensor_data').child(mac).set({
@@ -872,6 +877,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   late double _smokeThresh;
   late double _flameThresh;
   late bool _includeInHeadcount;
+  late bool _syncCount;
 
   @override
   void initState() {
@@ -883,6 +889,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
     _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
+    _syncCount = (sensors["sync_count"] ?? false) as bool;
 
     // Refresh the "ago" text every 10 seconds
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -898,12 +905,14 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     
     if (oldSensors["smoke_threshold"] != newSensors["smoke_threshold"] ||
         oldSensors["flame_threshold"] != newSensors["flame_threshold"] ||
-        oldSensors["include_in_headcount"] != newSensors["include_in_headcount"]) {
+        oldSensors["include_in_headcount"] != newSensors["include_in_headcount"] ||
+        oldSensors["sync_count"] != newSensors["sync_count"]) {
       setState(() {
         _tempThresh = (newSensors["temp_threshold"] ?? 35.0).toDouble();
         _smokeThresh = (newSensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
         _flameThresh = (newSensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
         _includeInHeadcount = (newSensors["include_in_headcount"] ?? true) as bool;
+        _syncCount = (newSensors["sync_count"] ?? false) as bool;
       });
     }
     
@@ -1112,6 +1121,20 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               value: _includeInHeadcount,
               onChanged: (v) => setState(() => _includeInHeadcount = v),
             ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                "Sync Count",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                "Syncs entry count across all devices with this option enabled. Exit counts remain independent.",
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+              ),
+              activeColor: AppColors.statusWarning,
+              value: _syncCount,
+              onChanged: (v) => setState(() => _syncCount = v),
+            ),
             
             const SizedBox(height: 24),
             Row(
@@ -1141,6 +1164,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                             "smoke_threshold": _smokeThresh,
                             "flame_threshold": _flameThresh,
                             "include_in_headcount": _includeInHeadcount,
+                            "sync_count": _syncCount,
                          }
                       );
                     },
