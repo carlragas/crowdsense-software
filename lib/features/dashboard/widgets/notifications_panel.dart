@@ -13,6 +13,7 @@ class AppNotification {
   final bool isUrgent; // Urgent = won't clear until resolved/admin clears
   bool isRead;
   bool isResolved; // Only for urgent ones
+  final String? resolvedBy; // Email of whoever resolved it (shared across users)
 
   AppNotification({
     required this.id,
@@ -24,6 +25,7 @@ class AppNotification {
     this.isUrgent = false,
     this.isRead = false,
     this.isResolved = false,
+    this.resolvedBy,
   });
 }
 
@@ -428,25 +430,57 @@ class _NotificationTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    // Resolve button for urgent only
-                    if (isUrgent && onResolve != null) ...[
+                    // Resolve button / resolved label for urgent connectivity logs
+                    if (isUrgent) ...[
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          onPressed: onResolve,
-                          icon: Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.statusSafe),
-                          label: const Text('MARK RESOLVED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.statusSafe,
-                            side: BorderSide(color: AppColors.statusSafe.withValues(alpha: 0.5)),
-                            backgroundColor: AppColors.statusSafe.withValues(alpha: 0.05),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
+                        child: notification.isResolved || notification.resolvedBy != null
+                            // Already resolved — show who resolved it
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle_rounded,
+                                      size: 14, color: AppColors.statusSafe),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    notification.resolvedBy != null
+                                        ? 'Resolved by ${notification.resolvedBy}'
+                                        : 'Marked resolved',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.statusSafe,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            // Not yet resolved — show button
+                            : onResolve != null
+                                ? OutlinedButton.icon(
+                                    onPressed: onResolve,
+                                    icon: Icon(Icons.check_circle_outline_rounded,
+                                        size: 16, color: AppColors.statusSafe),
+                                    label: const Text('MARK RESOLVED',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.8)),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.statusSafe,
+                                      side: BorderSide(
+                                          color: AppColors.statusSafe.withValues(alpha: 0.5)),
+                                      backgroundColor:
+                                          AppColors.statusSafe.withValues(alpha: 0.05),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
                       ),
                     ],
                   ],

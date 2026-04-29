@@ -119,22 +119,18 @@ class ActivityLogService {
   static Future<void> logHourlySnapshot({
     required String deviceMAC,
     required String location,
-    required int entriesThisHour,
     required int exitsThisHour,
-    required int netInsideAtReset,
     required int resetHour,
   }) =>
       _write(
         type: 'tof',
         priority: 'INFO',
-        message: '$location hourly snapshot: $entriesThisHour in / $exitsThisHour out (net: $netInsideAtReset)',
+        message: '$location hourly snapshot: $exitsThisHour total exits happened.',
         deviceMAC: deviceMAC,
         location: location,
         extra: {
           'event': 'hourly_snapshot',
-          'entriesThisHour': entriesThisHour,
           'exitsThisHour': exitsThisHour,
-          'netInsideAtReset': netInsideAtReset,
           'resetHour': resetHour,
         },
       );
@@ -379,8 +375,30 @@ class ActivityLogService {
       deviceMAC: deviceMAC,
       location: location,
       docId: docId,
-      extra: {'event': 'device_offline'},
+      extra: {
+        'event': 'device_offline',
+        'resolved': false,
+        'resolvedBy': null,
+      },
     );
+  }
+
+  /// Marks a connectivity-offline log as resolved in Firestore.
+  /// This update is shared — all users see the resolution in real time.
+  static Future<void> markConnectivityResolved({
+    required String docId,
+    required String resolvedByEmail,
+  }) async {
+    try {
+      await _firestore.collection(_collection).doc(docId).update({
+        'resolved': true,
+        'resolvedBy': resolvedByEmail,
+        'resolvedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ActivityLogService] markConnectivityResolved failed: $e');
+    }
   }
 
   // ===========================================================================

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/page_title.dart';
+import '../../../../core/services/activity_log_service.dart';
 import '../widgets/device_management_modal.dart';
 
 class DeviceLog {
@@ -17,12 +18,28 @@ class DeviceLog {
   final DateTime dateTime;
   final Color iconColor;
   bool isUnread;
-  final String sensorType; // 'ToF', 'Flame', 'Smoke', 'Temp'
-  final String priority; // 'High', 'Mid', 'Low'
-  String currentStatus; // 'Active', 'Acknowledged', 'Resolved'
+  final String sensorType;   // friendly display label e.g. 'People Counter (ToF)'
+  final String logTypeRaw;   // raw Firestore 'type' e.g. 'tof', 'user', 'connectivity'
+  final String logEvent;     // Firestore 'event' field e.g. 'login', 'device_offline'
+  final String priority;     // 'High', 'Mid', 'Low'
+  String currentStatus;
   final bool? sirenActivated;
   final String specificZone;
-  final String? powerStatus; // 'High', 'Adequate', 'Low'
+  final String? powerStatus;
+
+  // Per-type visibility flags
+  final bool showPriority;
+  final bool showStatus;
+  final bool showLocation;
+
+  // User log extras
+  final String? role;
+  final String? platform;
+
+  // Connectivity resolution
+  final bool isResolvable;   // true only for connectivity-offline logs
+  final bool isResolved;
+  final String? resolvedBy;
 
   DeviceLog({
     required this.id,
@@ -33,11 +50,21 @@ class DeviceLog {
     required this.iconColor,
     required this.isUnread,
     required this.sensorType,
+    required this.logTypeRaw,
+    required this.logEvent,
     required this.priority,
     this.currentStatus = 'Active',
     this.sirenActivated,
     required this.specificZone,
     this.powerStatus,
+    this.showPriority = true,
+    this.showStatus = true,
+    this.showLocation = true,
+    this.role,
+    this.platform,
+    this.isResolvable = false,
+    this.isResolved = false,
+    this.resolvedBy,
   });
 }
 
@@ -126,65 +153,73 @@ class _DevicesScreenState extends State<DevicesScreen> {
     final data = doc.data();
     final type = data['type']?.toString() ?? '';
     final priority = data['priority']?.toString() ?? 'INFO';
+    final event = data['event']?.toString() ?? '';
     final ts = data['timestamp'] as Timestamp?;
 
     IconData icon;
     Color iconColor;
-    String sensorType;
-    String priorityLabel;
+    String sensorLabel;   // friendly display name
+    bool showPriority = true;
+    bool showStatus = true;
+    bool showLocation = true;
 
     switch (type) {
       case 'flame':
         icon = Icons.local_fire_department;
         iconColor = AppColors.statusDanger;
-        sensorType = 'Flame';
+        sensorLabel = 'Flame Detector';
         break;
       case 'gas':
         icon = Icons.smoking_rooms;
         iconColor = AppColors.statusDanger;
-        sensorType = 'Smoke';
+        sensorLabel = 'Smoke / Gas Detector';
         break;
       case 'temperature':
         icon = Icons.thermostat;
         iconColor = AppColors.statusWarning;
-        sensorType = 'Temp';
+        sensorLabel = 'Temperature Sensor';
         break;
       case 'siren':
-        icon = Icons.warning_amber;
+        icon = Icons.campaign_rounded;
         iconColor = AppColors.statusDanger;
-        sensorType = 'Siren';
+        sensorLabel = 'Emergency Siren';
         break;
       case 'tof':
-        icon = Icons.radar;
+        icon = Icons.people_alt_rounded;
         iconColor = Colors.cyanAccent;
-        sensorType = 'ToF';
+        sensorLabel = 'People Counter (ToF)';
+        showStatus = false; // No status for snapshot logs
         break;
       case 'connectivity':
-        final event = data['event']?.toString() ?? '';
-        icon = Icons.wifi;
-        if (event == 'device_online') {
-          iconColor = AppColors.statusSafe;
-        } else {
-          iconColor = AppColors.statusWarning;
-        }
-        sensorType = 'Network';
+        icon = event == 'device_online' ? Icons.wifi_rounded : Icons.wifi_off_rounded;
+        iconColor = event == 'device_online' ? AppColors.statusSafe : AppColors.statusWarning;
+        sensorLabel = 'Network / Gateway';
         break;
       case 'power':
-        icon = Icons.battery_alert;
+        icon = Icons.battery_alert_rounded;
         iconColor = AppColors.statusWarning;
-        sensorType = 'Power';
+        sensorLabel = 'UPS / Power Monitor';
         break;
       case 'user':
-        icon = Icons.person;
+        icon = Icons.person_rounded;
         iconColor = Colors.cyanAccent;
-        sensorType = 'User';
+        final userEvent = event;
+        if (userEvent == 'login' || userEvent == 'logout') {
+          sensorLabel = 'User Activity';
+        } else {
+          sensorLabel = 'Device Management';
+        }
+        showStatus = false;
+        showLocation = false;
         break;
       default:
         icon = Icons.info_outline;
         iconColor = Colors.grey;
-        sensorType = 'System';
+        sensorLabel = 'System';
     }
 
+    // Priority label
+    String priorityLabel;
     switch (priority) {
       case 'CRITICAL':
         priorityLabel = 'High';
@@ -196,29 +231,68 @@ class _DevicesScreenState extends State<DevicesScreen> {
         priorityLabel = 'Low';
     }
 
-    // Determine siren state for relevant log types
+    // Status logic
     bool? sirenActivated;
-    if (type == 'flame' || type == 'gas' || type == 'siren') {
-      final event = data['event']?.toString() ?? '';
+    String status;
+    if (type == 'connectivity' && event == 'device_offline') {
+      final resolved = data['resolved'] as bool? ?? false;
+      status = resolved ? 'Resolved' : 'Unresolved';
+    } else if (type == 'flame' || type == 'gas' || type == 'siren') {
       sirenActivated = event.contains('activated') || event.contains('alert');
+      status = priority == 'CRITICAL' ? 'Active' : 'Resolved';
+    } else {
+      status = priority == 'CRITICAL' ? 'Active' : 'Resolved';
+    }
+
+    // Connectivity resolution data
+    final isOfflineConnectivity = type == 'connectivity' && event == 'device_offline';
+    final isResolved = data['resolved'] as bool? ?? !isOfflineConnectivity;
+    final resolvedBy = data['resolvedBy']?.toString();
+
+    // Title formatting
+    final location = data['location']?.toString() ?? data['deviceMAC']?.toString() ?? 'System';
+    String title;
+    switch (type) {
+      case 'user':
+        title = sensorLabel; // 'User Activity' or 'Device Management'
+        break;
+      case 'tof':
+        title = 'People Counter – $location';
+        break;
+      case 'connectivity':
+        title = 'Connectivity – $location';
+        break;
+      default:
+        title = '$sensorLabel – $location';
     }
 
     return DeviceLog(
       id: doc.id,
       icon: icon,
-      title: '${sensorType} - ${data['location'] ?? data['deviceMAC'] ?? 'System'}',
+      title: title,
       message: data['message']?.toString() ?? '',
       dateTime: ts?.toDate() ?? DateTime.now(),
       iconColor: iconColor,
       isUnread: false,
-      sensorType: sensorType,
+      sensorType: sensorLabel,
+      logTypeRaw: type,
+      logEvent: event,
       priority: priorityLabel,
-      currentStatus: priority == 'CRITICAL' ? 'Active' : 'Resolved',
+      currentStatus: status,
       sirenActivated: sirenActivated,
-      specificZone: data['location']?.toString() ?? data['deviceMAC']?.toString() ?? 'Unknown',
+      specificZone: location,
       powerStatus: data['newLevel']?.toString(),
+      showPriority: showPriority,
+      showStatus: showStatus,
+      showLocation: showLocation,
+      role: data['role']?.toString(),
+      platform: data['platform']?.toString(),
+      isResolvable: isOfflineConnectivity,
+      isResolved: isResolved,
+      resolvedBy: resolvedBy,
     );
   }
+
 
   String _getPowerSummary() {
     if (widget.deviceData.isEmpty) return "No Devices Linked";
@@ -653,7 +727,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: ['ToF', 'Flame', 'Smoke', 'Temp', 'Power', 'Network', 'User', 'System'].map((sensor) {
+                        children: ['People Counter', 'Flame', 'Smoke', 'Temperature', 'Power', 'Connectivity', 'User Activity', 'Emergency', 'System'].map((sensor) {
                           final isSelected = tempSensors.contains(sensor);
                           return FilterChip(
                             label: Text(sensor),
@@ -1190,6 +1264,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
     } else if (status == 'Resolved' || status == 'Acknowledged') {
       bgColor = AppColors.statusSafe.withValues(alpha: 0.15);
       textColor = AppColors.statusSafe;
+    } else if (status == 'Unresolved') {
+      bgColor = AppColors.statusWarning.withValues(alpha: 0.15);
+      textColor = AppColors.statusWarning;
     } else {
       bgColor = AppColors.statusWarning.withValues(alpha: 0.15);
       textColor = AppColors.statusWarning;
@@ -1208,11 +1285,35 @@ class _DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
+  Widget _buildRoleChip(String role) {
+    final Color chipColor = role.toLowerCase() == 'admin'
+        ? AppColors.statusDanger
+        : const Color(0xFFD4A017); // Gold for Facilitator
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: chipColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: chipColor.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        role.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          color: chipColor,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
   String _formatDuration(Duration duration) {
     if (duration.inHours > 0) return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
     if (duration.inMinutes > 0) return '${duration.inMinutes}m';
     return '${duration.inSeconds}s';
   }
+
 
   void _showLogDetailsModal(BuildContext context, DeviceLog log) {
     final priorityColor = log.priority == 'High'
@@ -1221,133 +1322,297 @@ class _DevicesScreenState extends State<DevicesScreen> {
             ? AppColors.statusWarning
             : AppColors.statusSafe;
 
+    final userProvider = context.read<UserProvider>();
+    final currentUserEmail = userProvider.email ?? 'Unknown';
+
     showDialog(
       context: context,
       barrierColor: Colors.black45,
-      builder: (context) {
-        return TweenAnimationBuilder(
-          duration: const Duration(milliseconds: 350),
-          tween: Tween<double>(begin: 0.0, end: 1.0),
-          curve: Curves.easeOutBack,
-          builder: (context, double value, child) {
-            return BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
-              child: Opacity(
-                opacity: value.clamp(0.0, 1.0),
-                child: Transform.scale(
-                  scale: 0.8 + (0.2 * value),
-                  child: Dialog(
-                    backgroundColor: Colors.transparent,
-                    insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.6 : 0.2),
-                            blurRadius: 30,
-                            offset: const Offset(0, 15),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setModalState) {
+            return TweenAnimationBuilder(
+              duration: const Duration(milliseconds: 350),
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              curve: Curves.easeOutBack,
+              builder: (_, double value, __) {
+                return BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8.0 * value, sigmaY: 8.0 * value),
+                  child: Opacity(
+                    opacity: value.clamp(0.0, 1.0),
+                    child: Transform.scale(
+                      scale: 0.8 + (0.2 * value),
+                      child: Dialog(
+                        backgroundColor: Colors.transparent,
+                        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Theme.of(dialogContext).colorScheme.surface.withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Theme.of(dialogContext).brightness == Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : Colors.black.withValues(alpha: 0.1),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                    alpha: Theme.of(dialogContext).brightness == Brightness.dark ? 0.6 : 0.2),
+                                blurRadius: 30,
+                                offset: const Offset(0, 15),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ── Header ──
-                            Row(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // ── Header ──
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: log.iconColor.withValues(alpha: 0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(log.icon, color: log.iconColor, size: 28),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Text(
+                                        log.title,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(dialogContext).colorScheme.onSurface,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.close,
+                                          color: Theme.of(dialogContext).colorScheme.onSurfaceVariant),
+                                      onPressed: () => Navigator.pop(dialogContext),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // ── Message banner ──
                                 Container(
-                                  padding: const EdgeInsets.all(12),
+                                  padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: log.iconColor.withValues(alpha: 0.15),
-                                    shape: BoxShape.circle,
+                                    color: log.iconColor.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: log.iconColor.withValues(alpha: 0.3)),
                                   ),
-                                  child: Icon(log.icon, color: log.iconColor, size: 28),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.info_outline, color: log.iconColor, size: 18),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          log.message,
+                                          style: TextStyle(
+                                            color: Theme.of(dialogContext).colorScheme.onSurface,
+                                            fontSize: 13,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(log.title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface, height: 1.2)),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
+                                const SizedBox(height: 20),
 
-                            // ── Message banner ──
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: log.iconColor.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: log.iconColor.withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.info_outline, color: log.iconColor, size: 18),
-                                  const SizedBox(width: 10),
-                                  Expanded(child: Text(log.message, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13, height: 1.4))),
+                                // ── Section 1: Common fields ──
+                                _detailRow(dialogContext, 'Timestamp',
+                                    DateFormat('MMM dd, yyyy – HH:mm:ss').format(log.dateTime)),
+
+                                // Priority — shown for all types (always LOW for user/tof)
+                                _detailRow(dialogContext, 'Priority', log.priority.toUpperCase(),
+                                    valueColor: priorityColor),
+
+                                // Status — only for types where it matters
+                                if (log.showStatus) ...[
+                                  if (log.isResolvable) ...[
+                                    // Connectivity offline — UNRESOLVED / resolved row
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('Status',
+                                              style: TextStyle(
+                                                  color: Theme.of(dialogContext)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontSize: 13)),
+                                          log.isResolved
+                                              ? _buildSmallStatusBadge('Resolved')
+                                              : _buildSmallStatusBadge('Unresolved'),
+                                        ],
+                                      ),
+                                    ),
+                                    // Mark Resolved button (only if not yet resolved)
+                                    if (!log.isResolved) ...[
+                                      const SizedBox(height: 4),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () async {
+                                            await ActivityLogService.markConnectivityResolved(
+                                              docId: log.id,
+                                              resolvedByEmail: currentUserEmail,
+                                            );
+                                            if (dialogContext.mounted) {
+                                              Navigator.pop(dialogContext);
+                                            }
+                                          },
+                                          icon: Icon(Icons.check_circle_outline_rounded,
+                                              size: 16, color: AppColors.statusSafe),
+                                          label: const Text('MARK RESOLVED',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: 0.8)),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppColors.statusSafe,
+                                            side: BorderSide(
+                                                color: AppColors.statusSafe.withValues(alpha: 0.5)),
+                                            backgroundColor:
+                                                AppColors.statusSafe.withValues(alpha: 0.05),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 10),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ] else if (log.resolvedBy != null) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text('Resolved by',
+                                                style: TextStyle(
+                                                    color: Theme.of(dialogContext)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                    fontSize: 13)),
+                                            Text(log.resolvedBy!,
+                                                style: TextStyle(
+                                                    color: AppColors.statusSafe,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ] else ...[
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('Status',
+                                            style: TextStyle(
+                                                color: Theme.of(dialogContext)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                                fontSize: 13)),
+                                        _buildSmallStatusBadge(log.currentStatus),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
                                 ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
 
-                            // ── Section 1: Event Summary ──
-                            _detailRow(context, 'Timestamp', DateFormat('MMM dd, yyyy – HH:mm:ss').format(log.dateTime)),
-                            _detailRow(context, 'Priority', log.priority.toUpperCase(), valueColor: priorityColor),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Status', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
-                                _buildSmallStatusBadge(log.currentStatus),
+                                const Divider(height: 28),
+
+                                // ── Section 2: Type-specific fields ──
+
+                                // Location (hidden for user logs)
+                                if (log.showLocation)
+                                  _detailRow(dialogContext, 'Location', log.specificZone),
+
+                                // Log Type label (friendly sensor name)
+                                _detailRow(dialogContext, 'Log Type', log.sensorType),
+
+                                // User log extras: Role chip + Platform
+                                if (log.logTypeRaw == 'user') ...[
+                                  if (log.role != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('Role',
+                                              style: TextStyle(
+                                                  color: Theme.of(dialogContext)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontSize: 13)),
+                                          _buildRoleChip(log.role!),
+                                        ],
+                                      ),
+                                    ),
+                                  if (log.platform != null)
+                                    _detailRow(dialogContext, 'Platform', log.platform!),
+                                ],
+
+                                // Connectivity extra: resolved by
+                                if (log.logTypeRaw == 'connectivity' &&
+                                    log.logEvent == 'device_online' &&
+                                    log.resolvedBy != null)
+                                  _detailRow(dialogContext, 'Recovery Note',
+                                      'Previously resolved by ${log.resolvedBy}'),
+
+                                // Hazard extras
+                                if (log.sirenActivated != null)
+                                  _detailRow(
+                                    dialogContext,
+                                    'Siren State',
+                                    log.sirenActivated! ? 'Activated' : 'Standby',
+                                    valueColor:
+                                        log.sirenActivated! ? AppColors.statusDanger : null,
+                                  ),
+
+                                // Power extras
+                                if (log.powerStatus != null)
+                                  _detailRow(
+                                    dialogContext,
+                                    'Power Level',
+                                    log.powerStatus!,
+                                    valueColor: log.powerStatus == 'Low'
+                                        ? AppColors.statusDanger
+                                        : log.powerStatus == 'Adequate'
+                                            ? AppColors.statusWarning
+                                            : AppColors.statusSafe,
+                                  ),
+
+                                const SizedBox(height: 8),
                               ],
                             ),
-                            const Divider(height: 28),
-
-                            // ── Section 2: Device Details ──
-                            _detailRow(context, 'Zone / Location', log.specificZone),
-                            _detailRow(context, 'Sensor Type', log.sensorType),
-                            if (log.sirenActivated != null)
-                              _detailRow(
-                                context,
-                                'Siren State',
-                                log.sirenActivated! ? 'Activated' : 'Standby',
-                                valueColor: log.sirenActivated! ? AppColors.statusDanger : null,
-                              ),
-                            if (log.powerStatus != null)
-                              _detailRow(
-                                context,
-                                'Power Status',
-                                log.powerStatus!,
-                                valueColor: log.powerStatus == 'Low'
-                                    ? AppColors.statusDanger
-                                    : log.powerStatus == 'Adequate'
-                                        ? AppColors.statusWarning
-                                        : AppColors.statusSafe,
-                              ),
-                            const SizedBox(height: 8),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );
       },
     );
   }
+
 
   Widget _detailRow(BuildContext context, String label, String value, {Color? valueColor}) {
     return Padding(

@@ -186,11 +186,23 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _resolveUrgent(String id) {
-    setState(() {
-      final index = _notifications.indexWhere((n) => n.id == id);
-      if (index != -1) _notifications[index].isResolved = true;
-    });
-    _markAsClearedInDB(id);
+    // Find the notification to check if it's a connectivity log
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      final notif = _notifications[index];
+      // If it's a connectivity offline notification, write shared resolution to Firestore
+      if (notif.icon == Icons.wifi_off) {
+        final userProvider = context.read<UserProvider>();
+        final email = userProvider.email ?? 'Unknown';
+        ActivityLogService.markConnectivityResolved(docId: id, resolvedByEmail: email);
+        // The Firestore stream will update the notification state for all users automatically
+      } else {
+        setState(() {
+          _notifications[index].isResolved = true;
+        });
+        _markAsClearedInDB(id);
+      }
+    }
   }
 
   // --- Initialize Delayed Firestore Stream ---
@@ -235,16 +247,19 @@ class _DashboardScreenState extends State<DashboardScreen>
           final id = doc.id;
           if (_clearedNotificationIds.contains(id)) continue; // SKIP if already cleared by this user
 
+          final isResolvedInDB = data['resolved'] as bool? ?? false;
+          final resolvedByEmail = data['resolvedBy']?.toString();
+
           final existingIndex = _notifications.indexWhere((n) => n.id == id);
-          
+
           if (existingIndex == -1) {
             // New alert detected
             final ts = data['timestamp'] as Timestamp?;
             final isUrgent = priority == 'CRITICAL';
-            
+
             IconData icon = Icons.warning_amber_rounded;
             Color iconColor = AppColors.statusWarning;
-            
+
             if (type == 'flame') { icon = Icons.local_fire_department; iconColor = AppColors.statusDanger; }
             else if (type == 'gas') { icon = Icons.smoking_rooms; iconColor = AppColors.statusDanger; }
             else if (type == 'siren') { icon = Icons.campaign; iconColor = AppColors.statusDanger; }
@@ -263,8 +278,26 @@ class _DashboardScreenState extends State<DashboardScreen>
               time: ts?.toDate() ?? DateTime.now(),
               isUrgent: isUrgent,
               isRead: false,
-              isResolved: false,
+              isResolved: isResolvedInDB,
+              resolvedBy: resolvedByEmail,
             ));
+          } else {
+            // Update resolution state if it changed (shared resolution from another user)
+            final existing = _notifications[existingIndex];
+            if (existing.isResolved != isResolvedInDB || existing.resolvedBy != resolvedByEmail) {
+              _notifications[existingIndex] = AppNotification(
+                id: existing.id,
+                title: existing.title,
+                body: existing.body,
+                icon: existing.icon,
+                iconColor: existing.iconColor,
+                time: existing.time,
+                isUrgent: existing.isUrgent,
+                isRead: existing.isRead,
+                isResolved: isResolvedInDB,
+                resolvedBy: resolvedByEmail,
+              );
+            }
           }
         }
         
@@ -734,9 +767,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           Future.microtask(() => ActivityLogService.logHourlySnapshot(
             deviceMAC: mac,
             location: location,
-            entriesThisHour: 0, // not tracked for this log
             exitsThisHour: exits,
-            netInsideAtReset: (device['count'] as num?)?.toInt() ?? 0,
             resetHour: currentHour,
           ));
         }
