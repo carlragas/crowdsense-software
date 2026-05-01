@@ -43,7 +43,7 @@ String deviceMAC = "00:00:00:00:00:00";
 String pathBase;
 //ToF Variables
 bool tofSuccess = false;
-const int PERSON_THRESHOLD_MM = 800; // Increased from 500 to 1500mm (1.5m) to detect people at normal distances
+const int PERSON_THRESHOLD_MM = 2000;
 int totalInside = 0;
 int totalExits = 0;
 // ToF Variable: MULTI-LANE TRACKING: 4 separate state machines for columns 0, 1, 2, and 3
@@ -52,6 +52,11 @@ int laneState[4] = {0, 0, 0, 0};
 unsigned long lastEntryTime[4] = {0, 0, 0, 0};
 unsigned long lastExitTime[4] = {0, 0, 0, 0};
 const int EVENT_COOLDOWN_MS = 800; 
+const int CLUSTER_MERGE_MS = 500; // Time window to merge adjacent lane triggers
+// Frame debouncing: a zone must be occupied for N consecutive frames before it is
+// considered valid. Set to 1 frame to ensure thinner/faster people are detected instantly.
+uint8_t zoneOccupancyCount[16] = {0};
+const uint8_t MIN_FRAMES_OCCUPIED = 1;
 // Environment Variables
 bool esp32Online = true; 
 // Siren Variables
@@ -61,7 +66,7 @@ bool autoTriggered = false; // true = fire-auto-detected, false = app-triggered 
 unsigned long sirenAlertDuration = 0;
 unsigned long sirenClearDuration = 0;
 // Manual trigger check interval — 2s for near-instant siren response from app
-const unsigned long ManualCheckInterval = 30000;
+const unsigned long ManualCheckInterval = 10000;
 unsigned long lastManualCheckTime = 0;
 // Power Variables - Voltage Divider
 const unsigned long checkPowerInterval = 5000;
@@ -104,6 +109,7 @@ void connectNetwork(){
     // WiFi and Firebase Setup
   WiFi.mode(WIFI_STA);
   WiFiManager wm;
+  wm.resetSettings();
   Serial.println("Connecting to WiFi...");
   bool res = wm.autoConnect("CrowdSense_Main_Entry", "12345678");
   if (!res) {
@@ -209,7 +215,20 @@ void countCrowd(){
           uint8_t status = results.target_status[targetIndex];
 
           // Status 5 is 'Valid'. Status 6/9 can be used but are less certain.
-          if (status == 5 && distance > 0 && distance < PERSON_THRESHOLD_MM) {
+          // Using 3 feet (914mm) distance threshold uniformly for all zones
+          bool detected = (status == 5 && distance > 0 && distance < PERSON_THRESHOLD_MM);
+
+          // Frame debouncing: require N consecutive frames of detection before
+          // the zone is considered occupied. Filters out single-frame ghost readings.
+          if (detected) {
+            if (zoneOccupancyCount[zone] < 255) zoneOccupancyCount[zone]++;
+          } else {
+            zoneOccupancyCount[zone] = 0;
+          }
+
+          bool confirmed = (zoneOccupancyCount[zone] >= MIN_FRAMES_OCCUPIED);
+
+          if (confirmed) {
             if (y < 2) laneA[x] = true; 
             else laneB[x] = true;       
           }
@@ -249,7 +268,14 @@ void countCrowd(){
             if (!A && !B) {
               // Lane completed an ENTRY transition — mark it (don't count yet)
               if (currentMillis - lastEntryTime[x] > EVENT_COOLDOWN_MS) {
-                entryCompleted[x] = true;
+                // Temporal clustering: check if adjacent lane completed recently
+                bool adjacentRecent = false;
+                if (x > 0 && (currentMillis - lastEntryTime[x - 1] < CLUSTER_MERGE_MS)) adjacentRecent = true;
+                if (x < 3 && (currentMillis - lastEntryTime[x + 1] < CLUSTER_MERGE_MS)) adjacentRecent = true;
+                
+                if (!adjacentRecent) {
+                  entryCompleted[x] = true;
+                }
                 lastEntryTime[x] = currentMillis;
               }
               laneState[x] = 0;
@@ -271,7 +297,14 @@ void countCrowd(){
             if (!A && !B) {
               // Lane completed an EXIT transition — mark it (don't count yet)
               if (currentMillis - lastExitTime[x] > EVENT_COOLDOWN_MS) {
-                exitCompleted[x] = true;
+                // Temporal clustering: check if adjacent lane completed recently
+                bool adjacentRecent = false;
+                if (x > 0 && (currentMillis - lastExitTime[x - 1] < CLUSTER_MERGE_MS)) adjacentRecent = true;
+                if (x < 3 && (currentMillis - lastExitTime[x + 1] < CLUSTER_MERGE_MS)) adjacentRecent = true;
+                
+                if (!adjacentRecent) {
+                  exitCompleted[x] = true;
+                }
                 lastExitTime[x] = currentMillis;
               }
               laneState[x] = 0;
@@ -282,16 +315,11 @@ void countCrowd(){
         }
       }
 
-      // --- Cluster counting ---
-      // Group adjacent completed lanes as a single person.
-      // Non-adjacent completions = separate people.
-      // Example: lanes [0,1] complete = 1 person; lanes [0,3] complete = 2 people.
+      // --- Count occurrences ---
       int entryCount = 0;
       for (int x = 0; x < 4; x++) {
         if (entryCompleted[x]) {
           entryCount++;
-          // Skip over adjacent completed lanes (same person's width)
-          while (x + 1 < 4 && entryCompleted[x + 1]) x++;
         }
       }
 
@@ -299,8 +327,6 @@ void countCrowd(){
       for (int x = 0; x < 4; x++) {
         if (exitCompleted[x]) {
           exitCount++;
-          // Skip over adjacent completed lanes (same person's width)
-          while (x + 1 < 4 && exitCompleted[x + 1]) x++;
         }
       }
 
