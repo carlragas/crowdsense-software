@@ -380,6 +380,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   String _selectedLocation = "";
   StreamSubscription? _prototypeUnitsSubscription;
   StreamSubscription? _sensorDataSubscription;
+  List<Set<String>> _syncGroups = [];
 
   void _staggeredInit() async {
     // Step 1: Wait for the UI transition to fully complete
@@ -474,6 +475,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                    includeInHeadcount = data['config']['include_in_headcount'] == true;
                }
                _deviceDataMap[mac]!['include_in_headcount'] = includeInHeadcount;
+
+               String? syncMac;
+               if (data.containsKey('config') && data['config'] is Map && data['config'].containsKey('sync_mac')) {
+                   syncMac = data['config']['sync_mac']?.toString();
+               }
+               _deviceDataMap[mac]!['sync_mac'] = syncMac;
             });
             _syncDeviceDataList();
          });
@@ -678,7 +685,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               (lastUpdated is int) ? lastUpdated : (lastUpdated as num).toInt(),
             );
             final estimatedServerTime = DateTime.now().add(Duration(milliseconds: _serverTimeOffset));
-            isLive = estimatedServerTime.difference(ts).inSeconds.abs() < 45; // 45s timeout (heartbeat is 20s)
+            isLive = estimatedServerTime.difference(ts).inSeconds.abs() < 360; // 360s timeout (heartbeat is 300s)
         }
         connState = isLive ? "ONLINE" : "OFFLINE";
 
@@ -713,8 +720,61 @@ class _DashboardScreenState extends State<DashboardScreen>
            'last_reset_hour': v['last_reset_hour'],
            'priority': v['priority'] ?? 999,
            'include_in_headcount': v['include_in_headcount'] ?? true,
-           'power_status': v['power_status'],
         };
+    }).toList();
+
+    // --- Connected Components for Sync Groups ---
+    final Map<String, Set<String>> adj = {};
+    for (final mac in _deviceDataMap.keys) {
+      final String? syncMac = _deviceDataMap[mac]?['sync_mac'];
+      if (syncMac != null && _deviceDataMap.containsKey(syncMac)) {
+        adj.putIfAbsent(mac, () => {}).add(syncMac);
+        adj.putIfAbsent(syncMac, () => {}).add(mac);
+      }
+    }
+    
+    final Set<String> visited = {};
+    _syncGroups = [];
+    for (final mac in _deviceDataMap.keys) {
+      if (!visited.contains(mac) && adj.containsKey(mac)) {
+        final Set<String> group = {};
+        final List<String> stack = [mac];
+        while (stack.isNotEmpty) {
+          final m = stack.removeLast();
+          if (!visited.contains(m)) {
+            visited.add(m);
+            group.add(m);
+            stack.addAll(adj[m] ?? []);
+          }
+        }
+        _syncGroups.add(group);
+      }
+    }
+
+    // Calculate totals for each group
+    final Map<String, int> macToGroupTotal = {};
+    for (final group in _syncGroups) {
+      int total = 0;
+      for (final mac in group) {
+        total += (_deviceDataMap[mac]?['count'] ?? 0) as int;
+      }
+      for (final mac in group) {
+        macToGroupTotal[mac] = total;
+      }
+    }
+
+    // Update synced devices with their group total
+    _deviceData = _deviceData.map((d) {
+      final mac = d['mac'];
+      if (macToGroupTotal.containsKey(mac)) {
+        final total = macToGroupTotal[mac]!;
+        return {
+          ...d,
+          'count': total,
+          'entries': total, // Match user label for displayed count
+        };
+      }
+      return d;
     }).toList();
     
     _deviceData.sort((a, b) {
@@ -828,9 +888,36 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // Computed total across all sensors (respecting include_in_headcount)
-  int get _totalEntries => _deviceData
-    .where((d) => d['include_in_headcount'] == true)
-    .fold(0, (sum, d) => sum + (((d['count'] ?? 0) as num).toInt().clamp(0, 99999)));
+  int get _totalEntries {
+    int sum = 0;
+    final Set<String> processedMacs = {};
+    
+    // 1. Process Grouped Devices (Linked)
+    for (final group in _syncGroups) {
+      bool includeGroup = false;
+      int groupSum = 0;
+      for (final mac in group) {
+        final d = _deviceDataMap[mac];
+        if (d != null) {
+          if (d['include_in_headcount'] == true) includeGroup = true;
+          groupSum += (d['count'] ?? 0) as int;
+        }
+        processedMacs.add(mac);
+      }
+      if (includeGroup) sum += groupSum;
+    }
+    
+    // 2. Process Independent Devices (Ungrouped)
+    for (final d in _deviceData) {
+      final String mac = d['mac']?.toString() ?? '';
+      if (!processedMacs.contains(mac)) {
+        if (d['include_in_headcount'] == true) {
+          sum += (d['count'] as int).clamp(0, 99999);
+        }
+      }
+    }
+    return sum;
+  }
     
   int get _totalExits => _deviceData
     .where((d) => d['include_in_headcount'] == true)
@@ -2793,6 +2880,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                   'total_exits': 0,
                                                   'people_inside': 0,
                                                   'last_reset_hour': currentHour,
+                                                  'reset_counts': true,
                                                 });
                                               }
                                             }

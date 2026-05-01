@@ -789,6 +789,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
               key: ValueKey(device["macAddress"]),
               device: device,
               isDark: isDark,
+              allDevices: _devices,
               isReordering: _isReordering,
               index: index,
               serverTimeOffset: _serverTimeOffset,
@@ -826,6 +827,7 @@ class _DeviceManagementModalState extends State<DeviceManagementModal> {
       key: ValueKey(device["macAddress"]),
       device: device,
       isDark: isDark,
+      allDevices: _devices,
       isReordering: _isReordering,
       index: index,
       serverTimeOffset: _serverTimeOffset,
@@ -848,10 +850,13 @@ class _EditableDeviceTile extends StatefulWidget {
   final Function(String, String) onRemove;
   final Function(String, String) onStatusToggle;
 
+  final List<Map<String, dynamic>> allDevices;
+
   const _EditableDeviceTile({
     super.key,
     required this.device,
     required this.isDark,
+    required this.allDevices,
     this.isReordering = false,
     this.index = 0,
     this.serverTimeOffset = 0,
@@ -868,10 +873,11 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
   late TextEditingController _macCtrl;
   late TextEditingController _nameCtrl;
   Timer? _heartbeatTimer;
-  late double _tempThresh;
-  late double _smokeThresh;
-  late double _flameThresh;
-  late bool _includeInHeadcount;
+  double _smokeThresh = 300;
+  double _flameThresh = 200;
+  double _tempThresh = 35;
+  bool _includeInHeadcount = true;
+  String? _syncMac;
 
   @override
   void initState() {
@@ -883,6 +889,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
     _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
+    _syncMac = sensors["sync_mac"] as String?;
 
     // Refresh the "ago" text every 10 seconds
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -904,6 +911,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
         _smokeThresh = (newSensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
         _flameThresh = (newSensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
         _includeInHeadcount = (newSensors["include_in_headcount"] ?? true) as bool;
+        _syncMac = newSensors["sync_mac"] as String?;
       });
     }
     
@@ -936,7 +944,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
       (lastSeen is int) ? lastSeen : (lastSeen as num).toInt(),
     );
     final estimatedServerTime = DateTime.now().add(Duration(milliseconds: widget.serverTimeOffset));
-    return estimatedServerTime.difference(ts).inSeconds.abs() < 45; // 45s timeout (heartbeat is 20s)
+    return estimatedServerTime.difference(ts).inSeconds.abs() < 360; // 360s timeout (heartbeat is 300s)
   }
 
   String get _lastSeenText {
@@ -1113,6 +1121,83 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               onChanged: (v) => setState(() => _includeInHeadcount = v),
             ),
             
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Sync Device",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          "Link this count to another device.",
+                          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                        ),
+                      ],
+                    ),
+                    Switch(
+                      value: _syncMac != null,
+                      activeColor: AppColors.primaryBlue,
+                      onChanged: (v) {
+                        setState(() {
+                          if (v) {
+                            // Find first available other device
+                            final other = widget.allDevices.firstWhere(
+                              (d) => d['macAddress'] != widget.device['macAddress'],
+                              orElse: () => {},
+                            );
+                            if (other.isNotEmpty) {
+                              _syncMac = other['macAddress'];
+                            }
+                          } else {
+                            _syncMac = null;
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                if (_syncMac != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _syncMac,
+                        isExpanded: true,
+                        style: TextStyle(
+                          fontSize: 13, 
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        dropdownColor: isDark ? const Color(0xFF1A1F2C) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        items: widget.allDevices
+                          .where((d) => d['macAddress'] != widget.device['macAddress'])
+                          .map((d) {
+                            return DropdownMenuItem<String>(
+                              value: d['macAddress'],
+                              child: Text(d['name'] ?? d['macAddress']),
+                            );
+                          }).toList(),
+                        onChanged: (v) => setState(() => _syncMac = v),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            
             const SizedBox(height: 24),
             Row(
               children: [
@@ -1141,6 +1226,7 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                             "smoke_threshold": _smokeThresh,
                             "flame_threshold": _flameThresh,
                             "include_in_headcount": _includeInHeadcount,
+                            "sync_mac": _syncMac,
                          }
                       );
                     },

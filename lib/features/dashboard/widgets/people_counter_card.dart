@@ -117,7 +117,7 @@ class PeopleCounterCard extends StatelessWidget {
                         itemBuilder: (context, index) {
                           final data = deviceData[index % deviceData.length];
                           final String pageLocation = data['location'];
-                          final int pageEntries = data['entries'] ?? 0;
+                          final int pageEntries = data['count'] ?? 0;
                           final int pageExits = data['exits'] ?? 0;
                           final int currentInside = pageEntries.clamp(0, 99999);
                           final bool isNotClear = currentInside > 0;
