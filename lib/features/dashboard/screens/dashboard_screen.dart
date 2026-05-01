@@ -481,12 +481,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                    syncMac = data['config']['sync_mac']?.toString();
                }
                _deviceDataMap[mac]!['sync_mac'] = syncMac;
-
-               bool syncCount = false;
-               if (data.containsKey('config') && data['config'] is Map && data['config'].containsKey('sync_count')) {
-                   syncCount = data['config']['sync_count'] == true;
-               }
-               _deviceDataMap[mac]!['sync_count'] = syncCount;
             });
             _syncDeviceDataList();
          });
@@ -726,7 +720,6 @@ class _DashboardScreenState extends State<DashboardScreen>
            'last_reset_hour': v['last_reset_hour'],
            'priority': v['priority'] ?? 999,
            'include_in_headcount': v['include_in_headcount'] ?? true,
-           'sync_count': v['sync_count'] ?? false,
            'power_status': v['power_status'],
         };
     }).toList();
@@ -791,21 +784,6 @@ class _DashboardScreenState extends State<DashboardScreen>
        return pA.compareTo(pB);
     });
 
-    // --- Sync Count Logic ---
-    // All devices with sync_count=true share the maximum entry count.
-    // Exit counts remain independent per device.
-    final syncedDevices = _deviceData.where((d) => d['sync_count'] == true).toList();
-    if (syncedDevices.length > 1) {
-      final maxEntries = syncedDevices
-          .map((d) => ((d['entries'] ?? 0) as num).toInt())
-          .reduce((a, b) => a > b ? a : b);
-      for (final d in _deviceData) {
-        if (d['sync_count'] == true) {
-          d['count'] = maxEntries;
-          d['entries'] = maxEntries;
-        }
-      }
-    }
     
     if (_deviceData.isNotEmpty && _selectedLocation.isEmpty) {
        _selectedLocation = _deviceData.first['location'];

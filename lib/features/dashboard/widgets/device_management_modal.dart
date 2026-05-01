@@ -882,7 +882,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
    late double _smokeThresh;
    late double _flameThresh;
    late bool _includeInHeadcount;
-   late bool _syncCount;
    String? _syncMac;
 
   @override
@@ -895,7 +894,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
     _smokeThresh = (sensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
     _flameThresh = (sensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
     _includeInHeadcount = (sensors["include_in_headcount"] ?? true) as bool;
-    _syncCount = (sensors["sync_count"] ?? false) as bool;
     _syncMac = sensors["sync_mac"] as String?;
 
     // Refresh the "ago" text every 10 seconds
@@ -919,7 +917,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
         _smokeThresh = (newSensors["smoke_threshold"] ?? 300.0).toDouble().clamp(0.0, 2000.0);
         _flameThresh = (newSensors["flame_threshold"] ?? 200.0).toDouble().clamp(0.0, 4095.0);
         _includeInHeadcount = (newSensors["include_in_headcount"] ?? true) as bool;
-        _syncCount = (newSensors["sync_count"] ?? false) as bool;
         _syncMac = newSensors["sync_mac"] as String?;
       });
     }
@@ -1129,20 +1126,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
               value: _includeInHeadcount,
               onChanged: (v) => setState(() => _includeInHeadcount = v),
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                "Sync Count",
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                "Syncs entry count across all devices with this option enabled. Exit counts remain independent.",
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
-              ),
-              activeColor: AppColors.statusWarning,
-              value: _syncCount,
-              onChanged: (v) => setState(() => _syncCount = v),
-            ),
             
             const SizedBox(height: 12),
             Column(
@@ -1249,7 +1232,6 @@ class _EditableDeviceTileState extends State<_EditableDeviceTile> {
                             "smoke_threshold": _smokeThresh,
                             "flame_threshold": _flameThresh,
                             "include_in_headcount": _includeInHeadcount,
-                            "sync_count": _syncCount,
                             "sync_mac": _syncMac,
                          }
                       );
