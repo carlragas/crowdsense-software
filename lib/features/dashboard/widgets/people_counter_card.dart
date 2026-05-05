@@ -117,10 +117,10 @@ class PeopleCounterCard extends StatelessWidget {
                         itemBuilder: (context, index) {
                           final data = deviceData[index % deviceData.length];
                           final String pageLocation = data['location'];
-                          final int pageEntries = data['count'] ?? 0;
+                          final int pageEntries = data['entries'] ?? 0;
                           final int pageExits = data['exits'] ?? 0;
-                          final int currentInside = pageEntries.clamp(0, 99999);
-                          final bool isNotClear = currentInside > 0;
+                          final int currentHeadcount = data['count'] ?? 0;
+                          final bool isNotClear = currentHeadcount > 0;
                           final badgeColor = isNotClear ? AppColors.statusWarning : AppColors.statusSafe;
     
                           return Padding(
@@ -191,7 +191,7 @@ class PeopleCounterCard extends StatelessWidget {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      _buildMetricCard("Entries", currentInside, AppColors.statusSafe, isDark),
+                                      _buildMetricCard("Entries", pageEntries, AppColors.statusSafe, isDark),
                                       const SizedBox(width: 12),
                                       _buildMetricCard("Exits", data['exits'] ?? 0, AppColors.statusDanger, isDark),
                                     ],

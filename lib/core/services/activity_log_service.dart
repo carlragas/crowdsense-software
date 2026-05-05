@@ -133,6 +133,7 @@ class ActivityLogService {
   static Future<void> logHourlySnapshot({
     required String deviceMAC,
     required String location,
+    required int entriesThisHour,
     required int exitsThisHour,
     required int resetHour,
   }) =>
@@ -140,11 +141,12 @@ class ActivityLogService {
         type: 'tof',
         priority: 'INFO',
         message:
-            '$location hourly snapshot: $exitsThisHour total exits happened.',
+            '$location hourly snapshot: $entriesThisHour entries and $exitsThisHour exits.',
         deviceMAC: deviceMAC,
         location: location,
         extra: {
           'event': 'hourly_snapshot',
+          'entriesThisHour': entriesThisHour,
           'exitsThisHour': exitsThisHour,
           'resetHour': resetHour,
         },
