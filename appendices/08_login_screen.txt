@@ -1,0 +1,135 @@
+LOGIN_SCREEN.DART (Login Screen - Summarized)
+================================================
+
+import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
+
+class LoginScreen extends StatefulWidget {
+  final bool animate;
+  const LoginScreen({super.key, this.animate = true});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _identifierController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text;
+
+    if (identifier.isEmpty || password.isEmpty) {
+      CustomNotificationModal.show(context: context,
+        title: "Login Failed",
+        message: "Please enter both Email/Username and Password.",
+        isSuccess: false);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final userProvider = context.read<UserProvider>();
+
+      // 1. Authenticate via AuthService (supports email or username)
+      final payload = await _authService.login(identifier, password);
+
+      // 2. Set global user state
+      userProvider.setUser(payload['user'], payload['userData']);
+
+      // 3. Check if user needs forced password change (first login)
+      final bool requiresPasswordChange = payload['userData']['requiresPasswordChange'] == true;
+
+      // 4. Navigate through splash screen transition
+      String targetRoute = requiresPasswordChange ? '/force-password-change' : '/dashboard';
+
+      Navigator.pushReplacement(context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const SplashScreen(),
+          settings: RouteSettings(arguments: {
+            'authFuture': Future.value({'route': targetRoute, 'args': routeArgs}),
+          }),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      CustomNotificationModal.show(context: context,
+        title: "Authentication Error",
+        message: e.toString().replaceFirst('Exception: ', ''),
+        isSuccess: false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: GeometricBackground(
+        child: SingleChildScrollView(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Animated logo with CrowdSense branding
+                  FadeInDown(child: Column(children: [
+                    // Circular logo container with glow effect
+                    Container(
+                      height: 120, width: 120,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surfaceDark),
+                      child: Image.asset('assets/images/crowdsense_logo.png'),
+                    ),
+                    Text("CrowdSense", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                    // Tagline: DETECT. DIRECT. SECURE. (gradient colors)
+                    RichText(text: TextSpan(children: [
+                      TextSpan(text: "DETECT. ", style: TextStyle(color: Color(0xFFEF4C33))),
+                      TextSpan(text: "DIRECT. ", style: TextStyle(color: Color(0xFFC94468))),
+                      TextSpan(text: "SECURE.", style: TextStyle(color: Color(0xFF5D3F9D))),
+                    ])),
+                  ])),
+
+                  // Login form card
+                  FadeInUp(child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceDark,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Column(children: [
+                      Text("Welcome Back", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      Text("Please sign in to continue"),
+                      // Email/Username input field
+                      TextField(controller: _identifierController,
+                        decoration: InputDecoration(labelText: "Email or Username",
+                          prefixIcon: Icon(Icons.person_outline))),
+                      // Password input field with visibility toggle
+                      TextField(controller: _passwordController, obscureText: !_isPasswordVisible,
+                        decoration: InputDecoration(labelText: "Password",
+                          prefixIcon: Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(icon: Icon(
+                            _isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined)))),
+                      // Login button with loading spinner
+                      ElevatedButton(onPressed: _isLoading ? null : _handleLogin,
+                        child: _isLoading ? CircularProgressIndicator() : Text("Log In")),
+                      // Forgot password link
+                      TextButton(onPressed: () => ForgotPasswordDialog.show(context),
+                        child: Text("Forgot Password?")),
+                    ]),
+                  )),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

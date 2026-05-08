@@ -1,0 +1,151 @@
+DASHBOARD_SCREEN.DART (Main Dashboard - Summarized)
+=====================================================
+
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+
+  // --- State Variables ---
+  int _currentIndex = 0;                    // Current bottom nav tab
+  bool _showNotificationsPanel = false;     // Notification overlay toggle
+  final Map<String, Map<String, dynamic>> _deviceDataMap = {};  // Device data store
+  List<Map<String, dynamic>> _deviceData = [];                  // Sorted device list
+  final List<AppNotification> _notifications = [];              // Alert notifications
+  int _adminsOnline = 0;
+  int _facilitatorsOnline = 0;
+
+  // --- Firebase Stream Subscriptions ---
+  StreamSubscription? _prototypeUnitsSubscription;  // Device registry
+  StreamSubscription? _sensorDataSubscription;      // Live sensor data
+  StreamSubscription? _usersSubscription;           // User presence
+  StreamSubscription? _urgentLogsSubscription;      // Firestore alert logs
+  StreamSubscription? _clearedNotifsSubscription;   // Per-user cleared notifications
+
+  // --- Hazard State Tracking (for transition-based logging) ---
+  final Map<String, Map<String, dynamic>> _prevHazardState = {};
+  final Map<String, bool> _prevOnlineState = {};
+  bool _sensorBaselineLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _staggeredInit(); // Staggered Firebase listener initialization
+  }
+
+  // Staggered initialization to prevent C++ SDK crashes on Windows
+  void _staggeredInit() async {
+    await Future.delayed(const Duration(milliseconds: 2000));
+    FirebaseDatabase.instance.goOnline();
+    await Future.delayed(const Duration(milliseconds: 2000));
+
+    _listenToPrototypeUnits();   // Channel 1: Device registry
+    await Future.delayed(const Duration(milliseconds: 1500));
+    _listenToSensorData();       // Channel 2: Sensor readings
+    await Future.delayed(const Duration(milliseconds: 1500));
+    _listenToUserPresence();     // Channel 3: Online users
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    // Log user login to Firestore
+    ActivityLogService.logUserLogin(/* user details */);
+
+    _listenToClearedNotifications();  // Channel 4: Cleared notification IDs
+    await Future.delayed(const Duration(milliseconds: 1000));
+    _listenToUrgentAlerts();          // Channel 5: Firestore alert stream
+  }
+
+  // Listens to prototype_units node for registered devices
+  void _listenToPrototypeUnits() {
+    // Syncs device names, priorities, headcount inclusion, sync groups
+    // Removes devices no longer in database
+  }
+
+  // Listens to sensor_data node for real-time sensor readings
+  void _listenToSensorData() {
+    // Updates: people count, exits, temperature, gas, flame, siren states
+    // Performs hazard state transition logging (flame/gas/siren detected/cleared)
+    // Syncs remote siren state from ESP32 auto-triggers to app UI
+    // Auto-shows SirenActiveDialog when ESP32 triggers evacuation
+  }
+
+  // Monitors user online presence with 60-second liveness check
+  void _listenToUserPresence() {
+    // Counts online admins and facilitators using lastActive timestamp
+  }
+
+  // Computes device online/offline status and builds sorted device list
+  void _syncDeviceDataList() {
+    // Calculates online status from last_updated timestamp (360s timeout)
+    // Logs connectivity transitions (online/offline state changes)
+    // Builds sync groups for paired devices (connected components algorithm)
+    // Calculates group totals for synced device headcounts
+    // Sorts devices by priority
+  }
+
+  // Listens to Firestore activity_logs for CRITICAL/WARNING alerts
+  void _listenToUrgentAlerts() {
+    // Syncs flame, gas, siren, connectivity alerts into notification bell
+    // Supports shared resolution (resolvedBy visible to all users)
+  }
+
+  // Handles notification tap: navigates to relevant tab and highlights log
+  void _handleNotificationTap(String id) {
+    // Routes hazard alerts to Analytics tab, connectivity to Devices tab
+    // Auto-scrolls to and highlights the relevant log entry
+  }
+
+  // Checks for hourly automatic count resets
+  void _checkHourlyResets() {
+    // Logs hourly snapshots and resets exit counters at the top of each hour
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Background layer
+          GeometricBackground(),
+          // Main content with tab-based navigation
+          IndexedStack(
+            index: _currentIndex,
+            children: [
+              _buildHomeTab(),          // Tab 0: Overview dashboard
+              _buildUsersTab(),         // Tab 1: User management
+              _buildAnalyticsTab(),     // Tab 2: Analytics & logs
+              _buildDevicesTab(),       // Tab 3: Device monitoring
+              _buildProfileTab(),       // Tab 4: User profile
+            ],
+          ),
+          // Floating notification panel overlay
+          if (_showNotificationsPanel)
+            NotificationsPanel(notifications: _notifications),
+          // Custom app bar with notification bell
+          _buildAppBar(),
+          // Animated bottom navigation bar
+          _buildBottomNav(),
+        ],
+      ),
+    );
+  }
+
+  // Home tab: Shows total headcount, device carousel, override selector,
+  // online device/user status, and hazard level indicators
+
+  // Dashboard cards include:
+  // - PeopleCounterCard: Paginated device view with entry/exit counts
+  // - Total Live Headcount: Aggregated count across included devices
+  // - Device Status: Online/Offline counts
+  // - User Presence: Admins/Facilitators online
+  // - Override Crowd Capacity selector
+}

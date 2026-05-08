@@ -1,0 +1,106 @@
+MAIN.DART (Application Entry Point - Summarized)
+==================================================
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:window_manager/window_manager.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables from .env file
+  await dotenv.load(fileName: ".env");
+
+  // Initialize Firebase with platform-specific options
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Set Firebase RTDB URL to Asia-Southeast1 region
+  final dbUrl = dotenv.env['FIREBASE_DATABASE_URL'];
+  FirebaseDatabase.instance.databaseURL = dbUrl;
+
+  // Desktop: Go offline before setting URL to prevent C++ SDK assertion crash
+  // The dashboard will call goOnline() after a safe delay
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    FirebaseDatabase.instance.goOffline();
+  }
+
+  // Desktop window configuration
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(500, 950),
+      center: true,
+      title: 'CrowdSense App',
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
+
+  // Launch app with state management providers
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => SirenProvider()),
+      ],
+      child: const CrowdSenseApp(),
+    ),
+  );
+}
+
+class CrowdSenseApp extends StatelessWidget {
+  // Global navigator key for siren overlay access
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return Consumer<SirenProvider>(
+          builder: (context, sirenProvider, child) {
+            return MaterialApp(
+              title: 'CrowdSense App',
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeProvider.themeMode,
+              // Global siren status bar overlay
+              builder: (context, child) {
+                return Stack(
+                  children: [
+                    if (child != null) child,
+                    // Animated siren bar shown when emergency is active
+                    if (sirenProvider.isSirenActive)
+                      AnimatedPositioned(
+                        bottom: sirenProvider.isBottomNavVisible ? 130 : 40,
+                        child: _GlobalSirenBar(/* siren details */),
+                      ),
+                  ],
+                );
+              },
+              initialRoute: '/splash',
+              routes: {
+                '/splash': (context) => const SplashScreen(),
+                '/login': (context) => const LoginScreen(),
+                '/force-password-change': (context) => ForcePasswordChangeScreen(),
+                '/dashboard': (context) => const DashboardScreen(),
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// Floating siren status bar widget (shown globally during emergencies)
+class _GlobalSirenBar extends StatelessWidget {
+  // Displays animated siren icon, title, and tap-to-manage action
+  // Styled with glowing border matching the siren type color
+}

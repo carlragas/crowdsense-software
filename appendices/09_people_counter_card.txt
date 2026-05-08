@@ -1,0 +1,105 @@
+PEOPLE_COUNTER_CARD.DART (Crowd Counter Widget - Summarized)
+==============================================================
+
+import 'package:flutter/material.dart';
+import 'dart:ui';
+
+/// Paginated card widget displaying real-time crowd counts per device location.
+/// Features glassmorphism design with backdrop blur and swipeable pages.
+class PeopleCounterCard extends StatelessWidget {
+  final List<Map<String, dynamic>> deviceData;
+  final int currentIndex;
+  final PageController pageController;
+  final Function(int) onPageChanged;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentData = deviceData[currentIndex];
+    final String connectionState = currentData['connectionState'] ?? 'NEVER SEEN';
+
+    // Status color: Green = ONLINE, Red = OFFLINE, Gray = NEVER SEEN
+    Color statusColor;
+    if (connectionState == 'ONLINE') statusColor = AppColors.statusSafe;
+    else if (connectionState == 'OFFLINE') statusColor = AppColors.statusDanger;
+    else statusColor = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          // Glassmorphism container with translucent background
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.03) : Colors.white.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: isDark ? Colors.white10 : Colors.black05),
+          ),
+          child: Column(
+            children: [
+              // Header row: "Area Crowd Count" label + connection status badge
+              Row(children: [
+                Text("Area Crowd Count"),
+                Container(child: Row(children: [
+                  Icon(Icons.circle, size: 6, color: statusColor),
+                  Text(connectionState),  // ONLINE / OFFLINE / NEVER SEEN
+                ])),
+              ]),
+
+              // Swipeable PageView with infinite scroll
+              SizedBox(
+                height: 250,
+                child: PageView.builder(
+                  controller: pageController,
+                  onPageChanged: onPageChanged,
+                  itemBuilder: (context, index) {
+                    final data = deviceData[index % deviceData.length];
+                    final int currentInside = (data['count'] ?? 0).clamp(0, 99999);
+                    final bool isNotClear = currentInside > 0;
+
+                    return Column(children: [
+                      // Location name + CLEAR/NOT CLEAR badge
+                      Row(children: [
+                        Text(data['location']),
+                        Container(child: Text(isNotClear ? "NOT CLEAR" : "CLEAR")),
+                      ]),
+                      // Entry and Exit metric cards side by side
+                      Row(children: [
+                        _buildMetricCard("Entries", currentInside, AppColors.statusSafe),
+                        _buildMetricCard("Exits", data['exits'] ?? 0, AppColors.statusDanger),
+                      ]),
+                    ]);
+                  },
+                ),
+              ),
+              // Left/Right navigation arrows
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Builds a glassmorphic metric card with large count number and label
+  Widget _buildMetricCard(String label, int value, Color color, bool isDark) {
+    return Expanded(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: color.withOpacity(isDark ? 0.12 : 0.08),
+              border: Border.all(color: color.withOpacity(0.25)),
+            ),
+            child: Column(children: [
+              Text(value.toString(), style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900)),
+              Text(label.toUpperCase(), style: TextStyle(fontSize: 10, letterSpacing: 1.2)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}

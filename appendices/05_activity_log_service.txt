@@ -1,0 +1,65 @@
+ACTIVITY_LOG_SERVICE.DART (Activity Logging Service - Summarized)
+==================================================================
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+/// Centralized service for writing structured activity logs to Cloud Firestore.
+/// All logs written to 'activity_logs' collection with shared schema:
+///   type: user | tof | flame | gas | temperature | siren | power | connectivity
+///   priority: CRITICAL | WARNING | INFO
+class ActivityLogService {
+  static const String _collection = 'activity_logs';
+
+  // Private helper writes a log entry with common fields
+  static Future<void> _write({type, priority, message, deviceMAC, location, extra, docId}) async {
+    final data = {
+      'type': type, 'priority': priority, 'message': message,
+      'deviceMAC': deviceMAC, 'location': location,
+      'userId': FirebaseAuth.instance.currentUser?.uid,
+      'timestamp': FieldValue.serverTimestamp(), ...extra,
+    };
+    if (docId != null) await _firestore.collection(_collection).doc(docId).set(data);
+    else await _firestore.collection(_collection).add(data);
+  }
+
+  // 1. USER ACTIVITY
+  static Future<void> logUserLogin({email, username, role, platform}) => _write(/*...*/);
+  static Future<void> logUserLogout({email}) => _write(/*...*/);
+  static Future<void> logDeviceAdded({deviceMAC, deviceName}) => _write(/*...*/);
+  static Future<void> logDeviceRemoved({deviceMAC, deviceName}) => _write(/*...*/);
+  static Future<void> logDeviceSettingsChanged({deviceMAC, field, oldValue, newValue}) => _write(/*...*/);
+
+  // 2. TIME-OF-FLIGHT
+  static Future<void> logHourlySnapshot({deviceMAC, location, exitsThisHour, resetHour}) => _write(/*...*/);
+
+  // 3. FLAME SENSOR
+  static Future<void> logFlameDetected({deviceMAC, location, sensorType, rawValue}) => _write(/*...*/);
+  static Future<void> logFlameCleared({deviceMAC, location}) => _write(/*...*/);
+
+  // 4. GAS / SMOKE
+  static Future<void> logGasDetected({deviceMAC, location, rawValue}) => _write(/*...*/);
+  static Future<void> logGasCleared({deviceMAC, location}) => _write(/*...*/);
+
+  // 5. TEMPERATURE
+  static Future<void> logHighTemperature({deviceMAC, location, currentTemp, threshold}) => _write(/*...*/);
+  static Future<void> logTemperatureNormalized({deviceMAC, location}) => _write(/*...*/);
+
+  // 6. SIREN / EMERGENCY
+  static Future<void> logSirenActivated({deviceMAC, location, flameValue, gasValue}) => _write(/*...*/);
+  static Future<String?> logEvacuationSirenTriggered({triggeredByName, role, email}) async { /*...*/ }
+  static Future<void> markEvacuationSirenDeactivated({String? docId}) async { /*...*/ }
+
+  // 7. POWER / BATTERY
+  static Future<void> logPowerLevelChanged({deviceMAC, location, previousLevel, newLevel}) => _write(/*...*/);
+
+  // 8. DEVICE CONNECTIVITY
+  static Future<void> logDeviceCameOnline({deviceMAC, location, lastUpdated}) => _write(/*...*/);
+  static Future<void> logDeviceWentOffline({deviceMAC, location, lastUpdated}) => _write(/*...*/);
+  static Future<void> markConnectivityResolved({docId, resolvedByEmail}) async { /*...*/ }
+
+  // QUERY HELPERS
+  static Query allLogs({int limit = 50}) => /* ordered by timestamp desc */;
+  static Query logsByType(String type) => /* filtered by type */;
+  static Query logsByDevice(String deviceMAC) => /* filtered by MAC */;
+}

@@ -1,0 +1,167 @@
+CROWDSENSE_FIRMWARE.INO (ESP32 Firmware)
+=====================================================
+
+// Libraries
+#include <Wire.h>
+#include <vl53l7cx_class.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <WiFiManager.h>
+#include <WiFi.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <Firebase_ESP_Client.h>
+#include <addons/TokenHelper.h>
+
+// Pin Configurations
+#define ONE_WIRE_BUS 4
+#define BACKUP_FLAME_DIGITAL 5
+#define MAIN_FLAME 14
+#define SIREN_2 25       // Alert Siren
+#define SIREN_1 26       // Clear Siren
+#define I2C_SDA 21
+#define I2C_SCL 22
+#define UPS_POWER_INDICATOR 32
+#define GAS_DIGITAL 33
+#define BACKUP_FLAME_ANALOG 34
+#define GAS 35
+
+// Initializations
+VL53L7CX sensor(&Wire, -1, -1);
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+NTPClient timeClient(ntpUDP, "pool.ntp.org");
+
+// Database & Timing Variables
+const unsigned long FIREBASE_SEND_INTERVAL = 900000;
+const unsigned long HEARTBEAT_INTERVAL = 20000;
+String deviceMAC = "00:00:00:00:00:00";
+String pathBase;
+
+// ToF Crowd Counting Variables
+const int PERSON_THRESHOLD_MM = 1500;
+int totalInside = 0;
+int totalExits = 0;
+int laneState[4] = {0, 0, 0, 0};
+const int EVENT_COOLDOWN_MS = 800;
+
+// Environment Sensor Variables
+float currentTempC = 0.0;
+int currentGasValue = 0;
+bool currentMainFlameValue = true;
+int currentBackupFlameValue = 0;
+float tempThreshold;
+int flameThreshold;
+int gasThreshold;
+
+// Siren Control Variables
+bool sirenAlertActive = false;
+bool sirenClearActive = false;
+bool autoTriggered = false;
+
+// Power Monitoring Variables (Voltage Divider)
+const float Resistor1 = 10000.0;
+const float Resistor2 = 3300.0;
+const float powerRatio = (Resistor1 + Resistor2) / Resistor2;
+String powerStatus;
+
+// ---- FUNCTION SUMMARIES ----
+
+// Configures GPIO pin modes for sensors and relay outputs
+void pinConfig() { /* Sets INPUT/OUTPUT modes for all sensor and siren pins */ }
+
+// Reads device MAC address from WiFi hardware for unique identification
+void getDeviceMAC() { /* Initializes WiFi briefly to read MAC, then disconnects */ }
+
+// Connects to WiFi using WiFiManager captive portal
+void connectNetwork() { /* Auto-connects with AP name "CrowdSense_Main_Entry" */ }
+
+// Initializes Firebase RTDB connection with legacy token authentication
+void connectDB() {
+  // Configures Firebase, resets sirens to OFF on boot, syncs NTP time,
+  // sends initial heartbeat, and loads sensor thresholds from database
+}
+
+// Monitors UPS battery voltage through voltage divider circuit
+void checkPowerStatus() {
+  // Reads analog pin, calculates actual voltage, classifies as High/Adequate/Low
+}
+
+// Reads all environment sensors every 1 second
+void readEnvironment() {
+  // Reads: DS18B20 temperature, MQ gas sensor (analog), flame sensors (digital + analog)
+}
+
+// Core crowd counting algorithm using VL53L7CX Time-of-Flight sensor
+void countCrowd() {
+  // Uses 4x4 zone grid with multi-lane state machine tracking
+  // Divides grid into Lane A (rows 0-1) and Lane B (rows 2-3) per column
+  // 7-state FSM per lane tracks transitions: Idle -> Entering -> Crossed -> Counted
+  // Entry: A detected first, then A+B, then B only -> person entered
+  // Exit:  B detected first, then A+B, then A only -> person exited
+  // EVENT_COOLDOWN_MS prevents double-counting same person across adjacent lanes
+  // Live-pushes count changes to Firebase RTDB immediately
+}
+
+// Fetches configurable sensor thresholds from Firebase RTDB
+void getSensorThreshold() {
+  // Reads smoke_threshold, flame_threshold from database
+  // Falls back to default values if database unavailable
+}
+
+// Polls Firebase every 2 seconds for app-triggered siren commands
+void checkAppCommands() {
+  // Reads siren_alert_active and siren_clear_active booleans from RTDB
+  // Controls physical relay outputs (SIREN_1, SIREN_2) based on app commands
+  // Also syncs total_exits from cloud in case app reset the count
+}
+
+// Automatic fire detection and siren triggering logic
+void autoTriggerSirens() {
+  // Skips first 30 seconds (MQ sensor warm-up period)
+  // Fire detected when: (flame sensor triggered) AND (gas above threshold)
+  // Auto-triggers evacuation siren -> transitions to safety alert when:
+  //   (a) All people evacuated (totalInside == 0), OR
+  //   (b) Fire sensors cleared
+  // 3-minute timeout on all sirens
+}
+
+// Sends periodic heartbeat timestamp to keep device "Online" in app
+void sendHeartbeat() {
+  // Updates last_updated and power_status every 20 seconds via NTP epoch
+}
+
+// Full sensor data upload to Firebase RTDB
+void uploadData() {
+  // Pushes all sensor readings (temp, gas, flame, people count, siren states,
+  // power status) to database every 15 minutes
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(I2C_SDA, I2C_SCL);
+  pinConfig();
+  digitalWrite(SIREN_1, HIGH);  // Sirens OFF on boot (active-low relays)
+  digitalWrite(SIREN_2, HIGH);
+  // Initialize VL53L7CX at 4x4 resolution, 15Hz ranging
+  // Initialize DS18B20 temperature sensor
+  // Get device MAC address
+  // Set Firebase path: /sensor_data/{MAC}/
+  // Check power status
+  // Connect to WiFi and Firebase
+}
+
+void loop() {
+  // WiFi reconnection guard
+  checkPowerStatus();
+  readEnvironment();
+  countCrowd();
+  checkAppCommands();       // Poll app siren commands every 2s
+  autoTriggerSirens();      // Auto-trigger from sensor readings
+  sendHeartbeat();          // Keep device online status
+  uploadData();             // Full data upload every 15 min
+  delay(10);
+}

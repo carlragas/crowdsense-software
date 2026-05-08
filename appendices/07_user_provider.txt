@@ -1,0 +1,85 @@
+USER_PROVIDER.DART (User State Management - Summarized)
+=========================================================
+
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'dart:async';
+
+/// Manages authenticated user state, profile data, and online presence.
+class UserProvider extends ChangeNotifier {
+  User? _authUser;
+  Map<String, dynamic>? _userData;
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+  StreamSubscription? _presenceSubscription;
+  Timer? _heartbeatTimer;
+
+  // Computed getters for user profile fields
+  bool get isAuthenticated => _authUser != null && _userData != null;
+  String get id => _userData?['customId'] ?? 'Unknown ID';
+  String get uid => _authUser?.uid ?? '';
+  String get role => _userData?['role'] ?? 'Unknown';
+  String get name => _userData?['name'] ?? 'Admin';
+  String get firstName => name.split(' ').first;
+  String get username => _userData?['username'] ?? '';
+  String get email => _userData?['email'] ?? '';
+  String get phone => _userData?['phone'] ?? '';
+  String get designation => _userData?['designation'] ?? 'Official Administrator';
+  String get lastLogin => _userData?['lastLogin'] ?? '';
+  String get lastIp => _userData?['lastIp'] ?? 'Unknown';
+  String get department => _userData?['department'] ?? 'N/A';
+
+  /// Sets user after login and starts presence tracking
+  void setUser(User? user, Map<String, dynamic>? data) {
+    _authUser = user;
+    _userData = data != null ? Map<String, dynamic>.from(data) : null;
+    if (data != null) _setupPresence();
+    notifyListeners();
+  }
+
+  /// Sets up Firebase RTDB presence system with automatic disconnect handling
+  void _setupPresence() {
+    final presenceRef = _dbRef.child('users').child(_authUser!.uid).child('isOnline');
+
+    // Listen to .info/connected for real-time connection state
+    _presenceSubscription = _dbRef.child('.info/connected').onValue.listen((event) {
+      if (event.snapshot.value == true) {
+        presenceRef.set(true);
+        presenceRef.onDisconnect().set(false);  // Auto-set offline on disconnect
+        _dbRef.child('users').child(_authUser!.uid).update({
+          'lastActive': ServerValue.timestamp,
+        });
+      }
+    });
+
+    // Periodic heartbeat every 30 seconds to maintain liveness
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_authUser != null) {
+        _dbRef.child('users').child(_authUser!.uid).update({
+          'lastActive': ServerValue.timestamp,
+        });
+      }
+    });
+  }
+
+  /// Updates local profile data and notifies listeners
+  void updateProfile(Map<String, dynamic> updatedData) {
+    _userData?.addAll(updatedData);
+    notifyListeners();
+  }
+
+  /// Clears user session: sets offline status, disconnects RTDB, resets state
+  Future<void> clearUser() async {
+    if (_authUser != null) {
+      await _dbRef.child('users').child(_authUser!.uid).update({
+        'isOnline': false,
+        'lastActive': ServerValue.timestamp,
+      });
+      FirebaseDatabase.instance.goOffline();
+    }
+    _cancelPresence();
+    _authUser = null;
+    _userData = null;
+    notifyListeners();
+  }
+}

@@ -1,0 +1,83 @@
+AUTH_SERVICE.DART (Authentication Service - Summarized)
+========================================================
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final String _dbBaseUrl = 'https://crowdsense-db-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+  /// Logs a user in using either their Email or Username.
+  /// Returns a Map containing the Firebase User object and userData profile.
+  Future<Map<String, dynamic>> login(String identifier, String password) async {
+    String loginEmail = identifier.trim();
+
+    // Username-to-email lookup via public mapping node
+    if (!loginEmail.contains('@')) {
+      final lookupUrl = Uri.parse('$_dbBaseUrl/usernames/${Uri.encodeComponent(loginEmail)}.json');
+      final response = await http.get(lookupUrl);
+      if (response.statusCode != 200 || response.body == 'null') {
+        throw Exception('User with this username not found.');
+      }
+      loginEmail = json.decode(response.body) as String;
+    }
+
+    // Disconnect RTDB before auth state change to prevent C++ SDK crash
+    FirebaseDatabase.instance.goOffline();
+
+    // Firebase Authentication with email and password
+    final userCredential = await _auth.signInWithEmailAndPassword(
+      email: loginEmail, password: password,
+    );
+
+    // Fetch full user profile from RTDB using REST API with ID token
+    final uid = userCredential.user!.uid;
+    final idToken = await userCredential.user!.getIdToken(true);
+    final profileUrl = Uri.parse('$_dbBaseUrl/users/$uid.json?auth=$idToken');
+
+    // Track login metadata (timestamp, public IP)
+    String publicIp = 'Unknown';
+    try {
+      final ipResponse = await http.get(Uri.parse('https://api.ipify.org'));
+      if (ipResponse.statusCode == 200) publicIp = ipResponse.body;
+    } catch (_) {}
+
+    await http.patch(profileUrl, body: json.encode({
+      'lastLogin': DateTime.now().toIso8601String(),
+      'lastIp': publicIp,
+    }));
+
+    final profileResponse = await http.get(profileUrl);
+    final rawUserData = Map<String, dynamic>.from(json.decode(profileResponse.body));
+
+    // Sync email and username mappings if mismatched
+    // ...
+
+    return { 'user': userCredential.user, 'userData': rawUserData };
+  }
+
+  /// Creates a new user profile using secondary Firebase App instance
+  /// (prevents admin from being logged out during user creation)
+  Future<String> createUserRecord(Map<String, dynamic> userData, String tempPassword) async {
+    // 1. Initialize secondary Firebase App
+    // 2. Create user in Firebase Auth via secondary app
+    // 3. Write user profile to RTDB using admin's ID token
+    // 4. Create username -> email mapping for login lookups
+    // 5. Send welcome email with temporary password via SMTP
+    // 6. Clean up secondary app instance
+    // Returns new user's UID
+  }
+
+  /// Deletes a user from both RTDB and attempts Firebase Auth deletion
+  Future<void> deleteUser(String targetUid) async {
+    // 1. Fetch profile to get username for mapping cleanup
+    // 2. Delete user profile from RTDB
+    // 3. Delete username mapping
+    // 4. Attempt Cloud Function call for Auth account deletion (Blaze Plan)
+  }
+
+  Future<void> logout() async => await _auth.signOut();
+}

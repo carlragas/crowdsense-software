@@ -1,0 +1,63 @@
+SIREN_PROVIDER.DART (Siren State Management - Summarized)
+===========================================================
+
+import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
+
+/// Manages global siren state across the app.
+/// Handles both app-triggered and ESP32 auto-triggered sirens.
+class SirenProvider with ChangeNotifier {
+  String? _activeSirenTitle;
+  IconData? _activeSirenIcon;
+  Color? _activeSirenColor;
+  bool _isBottomNavVisible = false;
+  List<String> _deviceKeys = [];  // Cached device MAC keys
+
+  bool get isSirenActive => _activeSirenTitle != null;
+
+  /// Activates siren from app UI and writes to all devices in Firebase
+  void activateSiren(String title, IconData icon, Color color) {
+    _activeSirenTitle = title;
+    _activeSirenIcon = icon;
+    _activeSirenColor = color;
+    notifyListeners();
+
+    // EVACUATION SIREN -> siren_alert_active: true
+    // SAFETY ALERT     -> siren_clear_active: true
+    if (title == "EVACUATION SIREN") {
+      _writeToAllDevices({'siren_alert_active': true, 'siren_clear_active': false});
+    } else if (title == "SAFETY ALERT") {
+      _writeToAllDevices({'siren_alert_active': false, 'siren_clear_active': true});
+    }
+  }
+
+  /// Activates siren from ESP32 auto-trigger (no Firebase write-back to avoid loop)
+  void activateSirenFromRemote(String title, IconData icon, Color color) {
+    if (_activeSirenTitle == title) return;
+    _activeSirenTitle = title;
+    _activeSirenIcon = icon;
+    _activeSirenColor = color;
+    notifyListeners();
+  }
+
+  /// Deactivates siren from ESP32 (local UI only, no Firebase write)
+  void deactivateSirenFromRemote() {
+    _activeSirenTitle = null;
+    notifyListeners();
+  }
+
+  /// Terminates all sirens from app and resets all device flags to false
+  void terminateSiren() {
+    _activeSirenTitle = null;
+    notifyListeners();
+    _writeToAllDevices({'siren_alert_active': false, 'siren_clear_active': false});
+  }
+
+  /// Writes siren flags to every known device under sensor_data/{MAC}/
+  Future<void> _writeToAllDevices(Map<String, dynamic> fields) async {
+    final sensorsRef = FirebaseDatabase.instance.ref().child('sensor_data');
+    for (final mac in _deviceKeys) {
+      await sensorsRef.child(mac).update(fields);
+    }
+  }
+}

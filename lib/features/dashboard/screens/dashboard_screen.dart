@@ -900,11 +900,11 @@ class _DashboardScreenState extends State<DashboardScreen>
         final d = _deviceDataMap[mac];
         if (d != null) {
           if (d['include_in_headcount'] == true) includeGroup = true;
-          groupSum += (d['count'] ?? 0) as int;
+          groupSum += ((d['count'] ?? 0) as num).toInt();
         }
         processedMacs.add(mac);
       }
-      if (includeGroup) sum += groupSum;
+      if (includeGroup) sum += groupSum.clamp(0, 99999);
     }
     
     // 2. Process Independent Devices (Ungrouped)
@@ -912,11 +912,11 @@ class _DashboardScreenState extends State<DashboardScreen>
       final String mac = d['mac']?.toString() ?? '';
       if (!processedMacs.contains(mac)) {
         if (d['include_in_headcount'] == true) {
-          sum += (d['count'] as int).clamp(0, 99999);
+          sum += ((d['count'] ?? 0) as num).toInt().clamp(0, 99999);
         }
       }
     }
-    return sum;
+    return sum.clamp(0, 99999);
   }
     
   int get _totalExits => _deviceData

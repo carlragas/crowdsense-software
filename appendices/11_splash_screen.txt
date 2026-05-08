@@ -1,0 +1,131 @@
+SPLASH_SCREEN.DART (Animated Splash Screen - Summarized)
+==========================================================
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+/// Animated splash screen with CrowdSense logo pulse animation.
+/// Supports two modes:
+///   1. Standard app launch: runs 3 animation loops then navigates to login
+///   2. Auth mode: runs minimum 2 loops, waits for auth to complete, then navigates
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+  // Animation Controllers
+  late AnimationController _introFadeController;     // Fades entire logo in
+  late AnimationController _pulseController;         // ECG wipe left-to-right
+  late AnimationController _wave1Controller;         // Signal wave 1
+  late AnimationController _wave2Controller;         // Signal wave 2
+  late AnimationController _wave3Controller;         // Signal wave 3
+  late AnimationController _cycleFadeController;     // Fades loop elements between cycles
+  late AnimationController _assemblyFadeOutController; // Final fade out before navigation
+
+  int _loopCount = 0;
+  bool _isAuthMode = false;
+  bool _authCompleted = false;
+  String _targetRoute = '/login';
+
+  @override
+  void didChangeDependencies() {
+    // If launched with authFuture argument, enters auth mode
+    // Listens for auth completion and stores target route
+  }
+
+  void _startSequence() async {
+    // 1. Fade in complete logo as one unit
+    await _introFadeController.forward();
+    // 2. Hold complete logo briefly
+    await Future.delayed(Duration(milliseconds: 800));
+    // 3. Fade out loop elements, reset, begin animation loop
+    _runLoop();
+  }
+
+  void _runLoop() async {
+    // 1. ECG pulse wipe (left to right reveal)
+    await _pulseController.forward();
+    // 2. Signal waves fade in consecutively
+    await _wave1Controller.forward();
+    await _wave2Controller.forward();
+    await _wave3Controller.forward();
+    // 3. Hold fully visible
+    await Future.delayed(Duration(milliseconds: 600));
+
+    _loopCount++;
+
+    if (_shouldFinishAnimation()) {
+      // Final hold, then fade out entire assembly
+      await _assemblyFadeOutController.forward();
+      _navigateToTarget();
+      return;
+    }
+
+    // Fade out loop elements and repeat
+    await _cycleFadeController.reverse();
+    // Reset all controllers for next cycle
+    _runLoop();
+  }
+
+  bool _shouldFinishAnimation() {
+    if (_isAuthMode) return _loopCount >= 1 && _authCompleted;
+    else return _loopCount >= 3;  // Standard mode: exactly 3 loops
+  }
+
+  void _navigateToTarget() {
+    Navigator.of(context).pushReplacement(PageRouteBuilder(
+      transitionDuration: Duration(milliseconds: 1000),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        switch (_targetRoute) {
+          case '/login': return LoginScreen(animate: false);
+          case '/dashboard': return DashboardScreen();
+          case '/force-password-change': return ForcePasswordChangeScreen();
+          default: return LoginScreen(animate: false);
+        }
+      },
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(children: [
+          // Logo stack: C.png base + animated PULSE.png + WAVE 1/2/3.png layers
+          FadeTransition(opacity: _assemblyFade,
+            child: FadeTransition(opacity: _introFade,
+              child: Column(children: [
+                Stack(children: [
+                  Image.asset('assets/images/C.png'),       // Static base
+                  FadeTransition(opacity: _cycleFade, child: Stack(children: [
+                    ClipRect(clipper: _LeftToRightClipper(progress: _pulseClip.value),
+                      child: Image.asset('assets/images/PULSE.png')),   // ECG wipe
+                    FadeTransition(opacity: _wave1Fade, child: Image.asset('assets/images/WAVE 1.png')),
+                    FadeTransition(opacity: _wave2Fade, child: Image.asset('assets/images/WAVE 2.png')),
+                    FadeTransition(opacity: _wave3Fade, child: Image.asset('assets/images/WAVE 3.png')),
+                  ])),
+                ]),
+                Text('CrowdSense'),
+                // Tagline: DETECT. DIRECT. SECURE.
+              ]),
+            ),
+          ),
+          // Loading spinner (auth mode only)
+          if (_isAuthMode) CircularProgressIndicator(),
+        ]),
+      ),
+    );
+  }
+}
+
+// Custom clipper for left-to-right ECG pulse reveal animation
+class _LeftToRightClipper extends CustomClipper<Rect> {
+  final double progress;
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width * progress, size.height);
+}
