@@ -712,7 +712,7 @@ class _DashboardScreenState extends State<DashboardScreen>
            'location': v['location'] ?? 'Unknown Node',
            'mac': mac,
            'count': v['count'] ?? 0,
-           'entries': v['entries'] ?? 0,
+           'entries': (v['count'] ?? 0) + (v['exits'] ?? 0),
            'exits': v['exits'] ?? 0,
            'isOnline': isLive,
            'connectionState': connState,
@@ -768,11 +768,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     _deviceData = _deviceData.map((d) {
       final mac = d['mac'];
       if (macToGroupTotal.containsKey(mac)) {
-        final total = macToGroupTotal[mac]!;
+        final totalCount = macToGroupTotal[mac]!;
+        // Calculate group total exits for correct gross entries in synced groups
+        int groupExits = 0;
+        final group = _syncGroups.firstWhere((g) => g.contains(mac));
+        for (final m in group) {
+          groupExits += (_deviceDataMap[m]?['exits'] ?? 0) as int;
+        }
+
         return {
           ...d,
-          'count': total,
-          'entries': total, // Match user label for displayed count
+          'count': totalCount,
+          'entries': totalCount + groupExits, 
         };
       }
       return d;
@@ -824,13 +831,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       // This device is online and hasn't been reset this hour yet
       _isResettingCounts = true;
       try {
-        // Log the exit count snapshot BEFORE resetting
+        // Log the count snapshot BEFORE resetting
         final exits = (device['exits'] as num?)?.toInt() ?? 0;
+        final entries = (device['entries'] as num?)?.toInt() ?? 0;
         final location = device['location']?.toString() ?? 'Unknown';
-        if (exits > 0) {
+        if (exits > 0 || entries > 0) {
           Future.microtask(() => ActivityLogService.logHourlySnapshot(
             deviceMAC: mac,
             location: location,
+            entriesThisHour: entries,
             exitsThisHour: exits,
             resetHour: currentHour,
           ));
@@ -851,13 +860,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     final dbRef = FirebaseDatabase.instance.ref();
     final currentHour = DateTime.now().hour;
     try {
-      // Log the exits snapshot BEFORE resetting (same as automatic hourly reset)
+      // Log the snapshot BEFORE resetting
       final deviceEntry = _deviceData.where((d) => d['mac']?.toString() == mac).firstOrNull;
       final exits = (deviceEntry?['exits'] as num?)?.toInt() ?? 0;
-      if (exits > 0) {
+      final entries = (deviceEntry?['entries'] as num?)?.toInt() ?? 0;
+      if (exits > 0 || entries > 0) {
         Future.microtask(() => ActivityLogService.logHourlySnapshot(
           deviceMAC: mac,
           location: location,
+          entriesThisHour: entries,
           exitsThisHour: exits,
           resetHour: currentHour,
         ));
@@ -888,7 +899,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // Computed total across all sensors (respecting include_in_headcount)
-  int get _totalEntries {
+  int get _totalHeadcount {
     int sum = 0;
     final Set<String> processedMacs = {};
     
@@ -923,7 +934,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     .where((d) => d['include_in_headcount'] == true)
     .fold(0, (sum, d) => sum + ((d['exits'] as num?)?.toInt() ?? 0));
     
-  int get _totalPeopleInside => _totalEntries;
+  int get _totalPeopleInside => _totalHeadcount;
+
+  // New getter: Total Entries (Headcount + Exits)
+  int get _liveTotalEntries => _totalHeadcount + _totalExits;
 
   @override
   Widget build(BuildContext context) {
@@ -1664,6 +1678,34 @@ class _DashboardScreenState extends State<DashboardScreen>
       ],
     );
 
+    // ── Card 1.5: Total Entries value widget ────────────────────────────────
+    const entriesColor = Color(0xFFFF9100); // Vibrant Orange/Amber
+    final entriesBadge = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _liveTotalEntries.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Theme.of(context).colorScheme.onSurface,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'NO DEDUCTIONS',
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+            color: entriesColor,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+
     // ── Card 2: Exits value widget ────────────────────────────────────────
     const exitsColor = Color(0xFFFF5252);
     final exitsBadge = Column(
@@ -1706,7 +1748,18 @@ class _DashboardScreenState extends State<DashboardScreen>
               valueWidget: headcountBadge,
             ),
           ),
-          const SizedBox(width: 6), // Reduced from 8
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildGlassStatCard(
+              title: "Live Total\nEntries",
+              value: '',
+              icon: Icons.person_add_rounded,
+              color: entriesColor,
+              isDark: isDark,
+              valueWidget: entriesBadge,
+            ),
+          ),
+          const SizedBox(width: 6),
           Expanded(
             child: _buildGlassStatCard(
               title: "Current Hour\nExits",
@@ -1717,7 +1770,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               valueWidget: exitsBadge,
             ),
           ),
-          const SizedBox(width: 6), // Reduced from 8
+          const SizedBox(width: 6),
           Expanded(
             child: _buildGlassStatCard(
               title: "Hazard Status",
